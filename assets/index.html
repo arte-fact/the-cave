@@ -1,0 +1,54 @@
+<html>
+
+<head>
+  <title>🐉 The Cave 🧌 </title>
+</head>
+
+<body>
+  <div id="content">{{ content }}</div>
+</body>
+<script>document.addEventListener('keydown', async function (e) {
+    if (!["z", "q", "s", "d", "h", "j", "k", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(e.key)) {
+      return;
+    }
+
+    let response = await fetch('/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/html',
+      },
+      body: e.key,
+    });
+    let data = await response.text();
+  console.log(data);
+    document.getElementById('content').innerHTML = data;
+  });
+
+</script>
+<style>
+  html {
+    font-family: monospace;
+    font-size: 16px;
+    letter-spacing: 1;
+    color: gray;
+    background: black;
+  }
+
+  .row {
+    display: flex;
+  }
+  .tile {
+    display: inline-block;
+    width: 21px;
+    height: 21px;
+    text-align: center;
+  }
+
+  .player {
+    font-size: 22px;
+    text-align: center;
+    vertical-align: bottom;
+  }
+</style>
+
+</html>

@@ -1,0 +1,541 @@
+use rand::Rng;
+
+use crate::map::{distance, Map, Tile, TileType};
+
+#[derive(Clone)]
+pub struct Player {
+    character: Box<char>,
+    health: i32,
+    attack: i32,
+    defense: i32,
+    position: Position,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Action {
+    Up,
+    Down,
+    Left,
+    Right,
+    Confirm,
+    Unhandled,
+}
+
+impl Action {
+    pub fn from_key(key: String) -> Action {
+        match key.as_str() {
+            "q" => Action::Left,
+            "s" => Action::Down,
+            "z" => Action::Up,
+            "d" => Action::Right,
+            "h" => Action::Left,
+            "j" => Action::Down,
+            "k" => Action::Up,
+            "l" => Action::Right,
+            "ArrowUp" => Action::Up,
+            "ArrowDown" => Action::Down,
+            "ArrowLeft" => Action::Left,
+            "ArrowRight" => Action::Right,
+            "Enter" => Action::Confirm,
+            _ => Action::Unhandled,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Position {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Clone)]
+pub struct Enemy {
+    name: String,
+    char: Box<char>,
+    health: i32,
+    attack: i32,
+    defense: i32,
+    occurences: i32,
+    position: Position,
+    behavior: Behavior,
+    state: EnemyState,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum EnemyState {
+    Idle,
+    Attacking,
+}
+
+#[derive(Clone)]
+enum Behavior {
+    Aggressive,
+}
+
+#[derive(Clone)]
+pub struct Item {
+    name: String,
+    char: Box<char>,
+    occurences: i32,
+    health: i32,
+    attack: i32,
+    defense: i32,
+    position: Position,
+}
+
+#[derive(Clone)]
+pub struct Game {
+    player: Player,
+    enemies: Vec<Enemy>,
+    items: Vec<Item>,
+    view_width: i32,
+    view_height: i32,
+    pub events: Vec<String>,
+    pub map: Map,
+    pub is_game_over: bool,
+    pub is_game_won: bool,
+}
+
+impl Game {
+    pub fn new() -> Game {
+        let map = Map::generate(200, 200);
+        let player_position = map.random_valid_position(&vec![]);
+
+        let ennemies = [
+            Enemy {
+                name: "Rat".to_string(),
+                char: Box::new('🐀'),
+                health: 20,
+                attack: 2,
+                occurences: 20,
+                defense: 0,
+                position: Position { x: 0, y: 0 },
+                behavior: Behavior::Aggressive,
+                state: EnemyState::Idle,
+            },
+            Enemy {
+                name: "Bat".to_string(),
+                char: Box::new('🦇'),
+                health: 30,
+                attack: 5,
+                occurences: 20,
+                defense: 0,
+                position: Position { x: 0, y: 0 },
+                behavior: Behavior::Aggressive,
+                state: EnemyState::Idle,
+            },
+            Enemy {
+                name: "Snake".to_string(),
+                char: Box::new('🐍'),
+                health: 30,
+                attack: 5,
+                occurences: 20,
+                defense: 0,
+                position: Position { x: 0, y: 0 },
+                behavior: Behavior::Aggressive,
+                state: EnemyState::Idle,
+            },
+            Enemy {
+                name: "Troll".to_string(),
+                char: Box::new('🧌'),
+                health: 50,
+                attack: 10,
+                occurences: 10,
+                defense: 0,
+                position: Position { x: 0, y: 0 },
+                behavior: Behavior::Aggressive,
+                state: EnemyState::Idle,
+            },
+            Enemy {
+                name: "Dragon".to_string(),
+                char: Box::new('🐉'),
+                health: 200,
+                occurences: 1,
+                attack: 40,
+                defense: 10,
+                position: Position { x: 0, y: 0 },
+                behavior: Behavior::Aggressive,
+                state: EnemyState::Idle,
+            },
+        ];
+
+        let mut banned_positions: Vec<Position> = vec![player_position];
+
+        let mut enemies: Vec<Enemy> = vec![];
+        for enemy in &ennemies {
+            (0..enemy.occurences).for_each(|_| {
+                let position = map.random_valid_position(&banned_positions);
+                banned_positions.push(position.clone());
+                let mut e = enemy.clone();
+                e.position = position.clone();
+                enemies.push(e);
+            });
+        }
+
+        let _items = [
+            Item {
+                name: "Health potion".to_string(),
+                char: Box::new('🧪'),
+                health: 20,
+                occurences: 10,
+                attack: 0,
+                defense: 0,
+                position: Position { x: 0, y: 0 },
+            },
+            Item {
+                name: "Sword Upgrade".to_string(),
+                char: Box::new('🗡'),
+                health: 0,
+                occurences: 5,
+                attack: 20,
+                defense: 0,
+                position: Position { x: 0, y: 0 },
+            },
+            Item {
+                name: "Shield Upgrade".to_string(),
+                char: Box::new('🛡'),
+                health: 0,
+                occurences: 5,
+                attack: 0,
+                defense: 5,
+                position: Position { x: 0, y: 0 },
+            },
+        ];
+
+        let mut items: Vec<Item> = vec![];
+        for item in &_items {
+            (0..item.occurences).for_each(|_| {
+                let position = map.random_valid_position(&banned_positions);
+                banned_positions.push(position.clone());
+                let mut i = item.clone();
+                i.position = position.clone();
+                items.push(i);
+            });
+        }
+
+        Game {
+            map: map.clone(),
+            player: Player {
+                character: Box::new('🧍'),
+                health: 30,
+                attack: 5,
+                defense: 0,
+                position: map.random_valid_position(&banned_positions),
+            },
+            enemies,
+            items,
+            view_width: 40,
+            view_height: 30,
+            events: vec![
+                "Find and kill the dragon!".to_string(),
+            ],
+            is_game_over: false,
+            is_game_won: false,
+        }
+    }
+
+    pub fn reset(&mut self) {
+        let new_game = Game::new();
+        self.map = new_game.map;
+        self.player = new_game.player;
+        self.enemies = new_game.enemies;
+        self.events = vec!["A new game has started!".to_string()];
+        self.is_game_over = new_game.is_game_over;
+    }
+
+    pub fn handle_key(&mut self, key: Action) -> &mut Self {
+        if self.is_game_over || self.is_game_won {
+            if key == Action::Confirm {
+                self.reset();
+            }
+            return self;
+        }
+        self.tick();
+        if self.is_game_over || self.is_game_won {
+            return self;
+        }
+
+        let mut next_position = self.player.position.clone();
+        match key {
+            Action::Up => next_position.y = (next_position.y - 1).max(0),
+            Action::Down => next_position.y = (next_position.y + 1).min(self.map.height - 1),
+            Action::Left => next_position.x = (next_position.x - 1).max(0),
+            Action::Right => next_position.x = (next_position.x + 1).min(self.map.width - 1),
+            _ => (),
+        }
+
+        if !self.map.tiles[next_position.y as usize][next_position.x as usize]
+            .tile_type
+            .is_walkable()
+        {
+            return self;
+        }
+
+        for item in &mut self.items {
+            if item.position.x == next_position.x && item.position.y == next_position.y {
+                self.player.health = (self.player.health + item.health).min(100);
+                self.player.attack = (self.player.attack + item.attack).min(60);
+                self.player.defense = (self.player.defense + item.defense).min(20);
+                self.events.push(format!("You found a {}!", item.name));
+                self.items.retain(|i| i.position != next_position);
+                return self;
+            }
+        }
+
+        for enemy in &mut self.enemies {
+            if enemy.position.x == next_position.x && enemy.position.y == next_position.y {
+                let damage = (self.player.attack - enemy.defense).max(1);
+                enemy.health -= damage;
+                self.events
+                    .push(format!("You hit {} for {} damage!", enemy.name, damage));
+                if enemy.health <= 0 {
+                    self.events
+                        .push(format!("You killed {}!", enemy.name).to_string());
+                    if enemy.name == "Dragon" {
+                        self.is_game_won = true;
+                        self.events.push("You won! Press Enter to start a new game.".to_string());
+                        self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] = Tile {
+                            tile_type: TileType::Crown,
+                        };
+                    }
+                    if ["Rat", "Bat", "Snake"].contains(&enemy.name.as_str()) {
+                        self.items.push(Item {
+                            name: "Piece of Meat".to_string(),
+                            char: Box::new('🍖'),
+                            health: 5,
+                            occurences: 0,
+                            attack: 0,
+                            defense: 0,
+                            position: enemy.position.clone(),
+                        });
+                    }
+                    if enemy.name == "Troll" {
+                        self.items.push(Item {
+                            name: "Piece Of Troll Meat".to_string(),
+                            char: Box::new('🍖'),
+                            health: 10,
+                            occurences: 0,
+                            attack: 5,
+                            defense: 5,
+                            position: enemy.position.clone(),
+                        });
+                    }
+                    self.enemies.retain(|e| e.health > 0);
+                }
+                return self;
+            }
+        }
+
+        self.events.push(format!(
+            "You moved {}",
+            match key {
+                Action::Up => "up",
+                Action::Down => "down",
+                Action::Left => "left",
+                Action::Right => "right",
+                _ => "",
+            }
+        ));
+
+        self.player.position = next_position;
+
+        self
+    }
+
+    pub fn tick(&mut self) -> &mut Self {
+        let enemies = self.enemies.clone();
+        for enemy in &mut self.enemies {
+            let dx = self.player.position.x - enemy.position.x;
+            let dy = self.player.position.y - enemy.position.y;
+            let distance = ((dx * dx + dy * dy) as f64).sqrt();
+
+            let movement = match enemy.behavior {
+                Behavior::Aggressive => 1,
+            };
+
+            let mut next_position = enemy.position.clone();
+            if distance < 5.0 {
+                if enemy.state == EnemyState::Idle {
+                    enemy.state = EnemyState::Attacking;
+                    self.events.push(format!("A {} has spotted you!", enemy.name));
+                }
+                if dx.abs() > dy.abs() {
+                    if dx > 0 {
+                        next_position.x += movement;
+                    } else {
+                        next_position.x -= movement;
+                    }
+                } else {
+                    if dy > 0 {
+                        next_position.y += movement;
+                    } else {
+                        next_position.y -= movement;
+                    }
+                }
+            } else if enemy.state == EnemyState::Attacking {
+                enemy.state = EnemyState::Idle;
+                self.events.push(format!("{} has lost track of you!", enemy.name));
+            }
+
+            for other_enemy in &enemies {
+                if other_enemy.position.x == next_position.x
+                    && other_enemy.position.y == next_position.y
+                {
+                    continue;
+                }
+            }
+
+            if !self.map.tiles[next_position.y as usize][next_position.x as usize]
+                .tile_type
+                .is_walkable()
+            {
+                continue;
+            }
+
+            if next_position.x == self.player.position.x
+                && next_position.y == self.player.position.y
+            {
+                let damage = (enemy.attack - self.player.defense).max(1);
+                self.player.health -= damage;
+                if self.player.health <= 0 {
+                    self.player.health = 0;
+                    self.is_game_over = true;
+                    self.events
+                        .push("You died! Press Enter to start a new game.".to_string());
+
+                    self.map.tiles[self.player.position.y as usize]
+                        [self.player.position.x as usize] = Tile {
+                        tile_type: TileType::Skull,
+                    };
+                    return self;
+                }
+                if enemy.name == "Troll" {
+                    let mut rng = rand::thread_rng();
+                    let armor_damage = rng.gen_range(0..2);
+                    self.player.defense = (self.player.defense - armor_damage).max(0);
+                    self.events.push("Troll damaged your armor you lost {armor_damage} defense!".to_string());
+                }
+                self.events
+                    .push(format!("{} hit you for {} damage!", enemy.name, damage));
+
+                return self;
+            }
+
+            enemy.position = next_position;
+        }
+        self
+    }
+
+    pub fn event_list(&self) -> Vec<String> {
+        let mut events = vec![];
+        let mut n = 0;
+        let mut last_event: Option<String> = None;
+
+        for event in self.events.iter().rev() {
+            if events.len() >= self.view_height as usize {
+                break;
+            }
+            if let Some(last) = last_event.clone() {
+                if last == event.clone() {
+                    n += 1;
+                    continue;
+                } else {
+                    if n > 0 {
+                        events.push(format!("{} (x{})", last, n + 1));
+                    } else {
+                        events.push(last);
+                    }
+                }
+            }
+            n = 0;
+            last_event = Some(event.clone());
+        }
+        events.reverse();
+        events
+    }
+
+    pub fn draw(&self) -> String {
+        let mut output = String::new();
+        let evts = self.event_list();
+
+        let view_height = self.view_height;
+        let view_width = self.view_width;
+        let player_x = self.player.position.x;
+        let player_y = self.player.position.y;
+        let map_height = self.map.height;
+        let map_width = self.map.width;
+
+        let view_x = (player_x - view_width / 2).clamp(0, map_width - view_width);
+        let view_y = (player_y - view_height / 2).clamp(0, map_height - view_height);
+
+        for y in view_y..view_y + view_height {
+            let mut row = "".to_string();
+            for x in view_x..view_x + view_width {
+                if player_x == x && player_y == y {
+                    let el = &format!(
+                        "<span class=\"tile player\">{}</span>",
+                        if self.is_game_over {
+                            "💀".to_string()
+                        } else {
+                            self.player.character.to_string()
+                        }
+                    );
+                    row.push_str(el);
+                    continue;
+                }
+
+                let mut enemy_present = false;
+                for enemy in &self.enemies {
+                    if enemy.position.x == x && enemy.position.y == y {
+                        let el = &format!(
+                            "<span class=\"enemy\">{}</span>",
+                            enemy.char.to_string()
+                        );
+                        row.push_str(el);
+                        enemy_present = true;
+                        break;
+                    }
+                }
+                if enemy_present {
+                    continue;
+                }
+
+                let mut item_present = false;
+                for item in &self.items {
+                    if item.position.x == x && item.position.y == y {
+                        let el = &format!(
+                            "<span class=\"item\">{}</span>",
+                            item.char.to_string()
+                        );
+                        row.push_str(el);
+                        item_present = true;
+                        break;
+                    }
+                }
+                if item_present {
+                    continue;
+                }
+
+                let tile = &self.map.tiles[y as usize][x as usize];
+                let el = &format!(
+                    "<span class=\"tile\">{}</span>",
+                    tile.tile_type.character().to_string()
+                );
+                row.push_str(el);
+            }
+            let screen_y = y - view_y;
+            println!("{:?}", evts);
+            if screen_y < evts.len() as i32 {
+                row.push_str(evts[screen_y as usize].as_str());
+            }
+
+            output.push_str(&format!("<div class='row'>{}</div>", row));
+        }
+
+        output.push_str(&format!(
+            "<div>❤️  {} 🗡️ {} 🛡️ {}</div>",
+            self.player.health, self.player.attack, self.player.defense
+        ));
+        output
+    }
+}
