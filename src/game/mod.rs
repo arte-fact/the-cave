@@ -467,6 +467,8 @@ impl Game {
 
         let view_x = (player_x - view_width / 2).clamp(0, map_width - view_width);
         let view_y = (player_y - view_height / 2).clamp(0, map_height - view_height);
+        output.push_str("<h2>The Cave</h2>");
+        output.push_str("<p>Find and kill the dragon!</p>");
 
         for y in view_y..view_y + view_height {
             let mut row = "".to_string();
