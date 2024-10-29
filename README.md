@@ -1,4 +1,4 @@
-*The Cave
+**The Cave**
 
 'The Cave' simple roguelike game running in the browser.
 You have to find and kill the dragon to get the lost crown.
