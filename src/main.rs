@@ -6,7 +6,7 @@ use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
 use self::game::{Action, Game};
-use self::server::{html_response, parse_method, parse_post_request_body, text_response, Method};
+use self::server::{html_response, parse_method, parse_path, parse_post_request_body, text_response, Method};
 
 fn handle_get(game: &mut Game) -> String {
     html_response(game.draw().split("\n").collect::<Vec<&str>>().join("<br>"))
@@ -20,6 +20,10 @@ fn handle_post(
     let action = Action::from_key(key);
     game.handle_key(action);
     Ok(text_response(game.draw()))
+}
+
+fn handle_preview_map(game: &mut Game) -> String {
+    html_response(game.preview_map())
 }
 
 fn handle_connection(stream: TcpStream, game: &mut Game) -> String {
@@ -36,7 +40,14 @@ fn handle_connection(stream: TcpStream, game: &mut Game) -> String {
 
     let method = parse_method(&http_request[0]);
     let res = match method {
-        Method::Get => handle_get(game),
+        Method::Get => {
+            match parse_path(&http_request[0]).as_str() {
+                "" => handle_get(game),
+                "map" => handle_preview_map(game),
+                "favicon.ico" => return "HTTP/1.1 404\r\n\r\n".to_string(),
+                _ => "".to_string(),
+            }
+        },
         Method::Post => {
             handle_post(http_request, game).unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))
         }

@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use crate::map::{distance, Map, Tile, TileType};
+use crate::map::{Map, Tile, TileType};
 
 #[derive(Clone)]
 pub struct Player {
@@ -107,7 +107,7 @@ impl Game {
                 char: Box::new('🐀'),
                 health: 20,
                 attack: 2,
-                occurences: 20,
+                occurences: 10,
                 defense: 0,
                 position: Position { x: 0, y: 0 },
                 behavior: Behavior::Aggressive,
@@ -118,7 +118,7 @@ impl Game {
                 char: Box::new('🦇'),
                 health: 30,
                 attack: 5,
-                occurences: 20,
+                occurences: 10,
                 defense: 0,
                 position: Position { x: 0, y: 0 },
                 behavior: Behavior::Aggressive,
@@ -187,7 +187,7 @@ impl Game {
                 char: Box::new('🗡'),
                 health: 0,
                 occurences: 5,
-                attack: 20,
+                attack: 5,
                 defense: 0,
                 position: Position { x: 0, y: 0 },
             },
@@ -197,7 +197,7 @@ impl Game {
                 health: 0,
                 occurences: 5,
                 attack: 0,
-                defense: 5,
+                defense: 3,
                 position: Position { x: 0, y: 0 },
             },
         ];
@@ -226,9 +226,7 @@ impl Game {
             items,
             view_width: 40,
             view_height: 30,
-            events: vec![
-                "Find and kill the dragon!".to_string(),
-            ],
+            events: vec!["Find and kill the dragon!".to_string()],
             is_game_over: false,
             is_game_won: false,
         }
@@ -241,6 +239,8 @@ impl Game {
         self.enemies = new_game.enemies;
         self.events = vec!["A new game has started!".to_string()];
         self.is_game_over = new_game.is_game_over;
+        self.is_game_won = new_game.is_game_won;
+        self.items = new_game.items;
     }
 
     pub fn handle_key(&mut self, key: Action) -> &mut Self {
@@ -293,10 +293,12 @@ impl Game {
                         .push(format!("You killed {}!", enemy.name).to_string());
                     if enemy.name == "Dragon" {
                         self.is_game_won = true;
-                        self.events.push("You won! Press Enter to start a new game.".to_string());
-                        self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] = Tile {
-                            tile_type: TileType::Crown,
-                        };
+                        self.events
+                            .push("You won! Press Enter to start a new game.".to_string());
+                        self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] =
+                            Tile {
+                                tile_type: TileType::Crown,
+                            };
                     }
                     if ["Rat", "Bat", "Snake"].contains(&enemy.name.as_str()) {
                         self.items.push(Item {
@@ -315,8 +317,8 @@ impl Game {
                             char: Box::new('🍖'),
                             health: 10,
                             occurences: 0,
-                            attack: 5,
-                            defense: 5,
+                            attack: 1,
+                            defense: 1,
                             position: enemy.position.clone(),
                         });
                     }
@@ -357,7 +359,8 @@ impl Game {
             if distance < 5.0 {
                 if enemy.state == EnemyState::Idle {
                     enemy.state = EnemyState::Attacking;
-                    self.events.push(format!("A {} has spotted you!", enemy.name));
+                    self.events
+                        .push(format!("A {} has spotted you!", enemy.name));
                 }
                 if dx.abs() > dy.abs() {
                     if dx > 0 {
@@ -374,7 +377,8 @@ impl Game {
                 }
             } else if enemy.state == EnemyState::Attacking {
                 enemy.state = EnemyState::Idle;
-                self.events.push(format!("{} has lost track of you!", enemy.name));
+                self.events
+                    .push(format!("{} has lost track of you!", enemy.name));
             }
 
             for other_enemy in &enemies {
@@ -413,7 +417,10 @@ impl Game {
                     let mut rng = rand::thread_rng();
                     let armor_damage = rng.gen_range(0..2);
                     self.player.defense = (self.player.defense - armor_damage).max(0);
-                    self.events.push("Troll damaged your armor you lost {armor_damage} defense!".to_string());
+                    self.events.push(
+                        format!("Troll damaged your armor you lost {armor_damage} defense!")
+                            .to_string(),
+                    );
                 }
                 self.events
                     .push(format!("{} hit you for {} damage!", enemy.name, damage));
@@ -467,9 +474,24 @@ impl Game {
 
         let view_x = (player_x - view_width / 2).clamp(0, map_width - view_width);
         let view_y = (player_y - view_height / 2).clamp(0, map_height - view_height);
-        output.push_str("<h2>The Cave</h2>");
-        output.push_str("<p>Find and kill the dragon!</p>");
+        self.draw_map(view_y, view_height, view_x, view_width, player_x, player_y, evts, &mut output);
 
+        output.push_str(&format!(
+            "<div>❤️  {} 🗡️ {} 🛡️ {}</div>",
+            self.player.health, self.player.attack, self.player.defense
+        ));
+        output
+    }
+
+    pub fn preview_map(&self) -> String {
+        let mut output = String::new();
+
+        self.draw_map(0, self.map.width, 0, self.map.height, 0, 0, vec![], &mut output);
+
+        output
+    }
+
+    pub fn draw_map(&self, view_y: i32, view_height: i32, view_x: i32, view_width: i32, player_x: i32, player_y: i32, evts: Vec<String>, output: &mut String) {
         for y in view_y..view_y + view_height {
             let mut row = "".to_string();
             for x in view_x..view_x + view_width {
@@ -490,7 +512,7 @@ impl Game {
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
                         let el = &format!(
-                            "<span class=\"enemy\">{}</span>",
+                            "<span class=\"tile enemy\">{}</span>",
                             enemy.char.to_string()
                         );
                         row.push_str(el);
@@ -505,10 +527,8 @@ impl Game {
                 let mut item_present = false;
                 for item in &self.items {
                     if item.position.x == x && item.position.y == y {
-                        let el = &format!(
-                            "<span class=\"item\">{}</span>",
-                            item.char.to_string()
-                        );
+                        let el =
+                            &format!("<span class=\"tile item\">{}</span>", item.char.to_string());
                         row.push_str(el);
                         item_present = true;
                         break;
@@ -526,18 +546,11 @@ impl Game {
                 row.push_str(el);
             }
             let screen_y = y - view_y;
-            println!("{:?}", evts);
             if screen_y < evts.len() as i32 {
                 row.push_str(evts[screen_y as usize].as_str());
             }
 
             output.push_str(&format!("<div class='row'>{}</div>", row));
         }
-
-        output.push_str(&format!(
-            "<div>❤️  {} 🗡️ {} 🛡️ {}</div>",
-            self.player.health, self.player.attack, self.player.defense
-        ));
-        output
     }
 }

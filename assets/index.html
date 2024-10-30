@@ -1,38 +1,12 @@
 <html>
+  <head>
+    <title>🐉 The Cave 🧌 </title>
+  </head>
 
-<head>
-  <title>🐉 The Cave 🧌 </title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unlock&display=swap" rel="stylesheet">
-</head>
-
-<body>
-  <div id="content">{{ content }}</div>
-</body>
-<script>document.addEventListener('keydown', async function (e) {
-    if (!["z", "q", "s", "d", "h", "j", "k", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(e.key)) {
-      return;
-    }
-
-    let response = await fetch('/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/html',
-      },
-      body: e.key,
-    });
-    let data = await response.text();
-  console.log(data);
-    document.getElementById('content').innerHTML = data;
-  });
-
-</script>
-<style>
+  <style>
   html {
-  font-family: "Unlock", serif;
-  font-weight: 400;
-  font-style: 18px;
+    font-weight: 400;
+    font-style: 18px;
     letter-spacing: 1;
     color: gray;
     background: black;
@@ -45,6 +19,8 @@
     display: inline-block;
     width: 21px;
     height: 21px;
+    min-width: 21px;
+    min-height: 21px;
     text-align: center;
   }
 
@@ -53,6 +29,28 @@
     text-align: center;
     vertical-align: bottom;
   }
-</style>
+  </style>
 
+  <body>
+    <h3>kill the dragon 🐉</h3>
+    <div id="content">{{ content }}</div>
+  </body>
+
+  <script>
+  document.addEventListener('keydown', async function (e) {
+    if (!["z", "q", "s", "d", "h", "j", "k", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(e.key)) {
+      return;
+    }
+
+    let response = await fetch('/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/html',
+      },
+      body: e.key,
+    });
+    let data = await response.text();
+    document.getElementById('content').innerHTML = data;
+  });
+  </script>
 </html>

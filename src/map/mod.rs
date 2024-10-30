@@ -75,8 +75,8 @@ impl Default for TileSeedZone {
             _name: "Cave floors".to_string(),
             tile_type: vec![(TileType::Floor, 100), (TileType::RockWall, 1)],
             _occurences: 4,
-            size: 10,
-            size_variance: 20,
+            size: 5,
+            size_variance: 32,
             min_distance: 5,
             max_distance: 30,
         }

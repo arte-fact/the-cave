@@ -54,3 +54,8 @@ pub fn parse_method(header: &str) -> Method {
         _ => return Method::Unhandled,
     }
 }
+
+pub fn parse_path(header: &str) -> String {
+    let path = header.split_whitespace().nth(1).unwrap_or("/");
+    path.replace("/", "")
+}
