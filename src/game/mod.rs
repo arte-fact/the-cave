@@ -512,7 +512,12 @@ impl Game {
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
                         let el = &format!(
-                            "<span class=\"tile enemy\">{}</span>",
+                            "<span class=\"tile enemy\" {}>{}</span>",
+                            if enemy.name == "Dragon" {
+                                "style='font-size: 2em;'"
+                            } else {
+                                ""
+                            },
                             enemy.char.to_string()
                         );
                         row.push_str(el);
@@ -528,7 +533,7 @@ impl Game {
                 for item in &self.items {
                     if item.position.x == x && item.position.y == y {
                         let el =
-                            &format!("<span class=\"tile item\">{}</span>", item.char.to_string());
+                            &format!("<span class=\"tile item\" style='font-size: 0.8em'>{}</span>", item.char.to_string());
                         row.push_str(el);
                         item_present = true;
                         break;
@@ -540,7 +545,18 @@ impl Game {
 
                 let tile = &self.map.tiles[y as usize][x as usize];
                 let el = &format!(
-                    "<span class=\"tile\">{}</span>",
+                    "<span class=\"tile\" {}>{}</span>",
+                    if tile.tile_type.is_walkable() {
+                        "".to_string()
+                    } else {
+                        format!("style='font-size: {}em;'",
+                            if tile.tile_type == TileType::RockWall {
+                                1.4 + 4.0 * ((x * y - y) as f32 / 5.0).sin().abs() / 10.0
+                            } else {
+                                1.0
+                            }
+                        )
+                    },
                     tile.tile_type.character().to_string()
                 );
                 row.push_str(el);
