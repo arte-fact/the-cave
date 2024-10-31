@@ -2,7 +2,7 @@ use rand::Rng;
 
 use crate::map::{Map, Tile, TileType};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Player {
     character: Box<char>,
     health: i32,
@@ -22,8 +22,8 @@ pub enum Action {
 }
 
 impl Action {
-    pub fn from_key(key: String) -> Action {
-        match key.as_str() {
+    pub fn from_key(key: &str) -> Action {
+        match key {
             "q" => Action::Left,
             "s" => Action::Down,
             "z" => Action::Up,
@@ -48,7 +48,7 @@ pub struct Position {
     pub y: i32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Enemy {
     name: String,
     char: Box<char>,
@@ -61,18 +61,18 @@ pub struct Enemy {
     state: EnemyState,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 enum EnemyState {
     Idle,
     Attacking,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 enum Behavior {
     Aggressive,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Item {
     name: String,
     char: Box<char>,
@@ -83,7 +83,7 @@ pub struct Item {
     position: Position,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Game {
     player: Player,
     enemies: Vec<Enemy>,

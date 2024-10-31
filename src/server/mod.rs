@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::fs;
 
 pub fn parse_post_request_body(http_request: Vec<String>) -> String {
     let body = http_request[http_request.len() - 1].clone();
     body.split("\0").collect::<Vec<&str>>()[0].to_string()
 }
+
 
 pub fn html_response(content: String) -> String {
     let mut contents = match fs::read_to_string("assets/index.html") {
@@ -23,6 +25,14 @@ pub fn html_response(content: String) -> String {
     headers.join("\r\n") + "\r\n\r\n" + &contents
 }
 
+pub fn set_cookie_and_redirect(session_id: &str) -> String {
+    let mut response = "HTTP/1.1 302 Found\r\n".to_string();
+    let session_cookie = format!("session={}", session_id);
+    response.push_str(&format!("Set-Cookie: {}\r\n", session_cookie));
+    response.push_str("Location: /\r\n");
+    response
+}
+
 pub fn text_response(content: String) -> String {
     let length = content.len();
     let headers = [
@@ -34,7 +44,7 @@ pub fn text_response(content: String) -> String {
     headers.join("\r\n") + "\r\n\r\n" + &content
 }
 
-
+#[derive(Debug, Clone)]
 pub enum Method {
     Get,
     Post,
@@ -52,6 +62,78 @@ pub fn parse_method(header: &str) -> Method {
         "GET" => return Method::Get,
         "POST" => return Method::Post,
         _ => return Method::Unhandled,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Request {
+    pub method: Method,
+    pub path: Vec<String>,
+    pub headers: Vec<Header>,
+    pub body: String,
+}
+
+impl Request {
+    pub fn get_cookie(&self, name: &str) -> Option<String> {
+        for header in self.headers.iter() {
+            match header {
+                Header::Cookie(cookie) => return cookie.get(name).map(|s| s.to_string()),
+            }
+        }
+        None
+    }
+}
+#[derive(Debug, Clone)]
+pub enum Header {
+    Cookie(HashMap<String, String>),
+}
+
+pub fn parse_cookie(header_line: &str) -> HashMap<String, String> {
+    let cookie = header_line.split_whitespace().nth(1).unwrap_or("/");
+    let cookie_content = cookie
+        .replace("Cookie:", "")
+        .split(";")
+        .map(|s| s.trim().to_string())
+        .collect::<Vec<String>>();
+
+    let mut cookie_map = HashMap::new();
+    for c in cookie_content {
+        let key_value = c.split("=").collect::<Vec<&str>>();
+        if key_value.len() == 2 {
+            cookie_map.insert(
+                key_value[0].to_string(),
+                key_value[1].to_string()
+            );
+            continue;
+        }
+    }
+
+    cookie_map
+}
+
+pub fn parse_request(http_request: Vec<String>) -> Request {
+    let method = parse_method(&http_request[0]);
+    let path = parse_path(&http_request[0]).split("/").map(|s| s.to_string()).collect::<Vec<String>>();
+
+    let mut headers = vec![];
+
+    for line in http_request.iter() {
+        let split = line.split(":");
+        match split.clone().nth(0) {
+            Some("Cookie") => {
+                headers.push(Header::Cookie(parse_cookie(line)));
+            }
+            _ => (),
+        }
+    }
+
+    let body = parse_post_request_body(http_request);
+
+    Request {
+        method,
+        path,
+        headers,
+        body,
     }
 }
 

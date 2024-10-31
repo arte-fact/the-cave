@@ -3,7 +3,7 @@ use rand::Rng;
 
 use crate::game::Position;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tile {
     pub tile_type: TileType,
 }
@@ -34,7 +34,7 @@ impl TileType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Map {
     pub tiles: Vec<Vec<Tile>>,
     pub width: i32,

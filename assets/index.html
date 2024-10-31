@@ -32,11 +32,12 @@
   </style>
 
   <body>
-    <h3>kill the dragon 🐉</h3>
     <div id="content">{{ content }}</div>
   </body>
 
   <script>
+  document.addEventListener('DOMContentLoaded', async function () {
+  });
   document.addEventListener('keydown', async function (e) {
     if (!["z", "q", "s", "d", "h", "j", "k", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(e.key)) {
       return;
@@ -52,5 +53,6 @@
     let data = await response.text();
     document.getElementById('content').innerHTML = data;
   });
+
   </script>
 </html>
