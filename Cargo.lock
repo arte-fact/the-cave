@@ -15,14 +15,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "cli-game"
-version = "0.1.0"
-dependencies = [
- "lazy_static",
- "rand",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -111,6 +103,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "the-cave"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "rand",
 ]
 
 [[package]]
