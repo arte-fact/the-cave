@@ -74,6 +74,7 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
             let res = handle_post(request, &mut game)
                 .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
             games.insert(session_id.clone(), game);
+
             text_response(res, &host, &session_id)
         }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
