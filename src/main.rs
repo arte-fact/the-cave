@@ -66,8 +66,8 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
 
     let res = match request.method {
         Method::Get => match path.as_str() {
-            "" => html_response(handle_get(&game), &host, &session_id),
-            "map" => html_response(handle_preview_map(&game), &host, &session_id),
+            "" => html_response(handle_get(&game), &session_id),
+            "map" => html_response(handle_preview_map(&game), &session_id),
             _ => return "HTTP/1.1 404\r\n\r\n".to_string(),
         },
         Method::Post => {
@@ -75,7 +75,7 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
                 .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
             games.insert(session_id.clone(), game);
 
-            text_response(res, &host, &session_id)
+            text_response(res)
         }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
     };

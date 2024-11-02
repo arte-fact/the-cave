@@ -7,7 +7,7 @@ pub fn parse_post_request_body(http_request: Vec<String>) -> String {
 }
 
 
-pub fn html_response(content: String, host: &str, session_id: &str) -> String {
+pub fn html_response(content: String, session_id: &str) -> String {
     let mut contents = match fs::read_to_string("assets/index.html") {
         Ok(contents) => contents,
         Err(_) => String::from("Error reading index.html"),
@@ -19,19 +19,18 @@ pub fn html_response(content: String, host: &str, session_id: &str) -> String {
     let headers = [
         "HTTP/1.1 200 OK",
         "Content-Type: text/html; charset=UTF-8",
-        &format!("Set-Cookie: session={}; Domain={}", session_id, host),
+        &format!("Set-Cookie: session={}", session_id),
         &format!("Content-Length: {}", length),
     ];
 
     headers.join("\r\n") + "\r\n\r\n" + &contents
 }
 
-pub fn text_response(content: String, host: &str, session_id: &str) -> String {
+pub fn text_response(content: String) -> String {
     let length = content.len();
     let headers = [
         "HTTP/1.1 200 OK",
         "Content-Type: text/html; charset=UTF-8",
-        &format!("Set-Cookie: session={}; Domain={}", session_id, host),
         &format!("Content-Length: {}", length),
     ];
 
