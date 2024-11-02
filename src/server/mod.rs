@@ -7,7 +7,7 @@ pub fn parse_post_request_body(http_request: Vec<String>) -> String {
 }
 
 
-pub fn html_response(content: String) -> String {
+pub fn html_response(content: String, host: &str, session_id: &str) -> String {
     let mut contents = match fs::read_to_string("assets/index.html") {
         Ok(contents) => contents,
         Err(_) => String::from("Error reading index.html"),
@@ -19,25 +19,19 @@ pub fn html_response(content: String) -> String {
     let headers = [
         "HTTP/1.1 200 OK",
         "Content-Type: text/html; charset=UTF-8",
+        &format!("Set-Cookie: session={}; Domain={}", session_id, host),
         &format!("Content-Length: {}", length),
     ];
 
     headers.join("\r\n") + "\r\n\r\n" + &contents
 }
 
-pub fn set_cookie_and_redirect(session_id: &str, host: &str) -> String {
-    let mut response = "HTTP/1.1 302 Found\r\n".to_string();
-    let session_cookie = format!("session={}", session_id);
-    response.push_str(&format!("Set-Cookie: {}\r\n", session_cookie));
-    response.push_str("Location: /\r\n");
-    response
-}
-
-pub fn text_response(content: String) -> String {
+pub fn text_response(content: String, host: &str, session_id: &str) -> String {
     let length = content.len();
     let headers = [
         "HTTP/1.1 200 OK",
         "Content-Type: text/html; charset=UTF-8",
+        &format!("Set-Cookie: session={}; Domain={}", session_id, host),
         &format!("Content-Length: {}", length),
     ];
 

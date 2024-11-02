@@ -10,22 +10,22 @@ use std::thread;
 
 use self::game::{Action, Game};
 use self::server::{
-    html_response, parse_request, set_cookie_and_redirect, text_response, Method, Request,
+    html_response, parse_request, text_response, Method, Request,
 };
 
 fn handle_get(game: &Game) -> String {
-    html_response(game.draw().split("\n").collect::<Vec<&str>>().join("<br>"))
+    game.draw().split("\n").collect::<Vec<&str>>().join("<br>")
 }
 
 fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std::error::Error>> {
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
-    Ok(text_response(game.draw()))
+    Ok(game.draw())
 }
 
 fn handle_preview_map(game: &Game) -> String {
-    html_response(game.preview_map())
+    game.preview_map()
 }
 
 fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> String {
@@ -54,13 +54,10 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
         None => return "HTTP/1.1 500\r\n\r\nHost header not found".to_string(),
     };
 
-    let session_id = match request.get_cookie("session") {
-        Some(id) => id.to_string(),
-        None => {
-            let session_id = format!("{:?}", std::time::SystemTime::now().elapsed().unwrap().as_nanos());
-            return set_cookie_and_redirect(&session_id, &host);
-        }
-    };
+    let session_id = request.get_cookie("session").unwrap_or_else(|| {
+        let session_id = format!("{:x}", rand::random::<u128>());
+        session_id
+    });
 
     if !games.contains_key(&session_id) {
         games.insert(session_id.clone(), Game::new());
@@ -69,15 +66,15 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
 
     let res = match request.method {
         Method::Get => match path.as_str() {
-            "" => handle_get(&game),
-            "map" => handle_preview_map(&game),
+            "" => html_response(handle_get(&game), &host, &session_id),
+            "map" => html_response(handle_preview_map(&game), &host, &session_id),
             _ => return "HTTP/1.1 404\r\n\r\n".to_string(),
         },
         Method::Post => {
             let res = handle_post(request, &mut game)
                 .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
-            games.insert(session_id, game);
-            res
+            games.insert(session_id.clone(), game);
+            text_response(res, &host, &session_id)
         }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
     };
