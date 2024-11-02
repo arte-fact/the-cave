@@ -6,6 +6,7 @@ use crate::game::Position;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tile {
     pub tile_type: TileType,
+    pub size: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -127,6 +128,7 @@ impl Map {
             for _ in 0..width {
                 row.push(Tile {
                     tile_type: TileType::RockWall,
+                    size: 1.0,
                 });
             }
             tiles.push(row);
@@ -226,6 +228,7 @@ impl Map {
                 let x = (x + _x).clamp(0, self.width - 1);
                 self.tiles[y as usize][x as usize] = Tile {
                     tile_type: TileType::Floor,
+                    size: 1.0,
                 };
             }
 
@@ -239,6 +242,7 @@ impl Map {
                 let y = (y + _y).clamp(0, self.height - 1);
                 self.tiles[y as usize][x as usize] = Tile {
                     tile_type: TileType::Floor,
+                    size: 1.0,
                 };
             }
 
@@ -259,6 +263,7 @@ impl Map {
                 let x1 = x.clamp(0, self.width - 1);
                 self.tiles[y1 as usize][x1 as usize] = Tile {
                     tile_type: seed.get_tile(),
+                    size: 1.0,
                 };
                 x += 1;
             }

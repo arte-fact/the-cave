@@ -9,6 +9,28 @@ pub struct Player {
     attack: i32,
     defense: i32,
     position: Position,
+    direction: Direction,
+}
+
+impl Player {
+    pub fn new() -> Player {
+        Player {
+            character: Box::new('🧍'),
+            health: 30,
+            attack: 5,
+            defense: 0,
+            position: Position { x: 0, y: 0 },
+            direction: Direction::Down,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,15 +72,15 @@ pub struct Position {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Enemy {
-    name: String,
-    char: Box<char>,
-    health: i32,
-    attack: i32,
-    defense: i32,
-    occurences: i32,
-    position: Position,
-    behavior: Behavior,
-    state: EnemyState,
+    pub name: String,
+    pub char: Box<char>,
+    pub health: i32,
+    pub attack: i32,
+    pub defense: i32,
+    pub occurences: i32,
+    pub position: Position,
+    pub behavior: Behavior,
+    pub state: EnemyState,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -98,7 +120,7 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Game {
-        let map = Map::generate(200, 200);
+        let map = Map::generate(400, 400);
         let player_position = map.random_valid_position(&vec![]);
 
         let ennemies = [
@@ -136,11 +158,22 @@ impl Game {
                 state: EnemyState::Idle,
             },
             Enemy {
-                name: "Troll".to_string(),
-                char: Box::new('🧌'),
-                health: 50,
-                attack: 10,
-                occurences: 10,
+                name: "Aligator".to_string(),
+                char: Box::new('🐊'),
+                health: 75,
+                attack: 15,
+                occurences: 5,
+                defense: 5,
+                position: Position { x: 0, y: 0 },
+                behavior: Behavior::Aggressive,
+                state: EnemyState::Idle,
+            },
+            Enemy {
+                name: "T-rex".to_string(),
+                char: Box::new('🦖'),
+                health: 100,
+                attack: 20,
+                occurences: 5,
                 defense: 0,
                 position: Position { x: 0, y: 0 },
                 behavior: Behavior::Aggressive,
@@ -197,7 +230,7 @@ impl Game {
                 health: 0,
                 occurences: 5,
                 attack: 0,
-                defense: 3,
+                defense: 5,
                 position: Position { x: 0, y: 0 },
             },
         ];
@@ -221,6 +254,7 @@ impl Game {
                 attack: 5,
                 defense: 0,
                 position: map.random_valid_position(&banned_positions),
+                direction: Direction::Down,
             },
             enemies,
             items,
@@ -298,6 +332,7 @@ impl Game {
                         self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] =
                             Tile {
                                 tile_type: TileType::Crown,
+                                size: 1.0,
                             };
                     }
                     if ["Rat", "Bat", "Snake"].contains(&enemy.name.as_str()) {
@@ -311,14 +346,25 @@ impl Game {
                             position: enemy.position.clone(),
                         });
                     }
-                    if enemy.name == "Troll" {
+                    if enemy.name == "Aligator" {
                         self.items.push(Item {
-                            name: "Piece Of Troll Meat".to_string(),
+                            name: "Piece Of Aligator Meat".to_string(),
                             char: Box::new('🍖'),
                             health: 10,
                             occurences: 0,
-                            attack: 1,
-                            defense: 1,
+                            attack: 5,
+                            defense: 0,
+                            position: enemy.position.clone(),
+                        });
+                    }
+                    if enemy.name == "T-rex" {
+                        self.items.push(Item {
+                            name: "Piece Of T-rex Meat".to_string(),
+                            char: Box::new('🍖'),
+                            health: 10,
+                            occurences: 0,
+                            attack: 5,
+                            defense: 5,
                             position: enemy.position.clone(),
                         });
                     }
@@ -340,6 +386,13 @@ impl Game {
         ));
 
         self.player.position = next_position;
+        self.player.direction = match key {
+            Action::Up => Direction::Up,
+            Action::Down => Direction::Down,
+            Action::Left => Direction::Left,
+            Action::Right => Direction::Right,
+            _ => self.player.direction.clone(),
+        };
 
         self
     }
@@ -410,18 +463,20 @@ impl Game {
                     self.map.tiles[self.player.position.y as usize]
                         [self.player.position.x as usize] = Tile {
                         tile_type: TileType::Skull,
+                        size: 1.2,
                     };
                     return self;
                 }
-                if enemy.name == "Troll" {
+                if enemy.name == "T-rex" {
                     let mut rng = rand::thread_rng();
                     let armor_damage = rng.gen_range(0..2);
                     self.player.defense = (self.player.defense - armor_damage).max(0);
                     self.events.push(
-                        format!("Troll damaged your armor you lost {armor_damage} defense!")
+                        format!("T-rex damaged your armor you lost {armor_damage} defense!")
                             .to_string(),
                     );
                 }
+
                 self.events
                     .push(format!("{} hit you for {} damage!", enemy.name, damage));
 
@@ -463,6 +518,10 @@ impl Game {
 
     pub fn draw(&self) -> String {
         let mut output = String::new();
+        output.push_str(&format!(
+            "<div>❤️  {} 🗡️ {} 🛡️ {}</div>",
+            self.player.health, self.player.attack, self.player.defense
+        ));
         let evts = self.event_list();
 
         let view_height = self.view_height;
@@ -474,34 +533,67 @@ impl Game {
 
         let view_x = (player_x - view_width / 2).clamp(0, map_width - view_width);
         let view_y = (player_y - view_height / 2).clamp(0, map_height - view_height);
-        self.draw_map(view_y, view_height, view_x, view_width, player_x, player_y, evts, &mut output);
+        self.draw_map(
+            view_y,
+            view_height,
+            view_x,
+            view_width,
+            player_x,
+            player_y,
+            evts,
+            &mut output,
+        );
 
-        output.push_str(&format!(
-            "<div>❤️  {} 🗡️ {} 🛡️ {}</div>",
-            self.player.health, self.player.attack, self.player.defense
-        ));
         output
     }
 
     pub fn preview_map(&self) -> String {
         let mut output = String::new();
 
-        self.draw_map(0, self.map.width, 0, self.map.height, 0, 0, vec![], &mut output);
+        self.draw_map(
+            0,
+            self.map.width,
+            0,
+            self.map.height,
+            0,
+            0,
+            vec![],
+            &mut output,
+        );
 
         output
     }
 
-    pub fn draw_map(&self, view_y: i32, view_height: i32, view_x: i32, view_width: i32, player_x: i32, player_y: i32, evts: Vec<String>, output: &mut String) {
+    pub fn draw_map(
+        &self,
+        view_y: i32,
+        view_height: i32,
+        view_x: i32,
+        view_width: i32,
+        player_x: i32,
+        player_y: i32,
+        evts: Vec<String>,
+        output: &mut String,
+    ) {
         for y in view_y..view_y + view_height {
             let mut row = "".to_string();
             for x in view_x..view_x + view_width {
                 if player_x == x && player_y == y {
                     let el = &format!(
-                        "<span class=\"tile player\">{}</span>",
+                        "<span class=\"tile player\" style='line-height: 2; transform:  translateY(-0.8em); {}'>{}</span>",
+                        match self.player.direction {
+                            Direction::Right => "transform: scaleX(-1) translateY(-0.8em);",
+                            _ => "",
+                        },
                         if self.is_game_over {
                             "💀".to_string()
                         } else {
-                            self.player.character.to_string()
+                            match self.player.direction {
+                                Direction::Up => "🚶".to_string(),
+                                Direction::Down => "🚶".to_string(),
+                                Direction::Right => "🚶".to_string(),
+                                Direction::Left => "🚶".to_string(),
+                            }
                         }
                     );
                     row.push_str(el);
@@ -512,9 +604,12 @@ impl Game {
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
                         let el = &format!(
-                            "<span class=\"tile enemy\" {}>{}</span>",
+                            "<span class=\"tile enemy\" title='{}' {}>{}</span>",
+                            format!("{} ({}hp)", enemy.name, enemy.health),
                             if enemy.name == "Dragon" {
-                                "style='font-size: 2em;'"
+                                "style='font-size: 2.5em; transform: scaleX;'"
+                            } else if enemy.name == "T-rex" {
+                                "style='font-size: 1.5em; transform: translateY(-0.5em) translateX(-0.5em);'"
                             } else {
                                 ""
                             },
@@ -532,8 +627,12 @@ impl Game {
                 let mut item_present = false;
                 for item in &self.items {
                     if item.position.x == x && item.position.y == y {
-                        let el =
-                            &format!("<span class=\"tile item\" style='font-size: 0.8em'>{}</span>", item.char.to_string());
+                        let el = &format!(
+                            "<span class=\"tile item\" title='{}' style='position: relative; font-size: 0.8em; line-height: 1.6;'><span>{}</span><span style='{}'></span></span>",
+                            item.name,
+                            item.char.to_string(),
+                            "position: absolute; inset: 0; background: gold; opacity: 0.2; border-radius: 50%; z-index: -1; margin: 0.2em;",
+                        );
                         row.push_str(el);
                         item_present = true;
                         break;
@@ -549,13 +648,7 @@ impl Game {
                     if tile.tile_type.is_walkable() {
                         "".to_string()
                     } else {
-                        format!("style='font-size: {}em;'",
-                            if tile.tile_type == TileType::RockWall {
-                                1.4 + 4.0 * ((x * y - y) as f32 / 5.0).sin().abs() / 10.0
-                            } else {
-                                1.0
-                            }
-                        )
+                        format!("style='font-size: {}em;'", tile.size)
                     },
                     tile.tile_type.character().to_string()
                 );
@@ -563,7 +656,7 @@ impl Game {
             }
             let screen_y = y - view_y;
             if screen_y < evts.len() as i32 {
-                row.push_str(evts[screen_y as usize].as_str());
+                row.push_str(format!("<span>{}</span>", evts[screen_y as usize]).as_str());
             }
 
             output.push_str(&format!("<div class='row'>{}</div>", row));
