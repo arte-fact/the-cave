@@ -86,7 +86,7 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server...");
-    let listener = TcpListener::bind("0.0.0.0:7777")?;
+    let listener = TcpListener::bind("0.0.0.0:8080")?;
     let games: Arc<Mutex<HashMap<String, Game>>> = Arc::new(Mutex::new(HashMap::new()));
     for stream in listener.incoming() {
         let games = games.clone();
