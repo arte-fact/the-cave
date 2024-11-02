@@ -55,7 +55,6 @@ fn handle_connection(stream: TcpStream, games: &mut HashMap<String, Game>) -> St
         None => {
             let session_id = format!("{:?}", std::time::SystemTime::now());
             return set_cookie_and_redirect(&session_id);
-            
         }
     };
 
@@ -81,8 +80,9 @@ fn handle_connection(stream: TcpStream, games: &mut HashMap<String, Game>) -> St
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind("0.0.0.0:7777")?;
+    let listener = TcpListener::bind("0.0.0.0:8080")?;
     let mut games: HashMap<String, Game> = HashMap::new();
+    println!("Starting server...");
     for stream in listener.incoming() {
         match stream {
             Err(e) => eprintln!("Error: {}", e),
