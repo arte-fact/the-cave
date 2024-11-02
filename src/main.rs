@@ -5,17 +5,16 @@ mod server;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 use self::game::{Action, Game};
-use self::server::{html_response, parse_request, set_cookie_and_redirect, text_response, Method, Request};
-
-
+use self::server::{
+    html_response, parse_request, set_cookie_and_redirect, text_response, Method, Request,
+};
 
 fn handle_get(game: &Game) -> String {
-    html_response(
-        game.draw().split("\n").collect::<Vec<&str>>().join("<br>"),
-    )
+    html_response(game.draw().split("\n").collect::<Vec<&str>>().join("<br>"))
 }
 
 fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std::error::Error>> {
@@ -29,7 +28,7 @@ fn handle_preview_map(game: &Game) -> String {
     html_response(game.preview_map())
 }
 
-fn handle_connection(stream: TcpStream, games: &mut HashMap<String, Game>) -> String {
+fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> String {
     let mut buffer = [0; 1024];
     let mut buf_reader = BufReader::new(stream);
     match buf_reader.read(&mut buffer) {
@@ -50,11 +49,16 @@ fn handle_connection(stream: TcpStream, games: &mut HashMap<String, Game>) -> St
         None => return "HTTP/1.1 404\r\n\r\n".to_string(),
     };
 
+    let host = match request.get_host() {
+        Some(h) => h,
+        None => return "HTTP/1.1 500\r\n\r\nHost header not found".to_string(),
+    };
+
     let session_id = match request.get_cookie("session") {
         Some(id) => id.to_string(),
         None => {
-            let session_id = format!("{:?}", std::time::SystemTime::now());
-            return set_cookie_and_redirect(&session_id);
+            let session_id = format!("{:?}", std::time::SystemTime::now().elapsed().unwrap().as_nanos());
+            return set_cookie_and_redirect(&session_id, &host);
         }
     };
 
@@ -70,7 +74,8 @@ fn handle_connection(stream: TcpStream, games: &mut HashMap<String, Game>) -> St
             _ => return "HTTP/1.1 404\r\n\r\n".to_string(),
         },
         Method::Post => {
-            let res = handle_post(request, &mut game).unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
+            let res = handle_post(request, &mut game)
+                .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
             games.insert(session_id, game);
             res
         }
@@ -80,14 +85,33 @@ fn handle_connection(stream: TcpStream, games: &mut HashMap<String, Game>) -> St
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind("0.0.0.0:8080")?;
-    let mut games: HashMap<String, Game> = HashMap::new();
     println!("Starting server...");
+    let listener = TcpListener::bind("0.0.0.0:7777")?;
+    let games: Arc<Mutex<HashMap<String, Game>>> = Arc::new(Mutex::new(HashMap::new()));
     for stream in listener.incoming() {
+        let games = games.clone();
         match stream {
-            Err(e) => eprintln!("Error: {}", e),
-            Ok(mut stream) => {
-                stream.write_all(handle_connection(stream.try_clone()?, &mut games).as_bytes())?
+            Err(e) => println!("Error: {}", e),
+            Ok(stream) => {
+                thread::spawn(move || {
+                    let mut stream = match stream.try_clone() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            println!("Error: {}", e);
+                            return;
+                        }
+                    };
+                    let mut games = match games.lock() {
+                        Ok(g) => g,
+                        Err(e) => {
+                            println!("Error: {}", e);
+                            return;
+                        }
+                    };
+                    stream
+                        .write_all(handle_connection(&stream, &mut games).as_bytes())
+                        .unwrap();
+                });
             }
         }
     }
