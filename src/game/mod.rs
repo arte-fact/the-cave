@@ -4,12 +4,12 @@ use crate::map::{Map, Tile, TileType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Player {
-    character: Box<char>,
-    health: i32,
-    attack: i32,
-    defense: i32,
-    position: Position,
-    direction: Direction,
+    pub character: Box<char>,
+    pub health: i32,
+    pub attack: i32,
+    pub defense: i32,
+    pub position: Position,
+    pub direction: Direction,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -17,7 +17,7 @@ fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std:
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
-    print!("{:?}", game.player);
+    print!("{:?}", game.player.position);
     Ok(game.draw())
 }
 
