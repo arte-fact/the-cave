@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 
 pub fn parse_post_request_body(http_request: Vec<String>) -> String {
+    println!("Request: {:?}", http_request);
     let body = http_request[http_request.len() - 1].clone();
+    println!("Body: {}", body);
     body.split("\0").collect::<Vec<&str>>()[0].to_string()
 }
 
@@ -31,7 +33,6 @@ pub fn text_response(content: String) -> String {
     let length = content.len();
     let headers = [
         "HTTP/1.1 200 OK",
-        "Cache-Control: no-cache",
         "Content-Type: text/html; charset=UTF-8",
         &format!("Content-Length: {}", length),
     ];
