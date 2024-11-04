@@ -27,10 +27,11 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     let mut buffer = [0; 2048];
     let mut buf_reader = BufReader::new(stream);
     buf_reader.read(&mut buffer).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
+    println!("Request: {:?}", String::from_utf8(buffer.to_vec()).unwrap());
 
     let request = parse_request(
         String::from_utf8(buffer.to_vec())
-            .unwrap_or_default()
+            .map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?
             .split("\r\n")
             .map(|s| s.to_string())
             .collect::<Vec<String>>(),
