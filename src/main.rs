@@ -2,7 +2,6 @@ mod game;
 mod map;
 mod server;
 
-use std::collections::BTreeMap;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
@@ -24,13 +23,10 @@ fn handle_preview_map(game: &Game) -> String {
     game.preview_map()
 }
 
-fn handle_connection(stream: &TcpStream, games: &mut BTreeMap<String, Game>) -> String {
+fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Game>) -> Result<(String, String, Game), String> {
     let mut buffer = [0; 1024];
     let mut buf_reader = BufReader::new(stream);
-    match buf_reader.read(&mut buffer) {
-        Err(e) => return format!("HTTP/1.1 500\r\n\r\n{}", e),
-        Ok(_) => (),
-    }
+    buf_reader.read(&mut buffer).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
 
     let request = parse_request(
         String::from_utf8(buffer.to_vec())
@@ -42,7 +38,7 @@ fn handle_connection(stream: &TcpStream, games: &mut BTreeMap<String, Game>) -> 
 
     let path = match request.path.first() {
         Some(p) => p.clone(),
-        None => return "HTTP/1.1 404\r\n\r\n".to_string(),
+        None => return Err("HTTP/1.1 404\r\n\r\nNot Found".to_string()),
     };
 
     let session_id = request.get_cookie("session").unwrap_or_else(|| {
@@ -50,36 +46,40 @@ fn handle_connection(stream: &TcpStream, games: &mut BTreeMap<String, Game>) -> 
         session_id
     });
 
-    if !games.contains_key(&session_id) {
-        games.insert(session_id.clone(), Game::new());
+    let session_id_2 = session_id.clone();
+    let game_session = sessions.iter().enumerate().find(|(_, s)| s == &&session_id_2);
+
+    let mut game: Option<Game> = None;
+    if game_session.is_none() {
+        game = Some(Game::new());
     }
-    let mut game = match games.get(&session_id) {
-        Some(g) => g.clone(),
-        None => return "HTTP/1.1 500\r\n\r\n Error getting_game".to_string(),
-    };
+    if game == None {
+        game = Some(games[game_session.unwrap().0].clone());
+    }
+    let mut game = game.unwrap();
+
 
     let res = match request.method {
         Method::Get => match path.as_str() {
             "" => html_response(handle_get(&game), &session_id),
             "map" => html_response(handle_preview_map(&game), &session_id),
-            _ => return "HTTP/1.1 404\r\n\r\n".to_string(),
+            _ => return Err("HTTP/1.1 404\r\n\r\nNot Found".to_string()),
         },
         Method::Post => {
             let res = handle_post(request, &mut game)
                 .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
-            games.insert(session_id.clone(), game);
-
             text_response(res)
         }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
     };
-    res
+    Ok((res, session_id, game))
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server...");
-    let listener = TcpListener::bind("0.0.0.0:8080")?;
-    let mut games: BTreeMap<String, Game> = BTreeMap::new();
+    let listener = TcpListener::bind("0.0.0.0:9999")?;
+    let mut games: Vec<Game> = vec![];
+    let mut sessions: Vec<String> = vec![];
     for stream in listener.incoming() {
         match stream {
             Err(e) => println!("Error: {}", e),
@@ -91,11 +91,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         return Err(Box::new(e));
                     }
                 };
-                stream
-                    .write_all(handle_connection(&stream, &mut games).as_bytes())
-                    .unwrap();
+                let (res, session, game) = match handle_connection(&stream, &sessions, &games) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        stream.write_all(e.as_bytes())?;
+                        continue;
+                    }
+                };
+
+                let game_session = sessions.iter().enumerate().find(|(_, s)| *s == &session);
+                if game_session.is_none() {
+                    sessions.push(session.clone());
+                    games.push(game);
+                } else {
+                    games[game_session.unwrap().0] = game;
+                }
+
+                stream.write_all(res.as_bytes())?;
             }
         }
     }
     Ok(())
 }
+

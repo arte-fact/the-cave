@@ -4,12 +4,12 @@ use crate::map::{Map, Tile, TileType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Player {
-    character: Box<char>,
-    health: i32,
-    attack: i32,
-    defense: i32,
-    position: Position,
-    direction: Direction,
+    pub character: Box<char>,
+    pub health: i32,
+    pub attack: i32,
+    pub defense: i32,
+    pub position: Position,
+    pub direction: Direction,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -94,11 +94,11 @@ pub struct Item {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Game {
-    player: Player,
-    enemies: Vec<Enemy>,
-    items: Vec<Item>,
-    view_width: i32,
-    view_height: i32,
+    pub player: Player,
+    pub enemies: Vec<Enemy>,
+    pub items: Vec<Item>,
+    pub view_width: i32,
+    pub view_height: i32,
     pub events: Vec<String>,
     pub map: Map,
     pub is_game_over: bool,
