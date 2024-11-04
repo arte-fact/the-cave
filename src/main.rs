@@ -16,6 +16,7 @@ fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std:
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
+    println!("yop {:?}", &game.player.position);
     Ok(game.draw())
 }
 
@@ -113,4 +114,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     Ok(())
 }
-
