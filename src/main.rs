@@ -2,58 +2,29 @@ mod game;
 mod map;
 mod server;
 
-use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
-
-lazy_static! {
-    static ref GAMES: Arc<Mutex<HashMap<String, Game>>> = Arc::new(Mutex::new(HashMap::new()));
-}
 
 use self::game::{Action, Game};
-use self::server::{html_response, parse_request, set_cookie_and_redirect, text_response, Method, Request};
+use self::server::{html_response, parse_request, text_response, Method, Request};
 
-pub fn get_game_or_new(game_id: &str) -> Game {
-    let mut game_map = GAMES.lock().expect("Could not lock game map");
-    let game = game_map.get_mut(game_id).map(|g| g.clone());
-    match game {
-        Some(g) => g,
-        None => {
-            let new_game = Game::new();
-            game_map.insert(game_id.to_string(), new_game.clone());
-            new_game
-        }
-    }
+fn handle_get(game: &Game) -> String {
+    game.draw().split("\n").collect::<Vec<&str>>().join("<br>")
 }
 
-pub fn set_game(game_id: &str, game: Game) {
-    let mut game_map = GAMES.lock().expect("Could not lock game map");
-    game_map.insert(game_id.to_string(), game);
-}
-
-fn handle_get(session_id: &str) -> String {
-    let game = get_game_or_new(&session_id);
-    html_response(
-        game.draw().split("\n").collect::<Vec<&str>>().join("<br>"),
-    )
-}
-
-fn handle_post(request: Request, session_id: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let mut game = get_game_or_new(session_id);
+fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std::error::Error>> {
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
-    set_game(session_id, game.clone());
-    Ok(text_response(game.draw()))
+    Ok(game.draw())
 }
 
-fn handle_preview_map(session_id: &str) -> String {
-    html_response(get_game_or_new(session_id).preview_map())
+fn handle_preview_map(game: &Game) -> String {
+    game.preview_map()
 }
 
-fn handle_connection(stream: TcpStream) -> String {
+fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> String {
     let mut buffer = [0; 1024];
     let mut buf_reader = BufReader::new(stream);
     match buf_reader.read(&mut buffer) {
@@ -74,23 +45,31 @@ fn handle_connection(stream: TcpStream) -> String {
         None => return "HTTP/1.1 404\r\n\r\n".to_string(),
     };
 
-    let session_id = match request.get_cookie("session") {
-        Some(id) => id.to_string(),
-        None => {
-            let session_id = format!("{:?}", std::time::SystemTime::now());
-            return set_cookie_and_redirect(&session_id);
-            
-        }
+    let session_id = request.get_cookie("session").unwrap_or_else(|| {
+        let session_id = format!("{:x}", rand::random::<u128>());
+        session_id
+    });
+
+    if !games.contains_key(&session_id) {
+        games.insert(session_id.clone(), Game::new());
+    }
+    let mut game = match games.get(&session_id) {
+        Some(g) => g.clone(),
+        None => return "HTTP/1.1 500\r\n\r\n Error getting_game".to_string(),
     };
 
     let res = match request.method {
         Method::Get => match path.as_str() {
-            "" => handle_get(&session_id),
-            "map" => handle_preview_map(&session_id),
+            "" => html_response(handle_get(&game), &session_id),
+            "map" => html_response(handle_preview_map(&game), &session_id),
             _ => return "HTTP/1.1 404\r\n\r\n".to_string(),
         },
         Method::Post => {
-            handle_post(request, &session_id).unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))
+            let res = handle_post(request, &mut game)
+                .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
+            games.insert(session_id.clone(), game);
+
+            text_response(res)
         }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
     };
@@ -98,14 +77,24 @@ fn handle_connection(stream: TcpStream) -> String {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind("0.0.0.0:7878")?;
+    println!("Starting server...");
+    let listener = TcpListener::bind("0.0.0.0:8080")?;
+    let mut games: HashMap<String, Game> = HashMap::new();
     for stream in listener.incoming() {
         match stream {
-            Err(e) => eprintln!("Error: {}", e),
-            Ok(mut stream) => {
-                let response = handle_connection(stream.try_clone()?);
+            Err(e) => println!("Error: {}", e),
+            Ok(stream) => {
+                let mut stream = match stream.try_clone() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        return Err(Box::new(e));
+                    }
+                };
+
+                let response = handle_connection(&stream, &mut games);
                 println!("{}", response);
-                stream.write_all(response.as_bytes())?
+                stream.write_all(response.as_bytes())?;
             }
         }
     }

@@ -1,7 +1,9 @@
-FROM rust:latest
+FROM rust:slim-bullseye
+
+
 WORKDIR /usr/app
 COPY . .
-RUN cargo build --release
 
-EXPOSE 7878
-CMD ["/usr/app/target/release/the-cave"]
+RUN cargo install --path .
+EXPOSE 8080
+CMD ["the-cave"]

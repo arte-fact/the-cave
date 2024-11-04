@@ -7,7 +7,7 @@ pub fn parse_post_request_body(http_request: Vec<String>) -> String {
 }
 
 
-pub fn html_response(content: String) -> String {
+pub fn html_response(content: String, session_id: &str) -> String {
     let mut contents = match fs::read_to_string("assets/index.html") {
         Ok(contents) => contents,
         Err(_) => String::from("Error reading index.html"),
@@ -19,24 +19,19 @@ pub fn html_response(content: String) -> String {
     let headers = [
         "HTTP/1.1 200 OK",
         "Content-Type: text/html; charset=UTF-8",
+        "Cache-Control: no-cache",
+        &format!("Set-Cookie: session={}", session_id),
         &format!("Content-Length: {}", length),
     ];
 
     headers.join("\r\n") + "\r\n\r\n" + &contents
 }
 
-pub fn set_cookie_and_redirect(session_id: &str) -> String {
-    let mut response = "HTTP/1.1 302 Found\r\n".to_string();
-    let session_cookie = format!("session={}", session_id);
-    response.push_str(&format!("Set-Cookie: {}\r\n", session_cookie));
-    response.push_str("Location: /\r\n");
-    response
-}
-
 pub fn text_response(content: String) -> String {
     let length = content.len();
     let headers = [
         "HTTP/1.1 200 OK",
+        "Cache-Control: no-cache",
         "Content-Type: text/html; charset=UTF-8",
         &format!("Content-Length: {}", length),
     ];
@@ -76,8 +71,16 @@ pub struct Request {
 impl Request {
     pub fn get_cookie(&self, name: &str) -> Option<String> {
         for header in self.headers.iter() {
-            match header {
-                Header::Cookie(cookie) => return cookie.get(name).map(|s| s.to_string()),
+            if let Header::Cookie(cookie) = header {
+                return cookie.get(name).map(|s| s.to_string())
+            }
+        }
+        None
+    }
+    pub fn get_host(&self) -> Option<String> {
+        for header in self.headers.iter() {
+            if let Header::Host(host) = header {
+                return Some(host.clone())
             }
         }
         None
@@ -86,6 +89,7 @@ impl Request {
 #[derive(Debug, Clone)]
 pub enum Header {
     Cookie(HashMap<String, String>),
+    Host(String),
 }
 
 pub fn parse_cookie(header_line: &str) -> HashMap<String, String> {
@@ -122,6 +126,9 @@ pub fn parse_request(http_request: Vec<String>) -> Request {
         match split.clone().nth(0) {
             Some("Cookie") => {
                 headers.push(Header::Cookie(parse_cookie(line)));
+            },
+            Some("Host") => {
+                headers.push(Header::Host(split.clone().nth(1).unwrap_or("/").trim().to_string()));
             }
             _ => (),
         }
