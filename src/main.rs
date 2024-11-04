@@ -103,7 +103,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match stream {
             Err(e) => eprintln!("Error: {}", e),
             Ok(mut stream) => {
-                stream.write_all(handle_connection(stream.try_clone()?).as_bytes())?
+                let response = handle_connection(stream.try_clone()?);
+                println!("{}", response);
+                stream.write_all(response.as_bytes())?
             }
         }
     }
