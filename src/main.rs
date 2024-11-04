@@ -17,7 +17,7 @@ fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std:
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
-    print!("{:?}", game.player.position);
+    println!("yop {:?}", &game.player.position);
     Ok(game.draw())
 }
 
@@ -79,7 +79,7 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server...");
-    let listener = TcpListener::bind("0.0.0.0:8080")?;
+    let listener = TcpListener::bind("0.0.0.0:9999")?;
     let mut games: HashMap<String, Game> = HashMap::new();
     for stream in listener.incoming() {
         match stream {
@@ -92,8 +92,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         return Err(Box::new(e));
                     }
                 };
+                let res = handle_connection(&stream, &mut games);
 
-                stream.write_all(handle_connection(&stream, &mut games).as_bytes())?;
+                stream.write_all(res.as_bytes())?;
             }
         }
     }
