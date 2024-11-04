@@ -71,13 +71,13 @@ pub struct Enemy {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum EnemyState {
+pub enum EnemyState {
     Idle,
     Attacking,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Behavior {
+pub enum Behavior {
     Aggressive,
 }
 
@@ -264,16 +264,16 @@ impl Game {
         self.items = new_game.items;
     }
 
-    pub fn handle_key(&mut self, key: Action) -> &mut Self {
+    pub fn handle_key(&mut self, key: Action) {
         if self.is_game_over || self.is_game_won {
             if key == Action::Confirm {
                 self.reset();
             }
-            return self;
+            return;
         }
         self.tick();
         if self.is_game_over || self.is_game_won {
-            return self;
+            return;
         }
 
         let mut next_position = self.player.position.clone();
@@ -289,7 +289,7 @@ impl Game {
             .tile_type
             .is_walkable()
         {
-            return self;
+            return;
         }
 
         for item in &mut self.items {
@@ -299,7 +299,7 @@ impl Game {
                 self.player.defense = (self.player.defense + item.defense).min(20);
                 self.events.push(format!("You found a {}!", item.name));
                 self.items.retain(|i| i.position != next_position);
-                return self;
+                return;
             }
         }
 
@@ -357,7 +357,7 @@ impl Game {
                     }
                     self.enemies.retain(|e| e.health > 0);
                 }
-                return self;
+                return;
             }
         }
 
@@ -380,8 +380,6 @@ impl Game {
             Action::Right => Direction::Right,
             _ => self.player.direction.clone(),
         };
-
-        self
     }
 
     pub fn tick(&mut self) -> &mut Self {

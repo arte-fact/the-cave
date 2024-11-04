@@ -12,12 +12,11 @@ fn handle_get(game: &Game) -> String {
     game.draw().split("\n").collect::<Vec<&str>>().join("<br>")
 }
 
-fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std::error::Error>> {
+fn handle_post(request: Request, game: &mut Game) -> Result<(), Box<dyn std::error::Error>> {
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
-    println!("yop {:?}", &game.player.position);
-    Ok(game.draw())
+    Ok(())
 }
 
 fn handle_preview_map(game: &Game) -> String {
@@ -67,9 +66,8 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
             _ => return Err("HTTP/1.1 404\r\n\r\nNot Found".to_string()),
         },
         Method::Post => {
-            let res = handle_post(request, &mut game)
-                .unwrap_or_else(|e| format!("HTTP/1.1 500\r\n\r\n{}", e));
-            text_response(res)
+            handle_post(request, &mut game).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
+            text_response(game.draw())
         }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
     };
