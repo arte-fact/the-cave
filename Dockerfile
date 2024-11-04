@@ -1,4 +1,6 @@
-FROM rust:1.82-bullseye
+FROM rust:alpine
+
+
 WORKDIR /usr/app
 COPY . .
 
