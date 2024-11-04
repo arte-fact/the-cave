@@ -32,6 +32,7 @@ pub enum Action {
 
 impl Action {
     pub fn from_key(key: &str) -> Action {
+        println!("key: {}", key);
         match key {
             "q" => Action::Left,
             "s" => Action::Down,
@@ -368,7 +369,7 @@ impl Game {
                 Action::Down => "down",
                 Action::Left => "left",
                 Action::Right => "right",
-                _ => "",
+                _ => "unknown",
             }
         ));
 
