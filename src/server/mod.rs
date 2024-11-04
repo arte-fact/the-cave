@@ -19,6 +19,7 @@ pub fn html_response(content: String, session_id: &str) -> String {
     let headers = [
         "HTTP/1.1 200 OK",
         "Content-Type: text/html; charset=UTF-8",
+        "Cache-Control: no-cache",
         &format!("Set-Cookie: session={}", session_id),
         &format!("Content-Length: {}", length),
     ];
@@ -30,6 +31,7 @@ pub fn text_response(content: String) -> String {
     let length = content.len();
     let headers = [
         "HTTP/1.1 200 OK",
+        "Cache-Control: no-cache",
         "Content-Type: text/html; charset=UTF-8",
         &format!("Content-Length: {}", length),
     ];
