@@ -5,5 +5,5 @@ WORKDIR /usr/app
 COPY . .
 
 RUN cargo install --path .
-EXPOSE 8080
+EXPOSE 9999
 CMD ["the-cave"]
