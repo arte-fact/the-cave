@@ -24,7 +24,7 @@ fn handle_preview_map(game: &Game) -> String {
 }
 
 fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Game>) -> Result<(String, String, Game), String> {
-    let mut buffer = [0; 1024];
+    let mut buffer = [0; 2048];
     let mut buf_reader = BufReader::new(stream);
     buf_reader.read(&mut buffer).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
 
