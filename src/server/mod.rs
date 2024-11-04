@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 
 pub fn parse_post_request_body(http_request: Vec<String>) -> String {
-    println!("Request: {:?}", http_request);
     let body = http_request[http_request.len() - 1].clone();
-    println!("Body: {}", body);
     body.split("\0").collect::<Vec<&str>>()[0].to_string()
 }
 
