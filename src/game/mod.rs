@@ -12,19 +12,6 @@ pub struct Player {
     direction: Direction,
 }
 
-impl Player {
-    pub fn new() -> Player {
-        Player {
-            character: Box::new('🧍'),
-            health: 30,
-            attack: 5,
-            defense: 0,
-            position: Position { x: 0, y: 0 },
-            direction: Direction::Down,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
     Up,
@@ -588,12 +575,7 @@ impl Game {
                         if self.is_game_over {
                             "💀".to_string()
                         } else {
-                            match self.player.direction {
-                                Direction::Up => "🚶".to_string(),
-                                Direction::Down => "🚶".to_string(),
-                                Direction::Right => "🚶".to_string(),
-                                Direction::Left => "🚶".to_string(),
-                            }
+                            "🚶".to_string()
                         }
                     );
                     row.push_str(el);

@@ -5,13 +5,9 @@ mod server;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
-use std::thread;
 
 use self::game::{Action, Game};
-use self::server::{
-    html_response, parse_request, text_response, Method, Request,
-};
+use self::server::{html_response, parse_request, text_response, Method, Request};
 
 fn handle_get(game: &Game) -> String {
     game.draw().split("\n").collect::<Vec<&str>>().join("<br>")
@@ -49,11 +45,6 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
         None => return "HTTP/1.1 404\r\n\r\n".to_string(),
     };
 
-    let host = match request.get_host() {
-        Some(h) => h,
-        None => return "HTTP/1.1 500\r\n\r\nHost header not found".to_string(),
-    };
-
     let session_id = request.get_cookie("session").unwrap_or_else(|| {
         let session_id = format!("{:x}", rand::random::<u128>());
         session_id
@@ -62,7 +53,10 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
     if !games.contains_key(&session_id) {
         games.insert(session_id.clone(), Game::new());
     }
-    let mut game = games.get(&session_id).unwrap().clone();
+    let mut game = match games.get(&session_id) {
+        Some(g) => g.clone(),
+        None => return "HTTP/1.1 500\r\n\r\n Error getting_game".to_string(),
+    };
 
     let res = match request.method {
         Method::Get => match path.as_str() {
@@ -85,31 +79,21 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server...");
     let listener = TcpListener::bind("0.0.0.0:8080")?;
-    let games: Arc<Mutex<HashMap<String, Game>>> = Arc::new(Mutex::new(HashMap::new()));
+    let mut games: HashMap<String, Game> = HashMap::new();
     for stream in listener.incoming() {
-        let games = games.clone();
         match stream {
             Err(e) => println!("Error: {}", e),
             Ok(stream) => {
-                thread::spawn(move || {
-                    let mut stream = match stream.try_clone() {
-                        Ok(s) => s,
-                        Err(e) => {
-                            println!("Error: {}", e);
-                            return;
-                        }
-                    };
-                    let mut games = match games.lock() {
-                        Ok(g) => g,
-                        Err(e) => {
-                            println!("Error: {}", e);
-                            return;
-                        }
-                    };
-                    stream
-                        .write_all(handle_connection(&stream, &mut games).as_bytes())
-                        .unwrap();
-                });
+                let mut stream = match stream.try_clone() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        return Err(Box::new(e));
+                    }
+                };
+                stream
+                    .write_all(handle_connection(&stream, &mut games).as_bytes())
+                    .unwrap();
             }
         }
     }
