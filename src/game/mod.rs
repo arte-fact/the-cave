@@ -94,11 +94,11 @@ pub struct Item {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Game {
-    player: Player,
-    enemies: Vec<Enemy>,
-    items: Vec<Item>,
-    view_width: i32,
-    view_height: i32,
+    pub player: Player,
+    pub enemies: Vec<Enemy>,
+    pub items: Vec<Item>,
+    pub view_width: i32,
+    pub view_height: i32,
     pub events: Vec<String>,
     pub map: Map,
     pub is_game_over: bool,

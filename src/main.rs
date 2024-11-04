@@ -17,6 +17,7 @@ fn handle_post(request: Request, game: &mut Game) -> Result<String, Box<dyn std:
     let action = &request.body;
     let action = Action::from_key(action);
     game.handle_key(action);
+    print!("{:?}", game.player);
     Ok(game.draw())
 }
 
@@ -92,9 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 };
 
-                let response = handle_connection(&stream, &mut games);
-                println!("{}", response);
-                stream.write_all(response.as_bytes())?;
+                stream.write_all(handle_connection(&stream, &mut games).as_bytes())?;
             }
         }
     }
