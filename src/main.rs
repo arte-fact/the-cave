@@ -2,7 +2,7 @@ mod game;
 mod map;
 mod server;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
@@ -24,7 +24,7 @@ fn handle_preview_map(game: &Game) -> String {
     game.preview_map()
 }
 
-fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> String {
+fn handle_connection(stream: &TcpStream, games: &mut BTreeMap<String, Game>) -> String {
     let mut buffer = [0; 1024];
     let mut buf_reader = BufReader::new(stream);
     match buf_reader.read(&mut buffer) {
@@ -79,7 +79,7 @@ fn handle_connection(stream: &TcpStream, games: &mut HashMap<String, Game>) -> S
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server...");
     let listener = TcpListener::bind("0.0.0.0:8080")?;
-    let mut games: HashMap<String, Game> = HashMap::new();
+    let mut games: BTreeMap<String, Game> = BTreeMap::new();
     for stream in listener.incoming() {
         match stream {
             Err(e) => println!("Error: {}", e),
