@@ -1,12 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 
-pub fn parse_post_request_body(http_request: Vec<String>) -> String {
-    let body = http_request[http_request.len() - 1].clone();
-    body.split("\0").collect::<Vec<&str>>()[0].to_string()
-}
-
-
 pub fn html_response(content: String, session_id: &str) -> String {
     let mut contents = match fs::read_to_string("assets/index.html") {
         Ok(contents) => contents,
@@ -64,7 +58,6 @@ pub struct Request {
     pub method: Method,
     pub path: Vec<String>,
     pub headers: Vec<Header>,
-    pub body: String,
 }
 
 impl Request {
@@ -76,19 +69,12 @@ impl Request {
         }
         None
     }
-    pub fn get_host(&self) -> Option<String> {
-        for header in self.headers.iter() {
-            if let Header::Host(host) = header {
-                return Some(host.clone())
-            }
-        }
-        None
-    }
 }
+
 #[derive(Debug, Clone)]
 pub enum Header {
     Cookie(HashMap<String, String>),
-    Host(String),
+    _Host(String),
 }
 
 pub fn parse_cookie(header_line: &str) -> HashMap<String, String> {
@@ -116,7 +102,7 @@ pub fn parse_cookie(header_line: &str) -> HashMap<String, String> {
 
 pub fn parse_request(http_request: Vec<String>) -> Request {
     let method = parse_method(&http_request[0]);
-    let path = parse_path(&http_request[0]).split("/").map(|s| s.to_string()).collect::<Vec<String>>();
+    let path = parse_path(&http_request[0]);
 
     let mut headers = vec![];
 
@@ -126,24 +112,18 @@ pub fn parse_request(http_request: Vec<String>) -> Request {
             Some("Cookie") => {
                 headers.push(Header::Cookie(parse_cookie(line)));
             },
-            Some("Host") => {
-                headers.push(Header::Host(split.clone().nth(1).unwrap_or("/").trim().to_string()));
-            }
             _ => (),
         }
     }
-
-    let body = parse_post_request_body(http_request);
 
     Request {
         method,
         path,
         headers,
-        body,
     }
 }
 
-pub fn parse_path(header: &str) -> String {
+pub fn parse_path(header: &str) -> Vec<String> {
     let path = header.split_whitespace().nth(1).unwrap_or("/");
-    path.replace("/", "")
+    path.split("/").map(|s| s.to_string()).skip(1).collect::<Vec<String>>()
 }

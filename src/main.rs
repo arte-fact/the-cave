@@ -12,11 +12,17 @@ fn handle_get(game: &Game) -> String {
     game.draw().split("\n").collect::<Vec<&str>>().join("<br>")
 }
 
-fn handle_post(request: Request, game: &mut Game) -> Result<(), Box<dyn std::error::Error>> {
-    let action = &request.body;
+fn handle_key(request: &Request, game: &mut Game) -> Result<String, Box<dyn std::error::Error>> {
+    let action = &request.path[1];
+    if action.len() != 1 {
+        return Err("HTTP/1.1 400\r\n\r\nBad Request".into());
+    }
     let action = Action::from_key(action);
-    game.handle_key(action);
-    Ok(())
+    if action == Some(Action::Unhandled) || action == None {
+        return Err("HTTP/1.1 400\r\n\r\nBad Request".into());
+    }
+    game.handle_key(action.unwrap());
+    Ok(game.draw())
 }
 
 fn handle_preview_map(game: &Game) -> String {
@@ -27,7 +33,6 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     let mut buffer = [0; 1024];
     let mut buf_reader = BufReader::new(stream);
     buf_reader.read(&mut buffer).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
-    println!("Request: {:?}", String::from_utf8(buffer.to_vec()).unwrap());
 
     let request = parse_request(
         String::from_utf8(buffer.to_vec())
@@ -59,18 +64,18 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     }
     let mut game = game.unwrap();
 
-
     let res = match request.method {
         Method::Get => match path.as_str() {
             "" => html_response(handle_get(&game), &session_id),
             "map" => html_response(handle_preview_map(&game), &session_id),
+            "key" => match handle_key(&request, &mut game) {
+                Ok(r) => text_response(r),
+                Err(e) => e.to_string(),
+            },
             _ => return Err("HTTP/1.1 404\r\n\r\nNot Found".to_string()),
         },
-        Method::Post => {
-            handle_post(request, &mut game).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
-            text_response(game.draw())
-        }
         Method::Unhandled => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
+        Method::Post => "HTTP/1.1 405\r\n\r\nMethod Not Allowed".to_string(),
     };
     Ok((res, session_id, game))
 }

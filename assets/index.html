@@ -41,13 +41,12 @@
       return;
     }
 
-    let response = await fetch('/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/html',
-      },
-      body: `${e.key}`,
-    });
+    let response = await fetch(
+      `/key/${e.key}`,
+      {
+        method: 'GET',
+        headers: {},
+      });
     let data = await response.text();
     document.getElementById('content').innerHTML = data;
   });
