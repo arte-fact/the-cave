@@ -13,11 +13,7 @@ fn handle_get(game: &Game) -> String {
 }
 
 fn handle_key(request: &Request, game: &mut Game) -> Result<String, Box<dyn std::error::Error>> {
-    let action = &request.path[1];
-    if action.len() != 1 {
-        return Err("HTTP/1.1 400\r\n\r\nBad Request".into());
-    }
-    let action = Action::from_key(action);
+    let action = Action::from_key(&request.path[1]);
     if action == Some(Action::Unhandled) || action == None {
         return Err("HTTP/1.1 400\r\n\r\nBad Request".into());
     }
@@ -64,6 +60,7 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     }
     let mut game = game.unwrap();
 
+    println!("{:?}", request.path);
     let res = match request.method {
         Method::Get => match path.as_str() {
             "" => html_response(handle_get(&game), &session_id),
