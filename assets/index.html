@@ -6,33 +6,42 @@
   <style>
   html {
     font-weight: 400;
-    font-style: 18px;
-    letter-spacing: 1;
+    font-size: 18px;
     color: gray;
     background: black;
-  }
+    
+    .stats {
+      padding: 9px 18px;
+    }
+    .game {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
 
-  .row {
-    display: flex;
-  }
-  .tile {
-    display: inline-block;
-    width: 21px;
-    height: 21px;
-    min-width: 21px;
-    min-height: 21px;
-    text-align: center;
-  }
+      
+      .events, .stats {
+        display: flex;
+        flex: 1 1 auto;
+        padding: 18px;
+      }
 
-  .player {
-    font-size: 22px;
-    text-align: center;
-    vertical-align: bottom;
+      .map {
+        gap: 2px;
+        padding: 9px;
+      }
+    }
+    .tile {
+      display: inline-block;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      text-align: center;
+    }
   }
   </style>
 
   <body>
-    <div id="content">{{ content }}</div>
+    <div class="container" id="content">{{ content }}</div>
   </body>
 
   <script>

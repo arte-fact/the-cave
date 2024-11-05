@@ -508,7 +508,7 @@ impl Game {
     pub fn draw(&self) -> String {
         let mut output = String::new();
         output.push_str(&format!(
-            "<div>❤️  {} 🗡️ {} 🛡️ {}</div>",
+            "<div class='stats'> ❤️  {} 🗡️ {} 🛡️ {} </div>",
             self.player.health, self.player.attack, self.player.defense
         ));
         let evts = self.event_list();
@@ -564,42 +564,25 @@ impl Game {
         evts: Vec<String>,
         output: &mut String,
     ) {
+        output.push_str("<div class='game'><div class='map'>");
+        let mut events_elem = "<div class='events'>".to_string();
         for y in view_y..view_y + view_height {
             let mut row = "".to_string();
             for x in view_x..view_x + view_width {
                 if player_x == x && player_y == y {
-                    let el = &format!(
-                        "<span class=\"tile player\" style='line-height: 2; transform:  translateY(-0.8em); {}'>{}</span>",
-                        match self.player.direction {
-                            Direction::Right => "transform: scaleX(-1) translateY(-0.8em);",
-                            _ => "",
-                        },
-                        if self.is_game_over {
-                            "💀".to_string()
-                        } else {
-                            "🚶".to_string()
-                        }
-                    );
-                    row.push_str(el);
+                    row.push_str(match self.player.direction {
+                        Direction::Up => "🧍",
+                        Direction::Down => "🧍",
+                        Direction::Left => "🚶",
+                        Direction::Right => "🚶",
+                    });
                     continue;
                 }
 
                 let mut enemy_present = false;
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
-                        let el = &format!(
-                            "<span class=\"tile enemy\" title='{}' {}>{}</span>",
-                            format!("{} ({}hp)", enemy.name, enemy.health),
-                            if enemy.name == "Dragon" {
-                                "style='font-size: 2.5em; transform: scaleX;'"
-                            } else if enemy.name == "T-rex" {
-                                "style='font-size: 1.5em; transform: translateY(-0.5em) translateX(-0.5em);'"
-                            } else {
-                                ""
-                            },
-                            enemy.char.to_string()
-                        );
-                        row.push_str(el);
+                        row.push_str(enemy.char.to_string().as_str());
                         enemy_present = true;
                         break;
                     }
@@ -611,13 +594,7 @@ impl Game {
                 let mut item_present = false;
                 for item in &self.items {
                     if item.position.x == x && item.position.y == y {
-                        let el = &format!(
-                            "<span class=\"tile item\" title='{}' style='position: relative; font-size: 0.8em; line-height: 1.6;'><span>{}</span><span style='{}'></span></span>",
-                            item.name,
-                            item.char.to_string(),
-                            "position: absolute; inset: 0; background: gold; opacity: 0.2; border-radius: 50%; z-index: -1; margin: 0.2em;",
-                        );
-                        row.push_str(el);
+                        row.push_str(item.char.to_string().as_str());
                         item_present = true;
                         break;
                     }
@@ -627,23 +604,21 @@ impl Game {
                 }
 
                 let tile = &self.map.tiles[y as usize][x as usize];
-                let el = &format!(
-                    "<span class=\"tile\" {}>{}</span>",
-                    if tile.tile_type.is_walkable() {
-                        "".to_string()
-                    } else {
-                        format!("style='font-size: {}em;'", tile.size)
-                    },
-                    tile.tile_type.character().to_string()
-                );
-                row.push_str(el);
+                row.push_str(tile.tile_type.character().to_string().as_str());
             }
             let screen_y = y - view_y;
-            if screen_y < evts.len() as i32 {
-                row.push_str(format!("<span>{}</span>", evts[screen_y as usize]).as_str());
-            }
 
-            output.push_str(&format!("<div class='row'>{}</div>", row));
+
+            let row = row.chars().map(|c| format!("<span class='tile'>{}</span>", c)).collect::<Vec<String>>().join("");
+
+            if screen_y < evts.len() as i32 {
+                events_elem.push_str(format!("<div class='event'>{}<div>", evts[screen_y as usize]).as_str());
+            }
+            events_elem.push_str("</div>");
+
+            output.push_str(format!("<div>{}</div>", row).as_str());
         }
+        output.push_str("</div>");
+        output.push_str(events_elem.as_str());
     }
 }

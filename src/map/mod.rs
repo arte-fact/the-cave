@@ -21,7 +21,7 @@ impl TileType {
     pub fn character(&self) -> &str {
         match self {
             TileType::RockWall => "🪨",
-            TileType::Floor => ".",
+            TileType::Floor => "·",
             TileType::Crown => "👑",
             TileType::Skull => "💀",
         }
