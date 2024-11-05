@@ -60,7 +60,6 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     }
     let mut game = game.unwrap();
 
-    println!("{:?}", request.path);
     let res = match request.method {
         Method::Get => match path.as_str() {
             "" => html_response(handle_get(&game), &session_id),

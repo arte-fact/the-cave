@@ -36,7 +36,6 @@ impl Action {
         let down = Some(Action::Down);
         let left = Some(Action::Left);
         let right = Some(Action::Right);
-        println!("key: {}", key);
         match key.trim() {
             "k" => up,
             "ArrowUp" => up,
