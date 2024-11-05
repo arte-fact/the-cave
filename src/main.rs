@@ -1,6 +1,7 @@
 mod game;
 mod map;
 mod server;
+mod tile;
 
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
