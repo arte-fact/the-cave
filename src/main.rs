@@ -5,6 +5,7 @@ mod tile;
 
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
 
 use self::game::{Action, Game};
 use self::server::{html_response, parse_request, text_response, Method, Request};
@@ -26,10 +27,16 @@ fn handle_preview_map(game: &Game) -> String {
     game.preview_map()
 }
 
-fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Game>) -> Result<(String, String, Game), String> {
+fn handle_connection(
+    stream: &TcpStream,
+    sessions: &Vec<String>,
+    games: &Vec<Game>,
+) -> Result<(String, String, Game), String> {
     let mut buffer = [0; 1024];
     let mut buf_reader = BufReader::new(stream);
-    buf_reader.read(&mut buffer).map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
+    buf_reader
+        .read(&mut buffer)
+        .map_err(|e| format!("HTTP/1.1 500\r\n\r\n{}", e))?;
 
     let request = parse_request(
         String::from_utf8(buffer.to_vec())
@@ -50,7 +57,10 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     });
 
     let session_id_2 = session_id.clone();
-    let game_session = sessions.iter().enumerate().find(|(_, s)| s == &&session_id_2);
+    let game_session = sessions
+        .iter()
+        .enumerate()
+        .find(|(_, s)| s == &&session_id_2);
 
     let mut game: Option<Game> = None;
     if game_session.is_none() {
@@ -77,12 +87,14 @@ fn handle_connection(stream: &TcpStream, sessions: &Vec<String>, games: &Vec<Gam
     Ok((res, session_id, game))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server...");
     let listener = TcpListener::bind("0.0.0.0:9999")?;
-    let mut games: Vec<Game> = vec![];
-    let mut sessions: Vec<String> = vec![];
-    for stream in listener.incoming() {
+    let games: Arc<Mutex<Vec<Game>>> = Arc::new(Mutex::new(vec![]));
+    let sessions: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
+
+    listener.incoming().into_iter().for_each(|stream| {
         match stream {
             Err(e) => println!("Error: {}", e),
             Ok(stream) => {
@@ -90,28 +102,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok(s) => s,
                     Err(e) => {
                         println!("Error: {}", e);
-                        return Err(Box::new(e));
-                    }
-                };
-                let (res, session, game) = match handle_connection(&stream, &sessions, &games) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        stream.write_all(e.as_bytes())?;
-                        continue;
+                        return;
                     }
                 };
 
-                let game_session = sessions.iter().enumerate().find(|(_, s)| *s == &session);
-                if game_session.is_none() {
-                    sessions.push(session.clone());
-                    games.push(game);
-                } else {
-                    games[game_session.unwrap().0] = game;
-                }
+                let games = Arc::clone(&games);
+                let sessions = Arc::clone(&sessions);
+                tokio::spawn(async move {
+                    let games = games.lock();
+                    let sessions = sessions.lock();
+                    if games.is_err() || sessions.is_err() {
+                        stream
+                            .write_all("HTTP/1.1 500\r\n\r\nInternal Server Error".as_bytes())
+                            .unwrap();
+                        return;
+                    }
+                    let mut sessions = sessions.unwrap();
+                    let mut games = games.unwrap();
 
-                stream.write_all(res.as_bytes())?;
+                    let (res, session, game) =
+                        match handle_connection(&stream, &sessions, &games) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                stream.write_all(e.as_bytes()).unwrap();
+                                return;
+                            }
+                        };
+
+                    let game_session = sessions.iter().enumerate().find(|(_, s)| *s == &session);
+                    if game_session.is_none() {
+                        sessions.push(session.clone());
+                        games.push(game);
+                    } else {
+                        games[game_session.unwrap().0] = game;
+                    }
+
+                    stream.write_all(res.as_bytes()).unwrap();
+                });
             }
         }
-    }
+    });
     Ok(())
 }

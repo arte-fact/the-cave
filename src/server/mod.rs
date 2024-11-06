@@ -1,3 +1,4 @@
+pub mod session;
 use std::collections::HashMap;
 use std::fs;
 
