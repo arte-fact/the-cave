@@ -53,6 +53,9 @@
 
   <script>
   document.addEventListener('keydown', async function (e) {
+    if (e.repeat) {
+      return;
+    }
     if (!["z", "q", "s", "d", "h", "j", "k", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(e.key)) {
       return;
     }
