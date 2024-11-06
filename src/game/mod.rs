@@ -591,7 +591,7 @@ impl Game {
                 }
 
                 let player_distance = (((player_x - x) * (player_x - x) + (player_y - y) * (player_y - y)) as f64).sqrt();
-                let opacity = ((9.0 / player_distance) as f32) - 1.0;
+                let opacity = ((10.0 / player_distance) as f32) - 1.0;
 
                 let mut enemy_present = false;
                 for enemy in &self.enemies {
