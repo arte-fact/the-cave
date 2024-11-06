@@ -2,49 +2,19 @@ use rand::seq::{IteratorRandom, SliceRandom};
 use rand::Rng;
 
 use crate::game::Position;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Tile {
-    pub tile_type: TileType,
-    pub size: f32,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum TileType {
-    RockWall,
-    Floor,
-    Skull,
-    Crown,
-}
-
-impl TileType {
-    pub fn character(&self) -> &str {
-        match self {
-            TileType::RockWall => "🪨",
-            TileType::Floor => "·",
-            TileType::Crown => "👑",
-            TileType::Skull => "💀",
-        }
-    }
-
-    pub fn is_walkable(&self) -> bool {
-        match self {
-            TileType::Floor => true,
-            _ => false,
-        }
-    }
-}
+use crate::tile::{MapTiles, Tile};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Map {
     pub tiles: Vec<Vec<Tile>>,
+    pub walkable: Vec<Position>,
     pub width: i32,
     pub height: i32,
 }
 
 pub struct TileSeedZone {
     _name: String,
-    tile_type: Vec<(TileType, u32)>,
+    tile_type: Vec<(Tile, u32)>,
     _occurences: i32,
     size: i32,
     size_variance: i32,
@@ -53,7 +23,7 @@ pub struct TileSeedZone {
 }
 
 impl TileSeedZone {
-    pub fn get_tile(&self) -> TileType {
+    pub fn get_tile(&self) -> Tile {
         let mut rng = rand::thread_rng();
         let mut total = 0;
         for (_, chance) in &self.tile_type {
@@ -74,7 +44,10 @@ impl Default for TileSeedZone {
     fn default() -> Self {
         TileSeedZone {
             _name: "Cave floors".to_string(),
-            tile_type: vec![(TileType::Floor, 100), (TileType::RockWall, 1)],
+            tile_type: vec![
+                (MapTiles::Floor.to_tile(), 100),
+                (MapTiles::Rock.to_tile(), 1),
+            ],
             _occurences: 4,
             size: 5,
             size_variance: 32,
@@ -92,32 +65,12 @@ pub fn distance(x1: &i32, y1: &i32, x2: &i32, y2: &i32) -> f32 {
 
 impl Map {
     pub fn random_valid_position(&self, ban: &Vec<Position>) -> Position {
-        let mut rng = rand::thread_rng();
-        let walkable = self
-            .tiles
+        self.walkable
             .iter()
-            .enumerate()
-            .map(|(y, row)| {
-                let ban = ban.clone();
-                row.iter().enumerate().filter_map(move |(x, tile)| {
-                    if tile.tile_type.is_walkable()
-                        && !ban.contains(&&Position {
-                            x: x as i32,
-                            y: y as i32,
-                        })
-                    {
-                        Some(Position {
-                            x: x as i32,
-                            y: y as i32,
-                        })
-                    } else {
-                        None
-                    }
-                })
-            })
-            .flatten()
-            .collect::<Vec<Position>>();
-        walkable.iter().choose(&mut rng).unwrap().clone()
+            .filter(|p| !ban.contains(p))
+            .choose(&mut rand::thread_rng())
+            .unwrap()
+            .clone()
     }
 
     pub fn generate(width: i32, height: i32) -> Map {
@@ -126,15 +79,13 @@ impl Map {
         for _ in 0..height {
             let mut row = vec![];
             for _ in 0..width {
-                row.push(Tile {
-                    tile_type: TileType::RockWall,
-                    size: 1.0,
-                });
+                row.push(MapTiles::Rock.to_tile());
             }
             tiles.push(row);
         }
         let mut map = Map {
             tiles,
+            walkable: vec![],
             width,
             height,
         };
@@ -146,6 +97,18 @@ impl Map {
     fn generate_tiles(&mut self, seeds: Vec<TileSeedZone>) {
         for seed in seeds {
             self.generate_seed(&seed);
+        }
+    }
+
+    pub fn change_tile(&mut self, x: i32, y: i32, tile: Tile, walkable: bool) {
+        self.tiles[y as usize][x as usize] = tile;
+        let was_walkable = self.walkable.contains(&Position { x, y });
+        if walkable && !was_walkable {
+            self.walkable.push(Position { x, y });
+            return;
+        }
+        if !walkable && was_walkable {
+            self.walkable.retain(|p| p != &Position { x, y });
         }
     }
 
@@ -226,10 +189,7 @@ impl Map {
             for i in -1..1 {
                 let y = (y + i as i32).clamp(0, self.height - 1);
                 let x = (x + _x).clamp(0, self.width - 1);
-                self.tiles[y as usize][x as usize] = Tile {
-                    tile_type: TileType::Floor,
-                    size: 1.0,
-                };
+                self.change_tile(x, y, MapTiles::Floor.to_tile(), true);
             }
 
             x += _x;
@@ -240,10 +200,7 @@ impl Map {
             for i in -1..1 {
                 let x = (x + i as i32).clamp(0, self.width - 1);
                 let y = (y + _y).clamp(0, self.height - 1);
-                self.tiles[y as usize][x as usize] = Tile {
-                    tile_type: TileType::Floor,
-                    size: 1.0,
-                };
+                self.change_tile(x, y, MapTiles::Floor.to_tile(), true);
             }
 
             y += _y;
@@ -261,10 +218,7 @@ impl Map {
                 }
                 let y1 = y.clamp(0, self.height - 1);
                 let x1 = x.clamp(0, self.width - 1);
-                self.tiles[y1 as usize][x1 as usize] = Tile {
-                    tile_type: seed.get_tile(),
-                    size: 1.0,
-                };
+                self.change_tile(x1, y1, seed.get_tile(), true);
                 x += 1;
             }
             x -= size;

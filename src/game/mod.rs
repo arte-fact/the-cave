@@ -1,6 +1,7 @@
 use rand::Rng;
 
-use crate::map::{Map, Tile, TileType};
+use crate::map::Map;
+use crate::tile::{EnemyTiles, ItemTiles, Tile};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Player {
@@ -64,7 +65,7 @@ pub struct Position {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Enemy {
     pub name: String,
-    pub char: Box<char>,
+    pub tile: Tile,
     pub health: i32,
     pub attack: i32,
     pub defense: i32,
@@ -88,7 +89,7 @@ pub enum Behavior {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
     name: String,
-    char: Box<char>,
+    tile: Tile,
     occurences: i32,
     health: i32,
     attack: i32,
@@ -111,13 +112,14 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Game {
+        println!("Generating new game...");
         let map = Map::generate(400, 400);
         let player_position = map.random_valid_position(&vec![]);
 
         let ennemies = [
             Enemy {
                 name: "Rat".to_string(),
-                char: Box::new('🐀'),
+                tile: EnemyTiles::Rat.to_tile(),
                 health: 20,
                 attack: 2,
                 occurences: 10,
@@ -128,7 +130,7 @@ impl Game {
             },
             Enemy {
                 name: "Bat".to_string(),
-                char: Box::new('🦇'),
+                tile: EnemyTiles::Bat.to_tile(),
                 health: 30,
                 attack: 5,
                 occurences: 10,
@@ -139,7 +141,7 @@ impl Game {
             },
             Enemy {
                 name: "Snake".to_string(),
-                char: Box::new('🐍'),
+                tile: EnemyTiles::Snake.to_tile(),
                 health: 30,
                 attack: 5,
                 occurences: 20,
@@ -150,7 +152,7 @@ impl Game {
             },
             Enemy {
                 name: "Aligator".to_string(),
-                char: Box::new('🐊'),
+                tile: EnemyTiles::Aligator.to_tile(),
                 health: 75,
                 attack: 15,
                 occurences: 5,
@@ -161,7 +163,7 @@ impl Game {
             },
             Enemy {
                 name: "T-rex".to_string(),
-                char: Box::new('🦖'),
+                tile: EnemyTiles::TRex.to_tile(),
                 health: 100,
                 attack: 20,
                 occurences: 5,
@@ -172,7 +174,7 @@ impl Game {
             },
             Enemy {
                 name: "Dragon".to_string(),
-                char: Box::new('🐉'),
+                tile: EnemyTiles::Dragon.to_tile(),
                 health: 200,
                 occurences: 1,
                 attack: 40,
@@ -185,6 +187,7 @@ impl Game {
 
         let mut banned_positions: Vec<Position> = vec![player_position];
 
+        println!("Enemies generated!");
         let mut enemies: Vec<Enemy> = vec![];
         for enemy in &ennemies {
             (0..enemy.occurences).for_each(|_| {
@@ -199,7 +202,7 @@ impl Game {
         let _items = [
             Item {
                 name: "Health potion".to_string(),
-                char: Box::new('🧪'),
+                tile: ItemTiles::Potion.to_tile(),
                 health: 20,
                 occurences: 10,
                 attack: 0,
@@ -208,7 +211,7 @@ impl Game {
             },
             Item {
                 name: "Sword Upgrade".to_string(),
-                char: Box::new('🗡'),
+                tile: ItemTiles::Sword.to_tile(),
                 health: 0,
                 occurences: 5,
                 attack: 5,
@@ -217,7 +220,7 @@ impl Game {
             },
             Item {
                 name: "Shield Upgrade".to_string(),
-                char: Box::new('🛡'),
+                tile: ItemTiles::Shield.to_tile(),
                 health: 0,
                 occurences: 5,
                 attack: 0,
@@ -226,6 +229,7 @@ impl Game {
             },
         ];
 
+        println!("Items generated!");
         let mut items: Vec<Item> = vec![];
         for item in &_items {
             (0..item.occurences).for_each(|_| {
@@ -236,6 +240,7 @@ impl Game {
                 items.push(i);
             });
         }
+        println!("Game generated!");
 
         Game {
             map: map.clone(),
@@ -289,9 +294,7 @@ impl Game {
             _ => (),
         }
 
-        if !self.map.tiles[next_position.y as usize][next_position.x as usize]
-            .tile_type
-            .is_walkable()
+        if !self.map.walkable.contains(&next_position)
         {
             return;
         }
@@ -320,16 +323,22 @@ impl Game {
                         self.is_game_won = true;
                         self.events
                             .push("You won! Press Enter to start a new game.".to_string());
-                        self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] =
-                            Tile {
-                                tile_type: TileType::Crown,
-                                size: 1.0,
-                            };
+                        // self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] =
+                        //     Tile {
+                        //         tile_type: TileType::Crown,
+                        //         size: 1.0,
+                        //     };
+                        self.map.change_tile(
+                            enemy.position.x,
+                            enemy.position.y,
+                            crate::tile::ItemTiles::Crown.to_tile(),
+                            true,
+                        );
                     }
                     if ["Rat", "Bat", "Snake"].contains(&enemy.name.as_str()) {
                         self.items.push(Item {
                             name: "Piece of Meat".to_string(),
-                            char: Box::new('🍖'),
+                            tile: ItemTiles::Meat.to_tile(),
                             health: 5,
                             occurences: 0,
                             attack: 0,
@@ -340,7 +349,7 @@ impl Game {
                     if enemy.name == "Aligator" {
                         self.items.push(Item {
                             name: "Piece Of Aligator Meat".to_string(),
-                            char: Box::new('🍖'),
+                            tile: ItemTiles::Steak.to_tile(),
                             health: 10,
                             occurences: 0,
                             attack: 5,
@@ -351,7 +360,7 @@ impl Game {
                     if enemy.name == "T-rex" {
                         self.items.push(Item {
                             name: "Piece Of T-rex Meat".to_string(),
-                            char: Box::new('🍖'),
+                            tile: ItemTiles::Steak.to_tile(),
                             health: 10,
                             occurences: 0,
                             attack: 5,
@@ -404,6 +413,12 @@ impl Game {
                     self.events
                         .push(format!("A {} has spotted you!", enemy.name));
                 }
+                if self.player.position.x > enemy.position.x {
+                    enemy.tile.mirror = true;
+                } 
+                if self.player.position.x < enemy.position.x {
+                    enemy.tile.mirror = false;
+                }
                 if dx.abs() > dy.abs() {
                     if dx > 0 {
                         next_position.x += movement;
@@ -431,9 +446,7 @@ impl Game {
                 }
             }
 
-            if !self.map.tiles[next_position.y as usize][next_position.x as usize]
-                .tile_type
-                .is_walkable()
+            if !self.map.walkable.contains(&next_position)
             {
                 continue;
             }
@@ -448,12 +461,6 @@ impl Game {
                     self.is_game_over = true;
                     self.events
                         .push("You died! Press Enter to start a new game.".to_string());
-
-                    self.map.tiles[self.player.position.y as usize]
-                        [self.player.position.x as usize] = Tile {
-                        tile_type: TileType::Skull,
-                        size: 1.2,
-                    };
                     return self;
                 }
                 if enemy.name == "T-rex" {
@@ -544,9 +551,9 @@ impl Game {
             self.map.width,
             0,
             self.map.height,
-            0,
-            0,
-            vec![],
+            self.player.position.x,
+            self.player.position.y,
+            self.event_list(),
             &mut output,
         );
 
@@ -570,21 +577,24 @@ impl Game {
             let mut row = "".to_string();
             for x in view_x..view_x + view_width {
                 if player_x == x && player_y == y {
-                    row.push_str(match self.player.direction {
-                        Direction::Up => "🧍",
-                        Direction::Down => "🧍",
-                        Direction::Left => "🚶",
-                        Direction::Right => "🚶",
-                    });
+                    if self.is_game_over {
+                        row.push_str(ItemTiles::Skull.to_tile().to_html().as_str());
+                        continue;
+                    }
+                    row.push_str(Tile {
+                        char: '🚶',
+                        size: 0.9,
+                        mirror: self.player.direction != Direction::Left,
+                    }.to_html().as_str());
                     continue;
                 }
 
                 let mut enemy_present = false;
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
-                        row.push_str(enemy.char.to_string().as_str());
+                        row.push_str(enemy.tile.to_html().as_str());
                         enemy_present = true;
-                        break;
+                        continue;
                     }
                 }
                 if enemy_present {
@@ -594,9 +604,9 @@ impl Game {
                 let mut item_present = false;
                 for item in &self.items {
                     if item.position.x == x && item.position.y == y {
-                        row.push_str(item.char.to_string().as_str());
+                        row.push_str(item.tile.to_html().as_str());
                         item_present = true;
-                        break;
+                        continue;
                     }
                 }
                 if item_present {
@@ -604,19 +614,17 @@ impl Game {
                 }
 
                 let tile = &self.map.tiles[y as usize][x as usize];
-                row.push_str(tile.tile_type.character().to_string().as_str());
+                row.push_str(tile.to_html().as_str());
             }
             let screen_y = y - view_y;
 
-
-            let row = row.chars().map(|c| format!("<span class='tile'>{}</span>", c)).collect::<Vec<String>>().join("");
 
             if screen_y < evts.len() as i32 {
                 events_elem.push_str(format!("<div class='event'>{}<div>", evts[screen_y as usize]).as_str());
             }
             events_elem.push_str("</div>");
 
-            output.push_str(format!("<div>{}</div>", row).as_str());
+            output.push_str(format!("<div class='row'>{}</div>", row).as_str());
         }
         output.push_str("</div>");
         output.push_str(events_elem.as_str());
