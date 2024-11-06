@@ -9,6 +9,7 @@
     font-size: 18px;
     color: gray;
     background: black;
+    overflow: hidden;
     
     .stats {
       padding: 9px 18px;
@@ -16,23 +17,40 @@
     .game {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       gap: 18px;
 
       
       .events, .stats {
-        display: flex;
-        flex: 1 1 auto;
+        position: fixed;
+        top: 0;
+        right: 0;
         padding: 18px;
+        bottom: 0;
+      }
+
+      .events {
+        flex-direction: column;
+        gap: 9px;
       }
 
       .map {
         gap: 2px;
         padding: 9px;
+        transform: matrix3d(1, -0.001, 0, 0, 0, 1, 0, -0.001, 0, 0, 1, 0, 0, 0, 0, 0.5);
+        transform-style: preserve-3d;
+        transform-origin: 50% 450px 0;
       }
     }
     .row {
       display: flex;
+      transform: matrix3d(1, 0.002, 0, 0, 0, 1, 0, 0.002, 0, 0, 1, 0, 0, 0, 0, 0.5);
+      transform-style: preserve-3d;
+      transform-origin: 50% 50% 0;
     }
+
     .tile {
       font-size: 24px;
       width: 24px;
@@ -42,7 +60,7 @@
       overflow: visible;
       text-align: center;
       line-height: 3px;
-      
+
     }
   }
   </style>
@@ -53,9 +71,6 @@
 
   <script>
   document.addEventListener('keydown', async function (e) {
-    if (e.repeat) {
-      return;
-    }
     if (!["z", "q", "s", "d", "h", "j", "k", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(e.key)) {
       return;
     }

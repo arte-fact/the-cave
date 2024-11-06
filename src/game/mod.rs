@@ -585,14 +585,20 @@ impl Game {
                         char: '🚶',
                         size: 0.9,
                         mirror: self.player.direction != Direction::Left,
+                        opacity: 1.0,
                     }.to_html().as_str());
                     continue;
                 }
 
+                let player_distance = (((player_x - x) * (player_x - x) + (player_y - y) * (player_y - y)) as f64).sqrt();
+                let opacity = ((9.0 / player_distance) as f32) - 1.0;
+
                 let mut enemy_present = false;
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
-                        row.push_str(enemy.tile.to_html().as_str());
+                        let mut tile = enemy.tile.clone();
+                        tile.opacity = opacity;
+                        row.push_str(tile.to_html().as_str());
                         enemy_present = true;
                         continue;
                     }
@@ -604,8 +610,10 @@ impl Game {
                 let mut item_present = false;
                 for item in &self.items {
                     if item.position.x == x && item.position.y == y {
-                        row.push_str(item.tile.to_html().as_str());
+                        let mut tile = item.tile.clone();
+                        tile.opacity = opacity;
                         item_present = true;
+                        row.push_str(tile.to_html().as_str());
                         continue;
                     }
                 }
@@ -613,7 +621,8 @@ impl Game {
                     continue;
                 }
 
-                let tile = &self.map.tiles[y as usize][x as usize];
+                let mut tile = self.map.tiles[y as usize][x as usize].clone();
+                tile.opacity = opacity;
                 row.push_str(tile.to_html().as_str());
             }
             let screen_y = y - view_y;

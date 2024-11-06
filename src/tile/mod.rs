@@ -3,6 +3,7 @@ pub struct Tile {
     pub char: char,
     pub size: f32,
     pub mirror: bool,
+    pub opacity: f32,
 }
 
 impl Tile {
@@ -13,8 +14,8 @@ impl Tile {
             "".to_string()
         };
         format!(
-            "<span class='tile' style='{} font-size: {}; width: {}px; height: {}px;'>{}</span>",
-            style, 24.0 * self.size, 24, 24, self.char
+            "<span class='tile' style='{} font-size: {}; width: {}px; height: {}px; opacity: {}'>{}</span>",
+            style, 24.0 * self.size, 24, 24, self.opacity, self.char
         )
     }
 }
@@ -30,18 +31,21 @@ impl MapTiles {
         match self {
             MapTiles::Rock => Tile {
                 char: '🪨',
-                size: 0.8,
+                size: 1.0,
                 mirror: false,
+                opacity: 1.0,
             },
             MapTiles::Floor => Tile {
-                char: '·',
+                char: '.',
                 size: 0.8,
                 mirror: false,
+                opacity: 1.0,
             },
             MapTiles::Fire => Tile {
                 char: '🔥',
                 size: 0.8,
                 mirror: false,
+                opacity: 1.0,
             },
         }
     }
@@ -65,41 +69,49 @@ impl EnemyTiles {
                 char: '🐀',
                 size: 0.6,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::Bat => Tile {
                 char: '🦇',
                 size: 0.6,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::Snake => Tile {
                 char: '🐍',
                 size: 0.6,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::Spider => Tile {
                 char: '🕷',
                 size: 0.6,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::Scorpion => Tile {
                 char: '🦂',
                 size: 0.6,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::TRex => Tile {
                 char: '🦖',
                 size: 0.9,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::Aligator => Tile {
                 char: '🐊',
                 size: 0.8,
                 mirror: false,
+                opacity: 1.0,
             },
             EnemyTiles::Dragon => Tile {
                 char: '🐉',
                 size: 1.1,
                 mirror: false,
+                opacity: 1.0,
             },
         }
     }
@@ -123,41 +135,49 @@ impl ItemTiles {
                 char: '🗡',
                 size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Shield => Tile {
                 char: '🛡',
                 size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Potion => Tile {
                 char: '🧪',
                 size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Diamond => Tile {
                 char: '💎',
                 size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Skull => Tile {
                 char: '💀',
-                size: 1.0,
+                size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Crown => Tile {
                 char: '👑',
                 size: 1.0,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Meat => Tile {
                 char: '🍖',
                 size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
             ItemTiles::Steak => Tile {
                 char: '🥩',
                 size: 0.5,
                 mirror: false,
+                opacity: 1.0,
             },
         }
     }
