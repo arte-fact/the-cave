@@ -1,3 +1,6 @@
+mod assets;
+mod html;
+mod pages;
 mod game;
 mod map;
 mod server;
@@ -7,7 +10,10 @@ use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 
-use self::game::{Action, Game};
+use self::game::action::Action;
+use self::game::Game;
+use self::pages::game::game_page;
+use self::pages::map::map_page;
 use self::server::{html_response, parse_request, text_response, Method, Request};
 
 fn handle_get(game: &Game) -> String {
@@ -73,8 +79,8 @@ fn handle_connection(
 
     let res = match request.method {
         Method::Get => match path.as_str() {
-            "" => html_response(handle_get(&game), &session_id),
-            "map" => html_response(handle_preview_map(&game), &session_id),
+            "" => html_response(game_page(), handle_get(&game), &session_id),
+            "map" => html_response(map_page(), handle_preview_map(&game), &session_id),
             "key" => match handle_key(&request, &mut game) {
                 Ok(r) => text_response(r),
                 Err(e) => e.to_string(),

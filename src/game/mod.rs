@@ -1,101 +1,23 @@
+pub mod action;
+pub mod biome;
+pub mod enemy;
+pub mod features;
+pub mod item;
+pub mod player;
 use rand::Rng;
 
+use crate::assets::colors::Color;
+use crate::assets::tiles::ItemTiles;
 use crate::map::Map;
-use crate::tile::{EnemyTiles, ItemTiles, Tile};
+use crate::tile::Tile;
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Player {
-    pub character: Box<char>,
-    pub health: i32,
-    pub attack: i32,
-    pub defense: i32,
-    pub position: Position,
-    pub direction: Direction,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Action {
-    Up,
-    Down,
-    Left,
-    Right,
-    Confirm,
-    Unhandled,
-}
-
-impl Action {
-    pub fn from_key(key: &str) -> Option<Action> {
-        let up = Some(Action::Up);
-        let down = Some(Action::Down);
-        let left = Some(Action::Left);
-        let right = Some(Action::Right);
-        match key.trim() {
-            "k" => up,
-            "ArrowUp" => up,
-            "z" => up,
-            "ArrowDown" => down,
-            "s" => down,
-            "j" => down,
-            "ArrowLeft" => left,
-            "q" => left,
-            "h" => left,
-            "ArrowRight" => right,
-            "d" => right,
-            "l" => right,
-            "Enter" => Some(Action::Confirm),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Position {
-    pub x: i32,
-    pub y: i32,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Enemy {
-    pub name: String,
-    pub tile: Tile,
-    pub health: i32,
-    pub attack: i32,
-    pub defense: i32,
-    pub occurences: i32,
-    pub position: Position,
-    pub behavior: Behavior,
-    pub state: EnemyState,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum EnemyState {
-    Idle,
-    Attacking,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Behavior {
-    Aggressive,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Item {
-    name: String,
-    tile: Tile,
-    occurences: i32,
-    health: i32,
-    attack: i32,
-    defense: i32,
-    position: Position,
-}
+use self::action::Action;
+use self::enemy::{Enemy, EnemyState};
+use self::{
+    features::{direction::Direction, position::Position},
+    item::Item,
+    player::Player,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Game {
@@ -113,133 +35,9 @@ pub struct Game {
 impl Game {
     pub fn new() -> Game {
         println!("Generating new game...");
-        let map = Map::generate(400, 400);
-        let player_position = map.random_valid_position(&vec![]);
-
-        let ennemies = [
-            Enemy {
-                name: "Rat".to_string(),
-                tile: EnemyTiles::Rat.to_tile(),
-                health: 20,
-                attack: 2,
-                occurences: 10,
-                defense: 0,
-                position: Position { x: 0, y: 0 },
-                behavior: Behavior::Aggressive,
-                state: EnemyState::Idle,
-            },
-            Enemy {
-                name: "Bat".to_string(),
-                tile: EnemyTiles::Bat.to_tile(),
-                health: 30,
-                attack: 5,
-                occurences: 10,
-                defense: 0,
-                position: Position { x: 0, y: 0 },
-                behavior: Behavior::Aggressive,
-                state: EnemyState::Idle,
-            },
-            Enemy {
-                name: "Snake".to_string(),
-                tile: EnemyTiles::Snake.to_tile(),
-                health: 30,
-                attack: 5,
-                occurences: 20,
-                defense: 0,
-                position: Position { x: 0, y: 0 },
-                behavior: Behavior::Aggressive,
-                state: EnemyState::Idle,
-            },
-            Enemy {
-                name: "Aligator".to_string(),
-                tile: EnemyTiles::Aligator.to_tile(),
-                health: 75,
-                attack: 15,
-                occurences: 5,
-                defense: 5,
-                position: Position { x: 0, y: 0 },
-                behavior: Behavior::Aggressive,
-                state: EnemyState::Idle,
-            },
-            Enemy {
-                name: "T-rex".to_string(),
-                tile: EnemyTiles::TRex.to_tile(),
-                health: 100,
-                attack: 20,
-                occurences: 5,
-                defense: 0,
-                position: Position { x: 0, y: 0 },
-                behavior: Behavior::Aggressive,
-                state: EnemyState::Idle,
-            },
-            Enemy {
-                name: "Dragon".to_string(),
-                tile: EnemyTiles::Dragon.to_tile(),
-                health: 200,
-                occurences: 1,
-                attack: 40,
-                defense: 10,
-                position: Position { x: 0, y: 0 },
-                behavior: Behavior::Aggressive,
-                state: EnemyState::Idle,
-            },
-        ];
-
-        let mut banned_positions: Vec<Position> = vec![player_position];
-
+        let (map, player_pos, enemies, items) = Map::generate(256, 1024);
         println!("Enemies generated!");
-        let mut enemies: Vec<Enemy> = vec![];
-        for enemy in &ennemies {
-            (0..enemy.occurences).for_each(|_| {
-                let position = map.random_valid_position(&banned_positions);
-                banned_positions.push(position.clone());
-                let mut e = enemy.clone();
-                e.position = position.clone();
-                enemies.push(e);
-            });
-        }
-
-        let _items = [
-            Item {
-                name: "Health potion".to_string(),
-                tile: ItemTiles::Potion.to_tile(),
-                health: 20,
-                occurences: 10,
-                attack: 0,
-                defense: 0,
-                position: Position { x: 0, y: 0 },
-            },
-            Item {
-                name: "Sword Upgrade".to_string(),
-                tile: ItemTiles::Sword.to_tile(),
-                health: 0,
-                occurences: 5,
-                attack: 5,
-                defense: 0,
-                position: Position { x: 0, y: 0 },
-            },
-            Item {
-                name: "Shield Upgrade".to_string(),
-                tile: ItemTiles::Shield.to_tile(),
-                health: 0,
-                occurences: 5,
-                attack: 0,
-                defense: 5,
-                position: Position { x: 0, y: 0 },
-            },
-        ];
-
         println!("Items generated!");
-        let mut items: Vec<Item> = vec![];
-        for item in &_items {
-            (0..item.occurences).for_each(|_| {
-                let position = map.random_valid_position(&banned_positions);
-                banned_positions.push(position.clone());
-                let mut i = item.clone();
-                i.position = position.clone();
-                items.push(i);
-            });
-        }
         println!("Game generated!");
 
         Game {
@@ -249,13 +47,13 @@ impl Game {
                 health: 30,
                 attack: 5,
                 defense: 0,
-                position: map.random_valid_position(&banned_positions),
+                position: player_pos,
                 direction: Direction::Down,
             },
             enemies,
             items,
-            view_width: 40,
-            view_height: 30,
+            view_width: 30,
+            view_height: 20,
             events: vec!["Find and kill the dragon!".to_string()],
             is_game_over: false,
             is_game_won: false,
@@ -294,8 +92,7 @@ impl Game {
             _ => (),
         }
 
-        if !self.map.walkable.contains(&next_position)
-        {
+        if !self.map.walkable.contains(&next_position) {
             return;
         }
 
@@ -323,15 +120,10 @@ impl Game {
                         self.is_game_won = true;
                         self.events
                             .push("You won! Press Enter to start a new game.".to_string());
-                        // self.map.tiles[enemy.position.y as usize][enemy.position.x as usize] =
-                        //     Tile {
-                        //         tile_type: TileType::Crown,
-                        //         size: 1.0,
-                        //     };
                         self.map.change_tile(
                             enemy.position.x,
                             enemy.position.y,
-                            crate::tile::ItemTiles::Crown.to_tile(),
+                            ItemTiles::Crown.to_tile(),
                             true,
                         );
                     }
@@ -402,10 +194,7 @@ impl Game {
             let dy = self.player.position.y - enemy.position.y;
             let distance = ((dx * dx + dy * dy) as f64).sqrt();
 
-            let movement = match enemy.behavior {
-                Behavior::Aggressive => 1,
-            };
-
+            let movement = 1;
             let mut next_position = enemy.position.clone();
             if distance < 5.0 {
                 if enemy.state == EnemyState::Idle {
@@ -415,7 +204,7 @@ impl Game {
                 }
                 if self.player.position.x > enemy.position.x {
                     enemy.tile.mirror = true;
-                } 
+                }
                 if self.player.position.x < enemy.position.x {
                     enemy.tile.mirror = false;
                 }
@@ -446,8 +235,7 @@ impl Game {
                 }
             }
 
-            if !self.map.walkable.contains(&next_position)
-            {
+            if !self.map.walkable.contains(&next_position) {
                 continue;
             }
 
@@ -514,6 +302,7 @@ impl Game {
 
     pub fn draw(&self) -> String {
         let mut output = String::new();
+
         output.push_str(&format!(
             "<div class='stats'> ❤️  {} 🗡️ {} 🛡️ {} </div>",
             self.player.health, self.player.attack, self.player.defense
@@ -529,6 +318,7 @@ impl Game {
 
         let view_x = (player_x - view_width / 2).clamp(0, map_width - view_width);
         let view_y = (player_y - view_height / 2).clamp(0, map_height - view_height);
+
         self.draw_map(
             view_y,
             view_height,
@@ -539,25 +329,62 @@ impl Game {
             evts,
             &mut output,
         );
-
+        output.push_str("</div>");
         output
     }
 
     pub fn preview_map(&self) -> String {
         let mut output = String::new();
 
-        self.draw_map(
-            0,
-            self.map.width,
-            0,
-            self.map.height,
-            self.player.position.x,
-            self.player.position.y,
-            self.event_list(),
-            &mut output,
-        );
+        let this = &self;
+        let view_y = 0;
+        let view_height = self.map.width;
+        let view_x = 0;
+        let view_width = self.map.height;
+        let output: &mut String = &mut output;
+        for y in view_y..view_y + view_width {
+            let mut row = "".to_string();
+            for x in view_x..view_x + view_height {
+                let mut enemy_present = false;
+                for enemy in &this.enemies {
+                    if enemy.position.x == x && enemy.position.y == y {
+                        row.push_str(enemy.tile.char.to_string().as_str());
+                        enemy_present = true;
+                        break;
+                    }
+                }
+                if enemy_present {
+                    continue;
+                }
 
-        output
+                let mut item_present = false;
+                for item in &this.items {
+                    if item.position.x == x && item.position.y == y {
+                        row.push_str(item.tile.char.to_string().as_str());
+                        item_present = true;
+                        break;
+                    }
+                }
+                if item_present {
+                    continue;
+                }
+
+                let tile = self.map.tiles[y as usize][x as usize].clone();
+                row.push_str(tile.char.to_string().as_str());
+            }
+
+            output.push_str(
+                format!(
+                    "<div class='row'>{}</div>",
+                    row.chars().into_iter().map(|c| 
+                        format!("<span class='tile'>{}</span>", c)
+                    ).collect::<String>()
+                )
+                .as_str(),
+            );
+        }
+
+        output.clone()
     }
 
     pub fn draw_map(
@@ -576,28 +403,39 @@ impl Game {
         for y in view_y..view_y + view_height {
             let mut row = "".to_string();
             for x in view_x..view_x + view_width {
+                let map_tile = self.map.tiles[y as usize][x as usize].clone();
                 if player_x == x && player_y == y {
                     if self.is_game_over {
                         row.push_str(ItemTiles::Skull.to_tile().to_html().as_str());
                         continue;
                     }
-                    row.push_str(Tile {
-                        char: '🚶',
-                        size: 0.9,
-                        mirror: self.player.direction != Direction::Left,
-                        opacity: 1.0,
-                    }.to_html().as_str());
+                    row.push_str(
+                        Tile {
+                            char: '🚶',
+                            size: 0.9,
+                            mirror: self.player.direction != Direction::Left,
+                            opacity: 1.0,
+                            hue: 0.0,
+                            altitude: 0.25,
+                            color: map_tile.color.clone(),
+                        }
+                        .to_html()
+                        .as_str(),
+                    );
                     continue;
                 }
 
-                let player_distance = (((player_x - x) * (player_x - x) + (player_y - y) * (player_y - y)) as f64).sqrt();
-                let opacity = ((10.0 / player_distance) as f32) - 1.0;
+                let player_distance =
+                    (((player_x - x) * (player_x - x) + (player_y - y) * (player_y - y)) as f64)
+                        .sqrt();
+                let opacity = ((15.0 / player_distance) as f32) - 1.0;
 
                 let mut enemy_present = false;
                 for enemy in &self.enemies {
                     if enemy.position.x == x && enemy.position.y == y {
                         let mut tile = enemy.tile.clone();
                         tile.opacity = opacity;
+                        tile.color = map_tile.color.clone();
                         row.push_str(tile.to_html().as_str());
                         enemy_present = true;
                         continue;
@@ -612,6 +450,7 @@ impl Game {
                     if item.position.x == x && item.position.y == y {
                         let mut tile = item.tile.clone();
                         tile.opacity = opacity;
+                        tile.color = map_tile.color.clone();
                         item_present = true;
                         row.push_str(tile.to_html().as_str());
                         continue;
@@ -623,13 +462,15 @@ impl Game {
 
                 let mut tile = self.map.tiles[y as usize][x as usize].clone();
                 tile.opacity = opacity;
+                tile.color = map_tile.color.clone();
                 row.push_str(tile.to_html().as_str());
             }
             let screen_y = y - view_y;
 
-
             if screen_y < evts.len() as i32 {
-                events_elem.push_str(format!("<div class='event'>{}<div>", evts[screen_y as usize]).as_str());
+                events_elem.push_str(
+                    format!("<div class='event'>{}<div>", evts[screen_y as usize]).as_str(),
+                );
             }
             events_elem.push_str("</div>");
 

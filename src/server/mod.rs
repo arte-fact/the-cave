@@ -1,13 +1,8 @@
 pub mod session;
 use std::collections::HashMap;
-use std::fs;
 
-pub fn html_response(content: String, session_id: &str) -> String {
-    let mut contents = match fs::read_to_string("assets/index.html") {
-        Ok(contents) => contents,
-        Err(_) => String::from("Error reading index.html"),
-    };
-
+pub fn html_response(layout: String, content: String, session_id: &str) -> String {
+    let mut contents = layout;
     contents = contents.replace("{{ content }}", &content);
     let length = contents.len();
 

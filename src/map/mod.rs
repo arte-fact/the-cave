@@ -1,7 +1,13 @@
-use rand::seq::{IteratorRandom, SliceRandom};
+use rand::seq::IteratorRandom;
 use rand::Rng;
 
-use crate::game::Position;
+use crate::assets::biomes::Biomes;
+use crate::assets::enemies::Enemies;
+use crate::assets::items::Items;
+use crate::game::biome::Biome;
+use crate::game::enemy::Enemy;
+use crate::game::features::position::Position;
+use crate::game::item::Item;
 use crate::tile::{MapTiles, Tile};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,55 +18,136 @@ pub struct Map {
     pub height: i32,
 }
 
-pub struct TileSeedZone {
-    _name: String,
-    tile_type: Vec<(Tile, u32)>,
-    _occurences: i32,
-    size: i32,
-    size_variance: i32,
-    min_distance: i32,
-    max_distance: i32,
+#[derive(PartialEq)]
+enum TileState {
+    Used,
+    Unused,
 }
 
-impl TileSeedZone {
-    pub fn get_tile(&self) -> Tile {
+struct Blueprint {
+    width: usize,
+    height: usize,
+    tiles: Vec<TileState>,
+}
+
+impl Blueprint {
+    pub fn new(width: usize, height: usize) -> Blueprint {
+        let mut tiles = vec![];
+        for _ in 0..width * height {
+            tiles.push(TileState::Unused);
+        }
+        Blueprint {
+            width,
+            height,
+            tiles,
+        }
+    }
+
+    pub fn get_tile(&self, x: usize, y: usize) -> &TileState {
+        &self.tiles[y * self.width + x]
+    }
+
+    pub fn set_tile(&mut self, x: usize, y: usize, tile: TileState) {
+        self.tiles[y * self.width + x] = tile;
+    }
+
+    pub fn random_position(&self) -> Position {
         let mut rng = rand::thread_rng();
-        let mut total = 0;
-        for (_, chance) in &self.tile_type {
-            total += chance;
+        Position {
+            x: rng.gen_range(0..self.width as i32),
+            y: rng.gen_range(0..self.height as i32),
         }
-        let mut roll = rng.gen_range(0..total);
-        for (tile, chance) in &self.tile_type {
-            if roll < *chance {
-                return tile.clone();
+    }
+
+    pub fn generate(height: usize, width: usize) -> Vec<Position> {
+        let mut nodes = vec![];
+        let dist = 30;
+
+        let start = Position { x: 128, y: 996 };
+        let mut current = start.clone();
+        nodes.push(start.clone());
+        let mut vectors: Vec<(Position, Position)> = vec![];
+        let mut positions = vec![start.clone()];
+        let mut rng = rand::thread_rng();
+
+        let mut total_tries = 0;
+        let mut tries = 0;
+        while current.y > 64 {
+            total_tries += 1;
+            if total_tries > 1000000 {
+                println!("max total tries");
+                break;
             }
-            roll -= chance;
-        }
-        self.tile_type[0].0.clone()
-    }
-}
+            let x_dir = if rng.gen_bool(0.5) { 1 } else { -1 };
+            let y_dir = -1;
+            let move_x = rng.gen_range(dist / 2..dist);
+            let move_y = ((dist * dist - move_x * move_x) as f32).sqrt() as i32;
 
-impl Default for TileSeedZone {
-    fn default() -> Self {
-        TileSeedZone {
-            _name: "Cave floors".to_string(),
-            tile_type: vec![
-                (MapTiles::Floor.to_tile(), 100),
-                (MapTiles::Rock.to_tile(), 1),
-            ],
-            _occurences: 4,
-            size: 5,
-            size_variance: 32,
-            min_distance: 5,
-            max_distance: 30,
-        }
-    }
-}
+            let mut next = current.clone();
+            next.add_position(&Position {
+                x: x_dir * move_x,
+                y: y_dir * move_y,
+            });
 
-pub fn distance(x1: &i32, y1: &i32, x2: &i32, y2: &i32) -> f32 {
-    let x = (x1 - x2).abs() as f32;
-    let y = (y1 - y2).abs() as f32;
-    (x * x + y * y).sqrt()
+            let is_far_enough = vectors
+                .iter()
+                .all(|(_, p)| p.distance_to(&next) > (dist / 2) as f32);
+
+            let intersect_any_vector = vectors.iter().any(|(from, to)| {
+                let pad = 10;
+                let from_x = from.x.min(to.x);
+                let from_y = from.y.min(to.y);
+                let to_x = from.x.max(to.x);
+                let to_y = from.y.max(to.y);
+                let x = next.x;
+                let y = next.y;
+                x >= from_x - pad && x <= to_x + pad && y >= from_y - pad && y <= to_y + pad
+            });
+
+            if next.x < 0
+                || next.y < 0
+                || next.x >= width as i32
+                || next.y >= height as i32
+                || !is_far_enough
+                || intersect_any_vector
+            {
+                tries += 1;
+                if tries > 15 {
+                    current = nodes.pop().unwrap_or(start.clone());
+                    tries = 0;
+                }
+                continue;
+            }
+            nodes.push(next.clone());
+            vectors.push((current.clone(), next.clone()));
+            current = next.clone();
+        }
+
+        for (pos_from, pos_to) in vectors {
+            let min_x = pos_from.x.min(pos_to.x);
+            let max_x = pos_from.x.max(pos_to.x);
+            let min_y = pos_from.y.min(pos_to.y);
+            let max_y = pos_from.y.max(pos_to.y);
+            for x in min_x..max_x {
+                for y in min_y..max_y {
+                    positions.push(Position { x, y });
+                }
+            }
+            for pos in pos_from.get_square(5) {
+                if pos.x < 0
+                    || pos.y < 0
+                    || pos.x >= width as i32
+                    || pos.y >= height as i32
+                    || min_x <= pos.x && pos.x < max_x && min_y <= pos.y && pos.y < max_y
+                {
+                    continue;
+                }
+                positions.push(pos.clone());
+            }
+        }
+
+        positions
+    }
 }
 
 impl Map {
@@ -73,31 +160,61 @@ impl Map {
             .clone()
     }
 
-    pub fn generate(width: i32, height: i32) -> Map {
-        let seeds = vec![TileSeedZone::default()];
+    pub fn generate(width: i32, height: i32) -> (Map, Position, Vec<Enemy>, Vec<Item>) {
         let mut tiles = vec![];
-        for _ in 0..height {
+        let mut walkable = vec![];
+        let mut ennemies = vec![];
+        let mut items = vec![];
+        let player_position = Position { x: 128, y: 996 };
+
+        for y in 0..height {
             let mut row = vec![];
+            let biome = get_biome_at_height(y);
             for _ in 0..width {
-                row.push(MapTiles::Rock.to_tile());
+                let mut tile = biome.get_filler_tile().to_tile();
+                tile.color = biome.get_background();
+                row.push(tile);
             }
             tiles.push(row);
         }
-        let mut map = Map {
+
+        for p in Blueprint::generate(height as usize, width as usize) {
+            let biome = get_biome_at_height(p.y);
+            let element = Biome::get_random_element(biome.get_tiles());
+            match element.clone() {
+                Biome::Item(item, _) => {
+                    let mut item = item.clone();
+                    item.position = p.clone();
+                    items.push(item);
+                },
+                Biome::Enemy(enemy, _) => {
+                    let mut enemy = enemy.clone();
+                    enemy.position = p.clone();
+                    ennemies.push(enemy);
+                },
+                Biome::Block(_, _) => {
+                    let tile = element.get_tile();
+                    tiles[p.y as usize][p.x as usize] = tile;
+                },
+            }
+            let mut tile = MapTiles::Floor.to_tile();
+            tile.color = biome.get_background();
+            tiles[p.y as usize][p.x as usize] = tile;
+            walkable.push(p.clone());
+        }
+        let map = Map {
             tiles,
-            walkable: vec![],
+            walkable,
             width,
             height,
         };
-        map.generate_tiles(seeds);
 
-        map
-    }
-
-    fn generate_tiles(&mut self, seeds: Vec<TileSeedZone>) {
-        for seed in seeds {
-            self.generate_seed(&seed);
-        }
+        (
+            map,
+            player_position,
+            ennemies,
+            items,
+        )
     }
 
     pub fn change_tile(&mut self, x: i32, y: i32, tile: Tile, walkable: bool) {
@@ -111,118 +228,21 @@ impl Map {
             self.walkable.retain(|p| p != &Position { x, y });
         }
     }
+}
 
-    fn generate_seed(&mut self, seed: &TileSeedZone) {
-        let mut rng = rand::thread_rng();
-
-        let mut size =
-            rng.gen_range(seed.size - seed.size_variance..seed.size + seed.size_variance);
-        let mut x = rng.gen_range(size..self.width - size);
-        let mut y = rng.gen_range(size..self.height - size);
-        let mut seeds_origins = vec![(x, y)];
-
-        let mut _has_next = true;
-        let mut max_tries = 50;
-        while _has_next && max_tries > 0 {
-            size = rng.gen_range(seed.size - seed.size_variance..seed.size + seed.size_variance);
-
-            let valid_next_x = [
-                (x + seed.min_distance..x + seed.max_distance)
-                    .filter(|x| *x >= size && *x < self.width - size)
-                    .collect::<Vec<i32>>(),
-                (x - seed.max_distance..x - seed.min_distance)
-                    .filter(|x| *x >= size && *x < self.width - size)
-                    .collect::<Vec<i32>>(),
-            ]
-            .concat();
-
-            let mut valid_positions = vec![];
-            for valid_x in valid_next_x {
-                let valid_next_y = [
-                    (valid_x + seed.min_distance..valid_x + seed.max_distance)
-                        .filter(|y| *y >= size && *y < self.height - size)
-                        .collect::<Vec<i32>>(),
-                    (y - seed.max_distance..y - seed.min_distance)
-                        .filter(|y| *y >= size && *y < self.height - size)
-                        .collect::<Vec<i32>>(),
-                ]
-                .concat();
-                for valid_y in valid_next_y {
-                    let mut valid = true;
-                    for (seed_x, seed_y) in &seeds_origins {
-                        if distance(&seed_x, &seed_y, &valid_x, &valid_y) < seed.min_distance as f32
-                        {
-                            valid = false;
-                            break;
-                        }
-                    }
-                    if valid {
-                        valid_positions.push((valid_x, valid_y));
-                    }
-                }
-            }
-
-            let (next_x, next_y) = match valid_positions.choose(&mut rng) {
-                Some((x, y)) => (x.clone(), y.clone()),
-                None => {
-                    max_tries -= 1;
-                    continue;
-                }
-            };
-
-            max_tries -= 1;
-
-            self.connect_zones(&x, &y, &next_x, &next_y);
-            x = next_x.clone().clone();
-            y = next_y.clone().clone();
-            self.generate_zone(x, y, size, seed);
-            seeds_origins.push((x, y));
-        }
-    }
-
-    fn connect_zones(&mut self, x1: &i32, y1: &i32, x2: &i32, y2: &i32) {
-        let mut x = x1.clone();
-        let mut y = y1.clone();
-        while x != x2.clone() {
-            let _x = (x2 - x1).signum();
-
-            for i in -1..1 {
-                let y = (y + i as i32).clamp(0, self.height - 1);
-                let x = (x + _x).clamp(0, self.width - 1);
-                self.change_tile(x, y, MapTiles::Floor.to_tile(), true);
-            }
-
-            x += _x;
-        }
-        while y != y2.clone() {
-            let _y = (y2 - y1).signum();
-
-            for i in -1..1 {
-                let x = (x + i as i32).clamp(0, self.width - 1);
-                let y = (y + _y).clamp(0, self.height - 1);
-                self.change_tile(x, y, MapTiles::Floor.to_tile(), true);
-            }
-
-            y += _y;
-        }
-    }
-
-    fn generate_zone(&mut self, x: i32, y: i32, size: i32, seed: &TileSeedZone) {
-        let mut x = x - size / 2;
-        let mut y = y - size / 2;
-        for _ in 0..size {
-            for _ in 0..size {
-                if distance(&x, &y, &(x + size / 2), &(y + size / 2)) > size as f32 {
-                    x += 1;
-                    continue;
-                }
-                let y1 = y.clamp(0, self.height - 1);
-                let x1 = x.clamp(0, self.width - 1);
-                self.change_tile(x1, y1, seed.get_tile(), true);
-                x += 1;
-            }
-            x -= size;
-            y += 1;
-        }
-    }
+fn get_biome_at_height(y: i32) -> Biomes {
+    let biome = if y < 96 {
+        Biomes::Cave
+    } else if y < 400 {
+        Biomes::Forest
+    } else if y < 700 {
+        Biomes::Desert
+    } else if y < 980 {
+        Biomes::Jungle
+    } else if y < 1015 {
+        Biomes::Shore
+    } else {
+        Biomes::Ocean
+    };
+    biome
 }
