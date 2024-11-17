@@ -6,15 +6,15 @@ pub mod item;
 pub mod player;
 use rand::Rng;
 
-use crate::assets::colors::Color;
 use crate::assets::tiles::ItemTiles;
 use crate::map::Map;
+use crate::pages::game::display_controls;
 use crate::tile::Tile;
 
 use self::action::Action;
 use self::enemy::{Enemy, EnemyState};
 use self::{
-    features::{direction::Direction, position::Position},
+    features::direction::Direction,
     item::Item,
     player::Player,
 };
@@ -35,7 +35,7 @@ pub struct Game {
 impl Game {
     pub fn new() -> Game {
         println!("Generating new game...");
-        let (map, player_pos, enemies, items) = Map::generate(256, 1024);
+        let (map, player_pos, enemies, items) = Map::generate(1024, 1024);
         println!("Enemies generated!");
         println!("Items generated!");
         println!("Game generated!");
@@ -477,6 +477,7 @@ impl Game {
             output.push_str(format!("<div class='row'>{}</div>", row).as_str());
         }
         output.push_str("</div>");
+        output.push_str(display_controls().as_str());
         output.push_str(events_elem.as_str());
     }
 }

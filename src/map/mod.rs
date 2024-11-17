@@ -2,8 +2,6 @@ use rand::seq::IteratorRandom;
 use rand::Rng;
 
 use crate::assets::biomes::Biomes;
-use crate::assets::enemies::Enemies;
-use crate::assets::items::Items;
 use crate::game::biome::Biome;
 use crate::game::enemy::Enemy;
 use crate::game::features::position::Position;
@@ -72,14 +70,14 @@ impl Blueprint {
 
         let mut total_tries = 0;
         let mut tries = 0;
-        while current.y > 64 {
+        while vectors.len() < 512 {
             total_tries += 1;
             if total_tries > 1000000 {
                 println!("max total tries");
                 break;
             }
             let x_dir = if rng.gen_bool(0.5) { 1 } else { -1 };
-            let y_dir = -1;
+            let y_dir = if rng.gen_bool(0.5) { 1 } else { -1 };
             let move_x = rng.gen_range(dist / 2..dist);
             let move_y = ((dist * dist - move_x * move_x) as f32).sqrt() as i32;
 
@@ -133,7 +131,7 @@ impl Blueprint {
                     positions.push(Position { x, y });
                 }
             }
-            for pos in pos_from.get_square(5) {
+            for pos in pos_from.get_circle(5) {
                 if pos.x < 0
                     || pos.y < 0
                     || pos.x >= width as i32
@@ -239,10 +237,8 @@ fn get_biome_at_height(y: i32) -> Biomes {
         Biomes::Desert
     } else if y < 980 {
         Biomes::Jungle
-    } else if y < 1015 {
-        Biomes::Shore
     } else {
-        Biomes::Ocean
+        Biomes::Shore
     };
     biome
 }

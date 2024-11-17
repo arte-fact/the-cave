@@ -11,19 +11,7 @@ pub const STYLE: &str = r#"
     }
     .game {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-
-      
-      .events, .stats {
-        position: fixed;
-        top: 0;
-        right: 0;
-        padding: 18px;
-        bottom: 0;
-      }
+      flex-direction: column;
 
       .events {
         flex-direction: column;
@@ -31,7 +19,8 @@ pub const STYLE: &str = r#"
       }
 
       .map {
-        transform: matrix3d(1, 0, 0, 0, 0, 1, 0, -0.0005, 0, 0, 1, 0, 0, 0, 0, 1);
+        // transform: matrix3d(1, 0, 0, 0, 0, 1, 0, -0.0005, 0, 0, 1, 0, 0, 0, 0, 1);
+        margin-top: 4em;
       }
     }
     .row {
@@ -39,6 +28,24 @@ pub const STYLE: &str = r#"
         display: flex;
         .char {
           position: relative;
+      }
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      gap: 9px;
+      margin-top: 9px;
+      button {
+        font-size: 64px;
+        background: none;
+        border: none;
+        cursor: pointer;
+
+        text-decoration: none;
+        color: gray;
       }
     }
 
