@@ -1,4 +1,4 @@
-use crate::map::{Map, Tile};
+use crate::map::{Map, Tile, Visibility};
 use crate::world::{Location, World};
 
 #[derive(Clone)]
@@ -77,6 +77,22 @@ impl Game {
     /// Convenience accessor for the current map.
     pub fn current_map(&self) -> &Map {
         self.world.current_map()
+    }
+
+    /// FOV radius: 8 on overworld, 6 in dungeons.
+    fn fov_radius(&self) -> i32 {
+        match self.world.location {
+            Location::Overworld => 8,
+            Location::Dungeon { .. } => 6,
+        }
+    }
+
+    /// Age Visible→Seen, then recompute FOV from player position.
+    pub fn update_fov(&mut self) {
+        let r = self.fov_radius();
+        let map = self.world.current_map_mut();
+        map.age_visibility();
+        map.compute_fov(self.player_x, self.player_y, r);
     }
 
     pub fn spawn_enemies(&mut self, seed: u64) {
@@ -214,6 +230,9 @@ impl Game {
         // Enemies take a turn
         self.enemy_turn();
 
+        // Update fog of war
+        self.update_fov();
+
         TurnResult::Moved
     }
 
@@ -277,6 +296,7 @@ impl Game {
         self.enemies.clear();
         self.spawn_dungeon_enemies(dungeon_index, 0);
         self.messages.push("You descend into the dungeon.".into());
+        self.update_fov();
     }
 
     fn exit_dungeon(&mut self) {
@@ -287,6 +307,7 @@ impl Game {
         self.enemies = std::mem::take(&mut self.world.saved_overworld_enemies);
         self.world.location = Location::Overworld;
         self.messages.push("You return to the overworld.".into());
+        self.update_fov();
     }
 
     fn descend(&mut self, dungeon_index: usize, current_level: usize) {
@@ -303,6 +324,7 @@ impl Game {
         self.enemies.clear();
         self.spawn_dungeon_enemies(dungeon_index, current_level + 1);
         self.messages.push(format!("You descend to level {}.", current_level + 2));
+        self.update_fov();
     }
 
     fn ascend(&mut self, dungeon_index: usize, current_level: usize) {
@@ -319,6 +341,7 @@ impl Game {
         self.enemies.clear();
         self.spawn_dungeon_enemies(dungeon_index, current_level - 1);
         self.messages.push(format!("You ascend to level {}.", current_level));
+        self.update_fov();
     }
 
     fn enemy_turn(&mut self) {

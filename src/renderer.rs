@@ -2,7 +2,7 @@ use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::camera::Camera;
 use crate::game::Game;
-use crate::map::Tile;
+use crate::map::{Tile, Visibility};
 use crate::sprites::{self, Sheet, SpriteRef};
 
 /// Loaded sprite sheet images, indexed by Sheet enum.
@@ -96,22 +96,33 @@ impl Renderer {
         // Draw only visible tiles
         let (min_x, min_y, max_x, max_y) = cam.visible_range(game.current_map().width, game.current_map().height);
 
+        let map = game.current_map();
         for y in min_y..max_y {
             for x in min_x..max_x {
+                let vis = map.get_visibility(x, y);
+                if vis == Visibility::Hidden {
+                    continue; // black — already cleared
+                }
+
                 let (px, py) = cam.world_to_screen(x, y);
-                let tile = game.current_map().get(x, y);
+                let tile = map.get(x, y);
 
                 // Determine wall orientation: face if tile below is not a wall
                 let wall_face = if tile == Tile::Wall {
-                    game.current_map().get(x, y + 1) != Tile::Wall
+                    map.get(x, y + 1) != Tile::Wall
                 } else {
                     false
                 };
 
                 let sprite = sprites::tile_sprite(tile, x, y, wall_face);
                 if !self.draw_sprite(sprite, px, py, cell, cell) {
-                    // Fallback: colored rectangles (no sprites loaded yet)
                     self.draw_tile_fallback(tile, px, py, cell);
+                }
+
+                // Dim seen tiles (not currently visible)
+                if vis == Visibility::Seen {
+                    ctx.set_fill_style_str("rgba(0,0,0,0.5)");
+                    ctx.fill_rect(px, py, cell, cell);
                 }
             }
         }
@@ -129,7 +140,7 @@ impl Renderer {
             }
         }
 
-        // Draw enemies (only if visible)
+        // Draw enemies (only on Visible tiles)
         for e in &game.enemies {
             if e.hp <= 0 {
                 continue;
@@ -137,9 +148,12 @@ impl Renderer {
             if e.x < min_x || e.x >= max_x || e.y < min_y || e.y >= max_y {
                 continue;
             }
+            if map.get_visibility(e.x, e.y) != Visibility::Visible {
+                continue;
+            }
             let (ex, ey) = cam.world_to_screen(e.x, e.y);
             let sprite = sprites::enemy_sprite(e.glyph);
-            if !self.draw_sprite_ex(sprite, ex, ey, cell, cell, e.facing_left) {
+            if !self.draw_sprite_ex(sprite, ex, ey, cell, cell, !e.facing_left) {
                 // Fallback: text glyph
                 let font_size = (cell * 0.8).round();
                 ctx.set_font(&format!("{font_size}px monospace"));
@@ -158,7 +172,7 @@ impl Renderer {
         // Draw player
         let (px, py) = cam.world_to_screen(game.player_x, game.player_y);
         let player_sprite = sprites::player_sprite();
-        if !self.draw_sprite_ex(player_sprite, px, py, cell, cell, game.player_facing_left) {
+        if !self.draw_sprite_ex(player_sprite, px, py, cell, cell, !game.player_facing_left) {
             let font_size = (cell * 0.8).round();
             ctx.set_font(&format!("{font_size}px monospace"));
             ctx.set_text_align("center");

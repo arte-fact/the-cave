@@ -10,9 +10,21 @@ pub enum Tile {
     StairsUp,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Visibility {
+    Hidden,
+    Seen,
+    Visible,
+}
+
 impl Tile {
     pub fn is_walkable(self) -> bool {
         matches!(self, Tile::Floor | Tile::Grass | Tile::Road | Tile::DungeonEntrance | Tile::StairsDown | Tile::StairsUp)
+    }
+
+    /// Whether this tile blocks line of sight.
+    pub fn is_opaque(self) -> bool {
+        matches!(self, Tile::Wall | Tile::Tree)
     }
 
     pub fn glyph(self) -> char {
@@ -46,6 +58,7 @@ pub struct Map {
     pub width: i32,
     pub height: i32,
     tiles: Vec<Tile>,
+    visibility: Vec<Visibility>,
 }
 
 impl Map {
@@ -81,15 +94,18 @@ impl Map {
             }
         }
 
-        Self { width, height, tiles }
+        let len = tiles.len();
+        Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] }
     }
 
     /// Create an empty map filled with a single tile type.
     pub fn new_filled(width: i32, height: i32, tile: Tile) -> Self {
+        let len = (width * height) as usize;
         Self {
             width,
             height,
-            tiles: vec![tile; (width * height) as usize],
+            tiles: vec![tile; len],
+            visibility: vec![Visibility::Hidden; len],
         }
     }
 
@@ -126,7 +142,7 @@ impl Map {
             }
         }
 
-        let mut map = Self { width, height, tiles };
+        let mut map = Self { width, height, visibility: vec![Visibility::Hidden; tiles.len()], tiles };
 
         // Step 3: ensure connectivity — keep only the largest grass region
         map.fill_isolated_grass();
@@ -445,6 +461,125 @@ impl Map {
             }
         }
         None
+    }
+
+    // --- Visibility / FOV ---
+
+    pub fn get_visibility(&self, x: i32, y: i32) -> Visibility {
+        if x < 0 || y < 0 || x >= self.width || y >= self.height {
+            return Visibility::Hidden;
+        }
+        self.visibility[(y * self.width + x) as usize]
+    }
+
+    fn set_visible(&mut self, x: i32, y: i32) {
+        if x >= 0 && y >= 0 && x < self.width && y < self.height {
+            self.visibility[(y * self.width + x) as usize] = Visibility::Visible;
+        }
+    }
+
+    /// Demote all Visible tiles to Seen (called before recomputing FOV).
+    pub fn age_visibility(&mut self) {
+        for v in &mut self.visibility {
+            if *v == Visibility::Visible {
+                *v = Visibility::Seen;
+            }
+        }
+    }
+
+    /// Compute field of view from (px, py) with the given radius using
+    /// recursive shadowcasting (8 octants).
+    pub fn compute_fov(&mut self, px: i32, py: i32, radius: i32) {
+        self.set_visible(px, py);
+
+        // Octant multipliers: [col_to_x, depth_to_x, col_to_y, depth_to_y]
+        // Maps (col, depth) in octant-local space to (dx, dy) in map space.
+        const OCTANTS: [[i32; 4]; 8] = [
+            [ 1,  0,  0,  1],  // E-SE
+            [ 0,  1,  1,  0],  // SE-S
+            [ 0,  1, -1,  0],  // NE-N
+            [ 1,  0,  0, -1],  // E-NE
+            [-1,  0,  0, -1],  // W-NW
+            [ 0, -1, -1,  0],  // NW-N
+            [ 0, -1,  1,  0],  // SW-S
+            [-1,  0,  0,  1],  // W-SW
+        ];
+
+        for oct in &OCTANTS {
+            self.cast_light(px, py, radius, 1, 1.0, 0.0, oct);
+        }
+    }
+
+    /// Recursive shadowcasting for one octant.
+    /// `depth` = distance from player along the octant's primary axis.
+    /// `start_slope`/`end_slope` = the visible arc (1.0 = 45° diagonal, 0.0 = straight ahead).
+    /// Scans columns from high (diagonal) to low (axis), recurses when blocked.
+    fn cast_light(
+        &mut self,
+        px: i32, py: i32,
+        radius: i32,
+        depth: i32,
+        mut start_slope: f64,
+        end_slope: f64,
+        oct: &[i32; 4],
+    ) {
+        if start_slope < end_slope || depth > radius {
+            return;
+        }
+
+        let radius_sq = radius * radius;
+
+        for d in depth..=radius {
+            let mut blocked = false;
+            let mut new_start = start_slope;
+
+            // Scan columns from high (near diagonal) to low (near axis)
+            let mut col = d;
+            while col >= 0 {
+                let map_x = px + col * oct[0] + d * oct[1];
+                let map_y = py + col * oct[2] + d * oct[3];
+
+                // Slopes for this cell's edges
+                let l_slope = (col as f64 + 0.5) / (d as f64 - 0.5);
+                let r_slope = (col as f64 - 0.5) / (d as f64 + 0.5);
+
+                if start_slope < r_slope {
+                    col -= 1;
+                    continue;
+                }
+                if end_slope > l_slope {
+                    break;
+                }
+
+                // Within radius circle?
+                if col * col + d * d <= radius_sq {
+                    self.set_visible(map_x, map_y);
+                }
+
+                let is_opaque = map_x < 0 || map_y < 0
+                    || map_x >= self.width || map_y >= self.height
+                    || self.get(map_x, map_y).is_opaque();
+
+                if blocked {
+                    if is_opaque {
+                        new_start = r_slope;
+                    } else {
+                        blocked = false;
+                        start_slope = new_start;
+                    }
+                } else if is_opaque {
+                    blocked = true;
+                    self.cast_light(px, py, radius, d + 1, start_slope, l_slope, oct);
+                    new_start = r_slope;
+                }
+
+                col -= 1;
+            }
+
+            if blocked {
+                break;
+            }
+        }
     }
 
     /// A* pathfinding. Returns the path from `start` to `goal` (inclusive of both),
@@ -1215,5 +1350,92 @@ mod tests {
             assert!(!path.is_empty(),
                 "entrance ({ex},{ey}) unreachable from spawn ({sx},{sy})");
         }
+    }
+
+    // === FOV / Visibility ===
+
+    #[test]
+    fn player_tile_always_visible() {
+        let mut map = Map::generate(30, 20, 42);
+        let (sx, sy) = map.find_spawn();
+        map.compute_fov(sx, sy, 8);
+        assert_eq!(map.get_visibility(sx, sy), Visibility::Visible);
+    }
+
+    #[test]
+    fn walls_block_los() {
+        // Build a simple map: open room with a wall in the middle
+        let mut map = Map::new_filled(10, 10, Tile::Floor);
+        // Wall at (5, 5)
+        map.set(5, 5, Tile::Wall);
+        // Compute FOV from (3, 5) with radius 8
+        map.compute_fov(3, 5, 8);
+        // (5,5) itself should be visible (wall is seen but blocks behind)
+        assert_eq!(map.get_visibility(5, 5), Visibility::Visible);
+        // (7,5) should be hidden — blocked by wall at (5,5)
+        assert_eq!(map.get_visibility(7, 5), Visibility::Hidden,
+            "tile behind wall should be hidden");
+    }
+
+    #[test]
+    fn fov_radius_respected() {
+        let mut map = Map::new_filled(50, 50, Tile::Floor);
+        let radius = 6;
+        map.compute_fov(25, 25, radius);
+        // Tile well beyond radius should be hidden
+        assert_eq!(map.get_visibility(25, 25 + radius + 2), Visibility::Hidden,
+            "tile beyond radius should be hidden");
+        // Tile within radius and LOS should be visible
+        assert_eq!(map.get_visibility(25, 25 + radius - 1), Visibility::Visible,
+            "tile within radius should be visible");
+    }
+
+    #[test]
+    fn seen_tiles_persist_after_aging() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        map.compute_fov(10, 10, 5);
+        assert_eq!(map.get_visibility(12, 10), Visibility::Visible);
+        // Age: Visible → Seen
+        map.age_visibility();
+        assert_eq!(map.get_visibility(12, 10), Visibility::Seen);
+        // Compute FOV from a different position
+        map.compute_fov(5, 5, 5);
+        // (12, 10) should still be Seen (not reverted to Hidden)
+        assert_eq!(map.get_visibility(12, 10), Visibility::Seen,
+            "previously seen tile should stay Seen");
+    }
+
+    #[test]
+    fn hidden_tiles_stay_hidden() {
+        let mut map = Map::new_filled(30, 30, Tile::Floor);
+        map.compute_fov(5, 5, 3);
+        // Far corner should be hidden
+        assert_eq!(map.get_visibility(25, 25), Visibility::Hidden);
+    }
+
+    #[test]
+    fn fov_symmetric_in_open_room() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        map.compute_fov(10, 10, 6);
+        // Check symmetry: if (10+3, 10) is visible, (10-3, 10) should be too
+        assert_eq!(map.get_visibility(13, 10), Visibility::Visible);
+        assert_eq!(map.get_visibility(7, 10), Visibility::Visible);
+        assert_eq!(map.get_visibility(10, 13), Visibility::Visible);
+        assert_eq!(map.get_visibility(10, 7), Visibility::Visible);
+    }
+
+    #[test]
+    fn opaque_tiles_are_visible_but_block() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        // Line of trees at x=12
+        for y in 0..20 {
+            map.set(12, y, Tile::Tree);
+        }
+        map.compute_fov(10, 10, 8);
+        // Tree itself should be visible
+        assert_eq!(map.get_visibility(12, 10), Visibility::Visible);
+        // Tile behind the tree line should be hidden
+        assert_eq!(map.get_visibility(14, 10), Visibility::Hidden,
+            "tile behind tree line should be hidden");
     }
 }
