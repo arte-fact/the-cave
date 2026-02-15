@@ -11,11 +11,31 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
-use game::{Game, TurnResult};
+use game::{Drawer, Game, TurnResult};
 use input::{Input, InputAction};
 use map::Map;
 use renderer::{Renderer, SpriteSheets};
 use world::World;
+
+/// Bottom bar button layout: returns which Drawer was tapped (if any).
+/// `css_y` and `canvas_h_css` are in CSS pixels (pre-DPR).
+fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css: f64) -> Option<Drawer> {
+    let bar_top = css_h - bar_h_css;
+    if css_y < bar_top {
+        return None;
+    }
+    let btn_count = 3.0;
+    let btn_w = (css_w / btn_count).min(140.0);
+    let total_w = btn_w * btn_count;
+    let start_x = (css_w - total_w) / 2.0;
+    let idx = ((css_x - start_x) / btn_w).floor() as i32;
+    match idx {
+        0 => Some(Drawer::Inventory),
+        1 => Some(Drawer::Stats),
+        2 => Some(Drawer::None), // Menu (currently just closes drawers)
+        _ => None,
+    }
+}
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     window
@@ -208,6 +228,8 @@ pub fn start() -> Result<(), JsValue> {
                 for action in actions {
                     match action {
                         InputAction::Step(dir) => {
+                            gm.drawer = Drawer::None;
+                            gm.inspected = None;
                             auto_path.borrow_mut().clear();
                             let (dx, dy) = match dir {
                                 input::Direction::Up => (0, -1),
@@ -225,6 +247,31 @@ pub fn start() -> Result<(), JsValue> {
                                 *auto_path.borrow_mut() = pp[1..].to_vec();
                             }
                         }
+                        InputAction::Tap(css_x, css_y) => {
+                            let css_w = web_sys::window().unwrap().inner_width().unwrap().as_f64().unwrap();
+                            let css_h = web_sys::window().unwrap().inner_height().unwrap().as_f64().unwrap();
+                            let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+
+                            // Bottom bar hit test first
+                            if let Some(drawer) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
+                                if drawer == Drawer::None {
+                                    gm.drawer = Drawer::None;
+                                } else {
+                                    gm.toggle_drawer(drawer);
+                                }
+                            } else if css_y < css_h - bar_h_css {
+                                // Tap in game area — inspect the tapped tile
+                                let r = renderer.borrow();
+                                let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
+                                gm.inspected = gm.inspect_tile(wx, wy);
+                            }
+                        }
+                        InputAction::ToggleInventory => {
+                            gm.toggle_drawer(Drawer::Inventory);
+                        }
+                        InputAction::ToggleStats => {
+                            gm.toggle_drawer(Drawer::Stats);
+                        }
                     }
                 }
                 // Camera snap on map transition
@@ -237,15 +284,15 @@ pub fn start() -> Result<(), JsValue> {
             }
         }
 
-        // Compute live preview path from swipe state
+        // Compute live preview path from swipe state + inspect hovered tile
         {
             let mut pp = preview_path.borrow_mut();
             pp.clear();
             if let Some(swipe) = input.swipe_state() {
-                let gm = game.borrow();
+                let mut gm = game.borrow_mut();
                 if gm.alive && !gm.won {
-                    let dx = (swipe.current_x - swipe.start_x) * 0.5;
-                    let dy = (swipe.current_y - swipe.start_y) * 0.5;
+                    let dx = (swipe.current_x - swipe.start_x) * 0.7;
+                    let dy = (swipe.current_y - swipe.start_y) * 0.7;
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
                     let dest = (gm.player_x + gdx, gm.player_y + gdy);
                     let map = gm.current_map();
@@ -253,7 +300,12 @@ pub fn start() -> Result<(), JsValue> {
                         let path = map.find_path((gm.player_x, gm.player_y), dest);
                         *pp = path;
                     }
+                    // Inspect the destination tile during swipe
+                    gm.inspected = gm.inspect_tile(dest.0, dest.1);
                 }
+            } else {
+                // Clear inspection when not swiping (unless tapped)
+                // Only clear if no active swipe — taps persist until next action
             }
         }
 

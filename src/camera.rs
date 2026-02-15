@@ -14,7 +14,8 @@ pub struct Camera {
 }
 
 /// How many tiles should be visible across the screen width.
-const VIEWPORT_TILES_WIDE: f64 = 22.0;
+/// Lower = closer/bigger tiles. 15 is tuned for mobile-first play.
+const VIEWPORT_TILES_WIDE: f64 = 15.0;
 
 impl Camera {
     pub fn new() -> Self {
@@ -52,11 +53,19 @@ impl Camera {
         self.cell_size
     }
 
-    /// Smoothly follow a target position, clamping to map bounds.
+    /// Smoothly follow a target position with ease-out curve.
+    /// Moves fast when far from target, decelerates as it approaches.
     pub fn follow(&mut self, target_x: f64, target_y: f64, map_w: i32, map_h: i32) {
-        let lerp_speed = 0.2;
-        self.x += (target_x - self.x) * lerp_speed;
-        self.y += (target_y - self.y) * lerp_speed;
+        let dx = target_x - self.x;
+        let dy = target_y - self.y;
+        let dist = (dx * dx + dy * dy).sqrt();
+
+        // Ease-out: speed ramps up with distance, giving snappy start + smooth stop.
+        // Clamp between 0.15 (gentle coast) and 0.4 (fast catch-up).
+        let lerp_speed = (0.15 + dist * 0.06).min(0.4);
+
+        self.x += dx * lerp_speed;
+        self.y += dy * lerp_speed;
 
         // Snap when close enough
         if (self.x - target_x).abs() < 0.1 {
@@ -139,9 +148,9 @@ mod tests {
     fn viewport_size_from_canvas() {
         let mut cam = Camera::new();
         let cell = cam.set_viewport(660.0, 440.0);
-        assert_eq!(cell, 30.0); // 660 / 22 = 30
-        assert!((cam.viewport_w() - 22.0).abs() < 0.01);
-        assert!((cam.viewport_h() - 440.0 / 30.0).abs() < 0.01);
+        assert_eq!(cell, 44.0); // 660 / 15 = 44
+        assert!((cam.viewport_w() - 660.0 / 44.0).abs() < 0.01);
+        assert!((cam.viewport_h() - 440.0 / 44.0).abs() < 0.01);
     }
 
     #[test]
@@ -234,6 +243,39 @@ mod tests {
         assert!((cam.y - 30.0).abs() < 0.01, "should converge to target y");
     }
 
+    #[test]
+    fn follow_ease_out_faster_when_far() {
+        // When far from target, the camera should cover more distance per frame
+        // than when close. This tests the ease-out property.
+        let mut cam_far = Camera::new();
+        cam_far.set_viewport(660.0, 440.0);
+        cam_far.snap(30.0, 25.0, 80, 50);
+        cam_far.follow(40.0, 25.0, 80, 50); // 10 tiles away
+        let step_far = cam_far.x - 30.0;
+
+        let mut cam_close = Camera::new();
+        cam_close.set_viewport(660.0, 440.0);
+        cam_close.snap(39.0, 25.0, 80, 50);
+        cam_close.follow(40.0, 25.0, 80, 50); // 1 tile away
+        let step_close = cam_close.x - 39.0;
+
+        // Far step (absolute) should be bigger than close step (absolute)
+        assert!(step_far > step_close,
+            "far step {step_far} should exceed close step {step_close}");
+    }
+
+    #[test]
+    fn follow_converges_within_20_frames() {
+        // Ease-out should converge faster than the old constant lerp
+        let mut cam = Camera::new();
+        cam.set_viewport(660.0, 440.0);
+        cam.snap(40.0, 25.0, 80, 50);
+        for _ in 0..20 {
+            cam.follow(45.0, 25.0, 80, 50);
+        }
+        assert!((cam.x - 45.0).abs() < 0.01, "should converge in 20 frames");
+    }
+
     // --- Visible range ---
 
     #[test]
@@ -306,9 +348,9 @@ mod tests {
     #[test]
     fn css_delta_to_grid_basic() {
         let mut cam = Camera::new();
-        cam.set_viewport(660.0, 440.0); // cell = 30
-        // DPR=1, move 60 CSS pixels right = 2 tiles
-        let (gx, gy) = cam.css_delta_to_grid(60.0, 0.0, 1.0);
+        cam.set_viewport(660.0, 440.0); // cell = 44
+        // DPR=1, move 88 CSS pixels right = 2 tiles
+        let (gx, gy) = cam.css_delta_to_grid(88.0, 0.0, 1.0);
         assert_eq!(gx, 2);
         assert_eq!(gy, 0);
     }
@@ -316,9 +358,9 @@ mod tests {
     #[test]
     fn css_delta_to_grid_with_dpr() {
         let mut cam = Camera::new();
-        cam.set_viewport(660.0, 440.0); // cell = 30
-        // DPR=2, 30 CSS pixels = 60 physical pixels = 2 tiles
-        let (gx, gy) = cam.css_delta_to_grid(30.0, 0.0, 2.0);
+        cam.set_viewport(660.0, 440.0); // cell = 44
+        // DPR=2, 44 CSS pixels = 88 physical pixels = 2 tiles
+        let (gx, gy) = cam.css_delta_to_grid(44.0, 0.0, 2.0);
         assert_eq!(gx, 2);
         assert_eq!(gy, 0);
     }
