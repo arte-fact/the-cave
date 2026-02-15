@@ -98,6 +98,57 @@ impl Map {
         Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] }
     }
 
+    /// Generate a dragon's lair cave using cellular automata.
+    /// Similar to `generate()` but ensures floor connectivity and places StairsUp.
+    /// No StairsDown — this is the deepest level.
+    pub fn generate_cave(width: i32, height: i32, seed: u64) -> Self {
+        let len = (width * height) as usize;
+        let mut tiles = vec![Tile::Wall; len];
+        let mut rng = seed;
+
+        // Random fill — ~45% walls for interior cells
+        for y in 1..height - 1 {
+            for x in 1..width - 1 {
+                rng = xorshift64(rng);
+                if (rng % 100) >= 45 {
+                    tiles[(y * width + x) as usize] = Tile::Floor;
+                }
+            }
+        }
+
+        // Cellular automata smoothing (5 passes)
+        for _ in 0..5 {
+            let prev = tiles.clone();
+            for y in 1..height - 1 {
+                for x in 1..width - 1 {
+                    let walls = count_neighbors(&prev, width, x, y);
+                    tiles[(y * width + x) as usize] = if walls >= 5 {
+                        Tile::Wall
+                    } else {
+                        Tile::Floor
+                    };
+                }
+            }
+        }
+
+        let mut map = Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] };
+
+        // Keep only the largest connected floor region
+        map.fill_isolated_floors();
+
+        // Place StairsUp on the first floor tile found (near top-left)
+        'outer: for y in 1..height - 1 {
+            for x in 1..width - 1 {
+                if map.get(x, y) == Tile::Floor {
+                    map.set(x, y, Tile::StairsUp);
+                    break 'outer;
+                }
+            }
+        }
+
+        map
+    }
+
     /// Create an empty map filled with a single tile type.
     pub fn new_filled(width: i32, height: i32, tile: Tile) -> Self {
         let len = (width * height) as usize;
@@ -153,6 +204,18 @@ impl Map {
     /// Flood-fill to find the largest connected grass region.
     /// Fill all other grass regions with trees.
     fn fill_isolated_grass(&mut self) {
+        self.fill_isolated_tile(Tile::Grass, Tile::Tree);
+    }
+
+    /// Flood-fill to find the largest connected floor region.
+    /// Fill all other floor regions with walls.
+    fn fill_isolated_floors(&mut self) {
+        self.fill_isolated_tile(Tile::Floor, Tile::Wall);
+    }
+
+    /// Generic: keep only the largest connected region of `target` tile,
+    /// fill all smaller regions with `fill` tile.
+    fn fill_isolated_tile(&mut self, target: Tile, fill: Tile) {
         let len = (self.width * self.height) as usize;
         let mut region_id = vec![0u32; len];
         let mut region_sizes: Vec<usize> = vec![0]; // index 0 unused
@@ -161,9 +224,9 @@ impl Map {
         for y in 0..self.height {
             for x in 0..self.width {
                 let i = (y * self.width + x) as usize;
-                if self.tiles[i] == Tile::Grass && region_id[i] == 0 {
+                if self.tiles[i] == target && region_id[i] == 0 {
                     current_id += 1;
-                    let size = self.flood_fill_region(x, y, current_id, &mut region_id);
+                    let size = self.flood_fill_region_of(x, y, current_id, &mut region_id, target);
                     region_sizes.push(size);
                 }
             }
@@ -182,15 +245,15 @@ impl Map {
             .map(|(id, _)| id as u32)
             .unwrap_or(1);
 
-        // Fill non-largest grass with trees
+        // Fill non-largest regions
         for i in 0..len {
-            if self.tiles[i] == Tile::Grass && region_id[i] != largest {
-                self.tiles[i] = Tile::Tree;
+            if self.tiles[i] == target && region_id[i] != largest {
+                self.tiles[i] = fill;
             }
         }
     }
 
-    fn flood_fill_region(&self, sx: i32, sy: i32, id: u32, region_id: &mut [u32]) -> usize {
+    fn flood_fill_region_of(&self, sx: i32, sy: i32, id: u32, region_id: &mut [u32], target: Tile) -> usize {
         let mut stack = vec![(sx, sy)];
         let mut count = 0;
         while let Some((x, y)) = stack.pop() {
@@ -198,7 +261,7 @@ impl Map {
             if region_id[i] != 0 {
                 continue;
             }
-            if self.tiles[i] != Tile::Grass {
+            if self.tiles[i] != target {
                 continue;
             }
             region_id[i] = id;
@@ -655,11 +718,16 @@ pub struct Dungeon {
 }
 
 impl Dungeon {
-    /// Generate a dungeon with `depth` levels.
-    /// Level 1 = 40×30, level 2 = 50×35, level 3+ = 60×40.
-    pub fn generate(entrance: (i32, i32), depth: usize, seed: u64) -> Self {
+    /// Generate a dungeon with `depth` BSP levels.
+    /// Level 0 = 40×30, level 1 = 50×35, level 2 = 60×40.
+    /// If `has_cave` is true, appends a cellular automata cave (80×60)
+    /// as the deepest level — the dragon's lair.
+    pub fn generate(entrance: (i32, i32), depth: usize, seed: u64, has_cave: bool) -> Self {
         let mut levels = Vec::new();
         let mut rng = seed;
+
+        // Total levels: BSP depth + optional cave
+        let total = if has_cave { depth + 1 } else { depth };
 
         for level in 0..depth {
             let (w, h) = match level {
@@ -668,8 +736,15 @@ impl Dungeon {
                 _ => (60, 40),
             };
             rng = xorshift64(rng);
-            let map = Map::generate_bsp_dungeon(w, h, rng, level, depth);
+            let map = Map::generate_bsp_dungeon(w, h, rng, level, total);
             levels.push(map);
+        }
+
+        // Append cave level if this is the dragon's dungeon
+        if has_cave {
+            rng = xorshift64(rng);
+            let cave = Map::generate_cave(80, 60, rng);
+            levels.push(cave);
         }
 
         Dungeon { levels, entrance }
@@ -1223,13 +1298,13 @@ mod tests {
 
     #[test]
     fn dungeon_has_correct_level_count() {
-        let d = Dungeon::generate((50, 50), 3, 42);
+        let d = Dungeon::generate((50, 50), 3, 42, false);
         assert_eq!(d.levels.len(), 3);
     }
 
     #[test]
     fn dungeon_level_sizes_scale_with_depth() {
-        let d = Dungeon::generate((50, 50), 3, 42);
+        let d = Dungeon::generate((50, 50), 3, 42, false);
         assert_eq!((d.levels[0].width, d.levels[0].height), (40, 30));
         assert_eq!((d.levels[1].width, d.levels[1].height), (50, 35));
         assert_eq!((d.levels[2].width, d.levels[2].height), (60, 40));
@@ -1237,7 +1312,7 @@ mod tests {
 
     #[test]
     fn dungeon_levels_have_stairs() {
-        let d = Dungeon::generate((50, 50), 3, 42);
+        let d = Dungeon::generate((50, 50), 3, 42, false);
         for (i, level) in d.levels.iter().enumerate() {
             let has_up = (0..level.height)
                 .flat_map(|y| (0..level.width).map(move |x| (x, y)))
@@ -1255,7 +1330,7 @@ mod tests {
 
     #[test]
     fn dungeon_deepest_level_has_no_stairs_down() {
-        let d = Dungeon::generate((50, 50), 3, 42);
+        let d = Dungeon::generate((50, 50), 3, 42, false);
         let last = &d.levels[2];
         let has_down = (0..last.height)
             .flat_map(|y| (0..last.width).map(move |x| (x, y)))
@@ -1265,7 +1340,7 @@ mod tests {
 
     #[test]
     fn dungeon_rooms_reachable_from_stairs() {
-        let d = Dungeon::generate((50, 50), 3, 42);
+        let d = Dungeon::generate((50, 50), 3, 42, false);
         for (i, level) in d.levels.iter().enumerate() {
             // Find StairsUp as the starting point
             let stairs_up = (0..level.height)
@@ -1307,7 +1382,7 @@ mod tests {
 
     #[test]
     fn dungeon_bsp_produces_valid_rooms() {
-        let d = Dungeon::generate((50, 50), 1, 42);
+        let d = Dungeon::generate((50, 50), 1, 42, false);
         let level = &d.levels[0];
         let floor_count = (0..level.height)
             .flat_map(|y| (0..level.width).map(move |x| (x, y)))
@@ -1317,6 +1392,95 @@ mod tests {
         let interior = ((level.width - 2) * (level.height - 2)) as usize;
         assert!(floor_count > interior / 7,
             "too few floor tiles: {floor_count} out of {interior}");
+    }
+
+    // === Cave (dragon's lair) ===
+
+    #[test]
+    fn cave_has_stairs_up() {
+        let cave = Map::generate_cave(80, 60, 42);
+        let has_up = (0..cave.height)
+            .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
+            .any(|(x, y)| cave.get(x, y) == Tile::StairsUp);
+        assert!(has_up, "cave should have StairsUp");
+    }
+
+    #[test]
+    fn cave_has_no_stairs_down() {
+        let cave = Map::generate_cave(80, 60, 42);
+        let has_down = (0..cave.height)
+            .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
+            .any(|(x, y)| cave.get(x, y) == Tile::StairsDown);
+        assert!(!has_down, "cave should have no StairsDown");
+    }
+
+    #[test]
+    fn cave_floor_connected() {
+        let cave = Map::generate_cave(80, 60, 42);
+        // BFS from StairsUp to all walkable tiles
+        let stairs = cave.find_tile(Tile::StairsUp).expect("no StairsUp in cave");
+        let len = (cave.width * cave.height) as usize;
+        let mut visited = vec![false; len];
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(stairs);
+        visited[(stairs.1 * cave.width + stairs.0) as usize] = true;
+        let mut reachable = 0;
+        while let Some((x, y)) = queue.pop_front() {
+            reachable += 1;
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let (nx, ny) = (x + dx, y + dy);
+                if cave.is_walkable(nx, ny) {
+                    let ni = (ny * cave.width + nx) as usize;
+                    if !visited[ni] {
+                        visited[ni] = true;
+                        queue.push_back((nx, ny));
+                    }
+                }
+            }
+        }
+        let total_walkable = (0..cave.height)
+            .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| cave.is_walkable(x, y))
+            .count();
+        assert_eq!(reachable, total_walkable,
+            "cave not connected: {reachable} reachable out of {total_walkable} walkable");
+    }
+
+    #[test]
+    fn cave_has_enough_floor() {
+        let cave = Map::generate_cave(80, 60, 42);
+        let floor_count = (0..cave.height)
+            .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| cave.get(x, y) == Tile::Floor || cave.get(x, y) == Tile::StairsUp)
+            .count();
+        let interior = ((cave.width - 2) * (cave.height - 2)) as usize;
+        assert!(floor_count > interior / 5,
+            "too few floor tiles in cave: {floor_count} out of {interior}");
+    }
+
+    #[test]
+    fn dungeon_with_cave_has_4_levels() {
+        let d = Dungeon::generate((50, 50), 3, 42, true);
+        assert_eq!(d.levels.len(), 4, "dragon dungeon should have 4 levels");
+        // Cave level is 80x60
+        assert_eq!((d.levels[3].width, d.levels[3].height), (80, 60));
+    }
+
+    #[test]
+    fn dungeon_without_cave_has_3_levels() {
+        let d = Dungeon::generate((50, 50), 3, 42, false);
+        assert_eq!(d.levels.len(), 3);
+    }
+
+    #[test]
+    fn cave_dungeon_level2_has_stairs_down() {
+        // With a cave, level 2 (the last BSP level) should have StairsDown connecting to cave
+        let d = Dungeon::generate((50, 50), 3, 42, true);
+        let level2 = &d.levels[2];
+        let has_down = (0..level2.height)
+            .flat_map(|y| (0..level2.width).map(move |x| (x, y)))
+            .any(|(x, y)| level2.get(x, y) == Tile::StairsDown);
+        assert!(has_down, "level 2 of cave dungeon should have StairsDown");
     }
 
     #[test]

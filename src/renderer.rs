@@ -173,6 +173,31 @@ impl Renderer {
             }
         }
 
+        // Draw ground items (only on Visible tiles)
+        for gi in &game.ground_items {
+            if gi.x < min_x || gi.x >= max_x || gi.y < min_y || gi.y >= max_y {
+                continue;
+            }
+            if map.get_visibility(gi.x, gi.y) != Visibility::Visible {
+                continue;
+            }
+            let (ix, iy) = cam.world_to_screen(gi.x, gi.y);
+            let sprite = sprites::item_sprite(gi.item.name);
+            if !self.draw_sprite(sprite, ix, iy, cell, cell) {
+                // Fallback: text glyph
+                let font_size = (cell * 0.6).round();
+                ctx.set_font(&format!("{font_size}px monospace"));
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                ctx.set_fill_style_str("#ff0");
+                let _ = ctx.fill_text(
+                    &gi.item.glyph.to_string(),
+                    ix + cell / 2.0,
+                    iy + cell / 2.0,
+                );
+            }
+        }
+
         // Draw player
         let (px, py) = cam.world_to_screen(game.player_x, game.player_y);
         let player_sprite = sprites::player_sprite();
@@ -227,6 +252,72 @@ impl Renderer {
             let msg = &game.messages[msg_count - show + i];
             let y = canvas_h - (show - i) as f64 * 14.0;
             let _ = ctx.fill_text(msg, 8.0, y);
+        }
+
+        // Equipment indicators on HUD (right of HP bar)
+        {
+            let eq_x = bar_x + bar_w + 12.0;
+            ctx.set_font("11px monospace");
+            ctx.set_text_align("left");
+            ctx.set_text_baseline("top");
+            if let Some(ref w) = game.equipped_weapon {
+                ctx.set_fill_style_str("#aaf");
+                let _ = ctx.fill_text(&format!("/{}", w.name), eq_x, hud_y);
+            }
+            if let Some(ref a) = game.equipped_armor {
+                ctx.set_fill_style_str("#afa");
+                let _ = ctx.fill_text(&format!("[{}", a.name), eq_x + 120.0, hud_y);
+            }
+        }
+
+        // Inventory overlay
+        if game.inventory_open {
+            let panel_w = canvas_w * 0.7;
+            let panel_h = canvas_h * 0.6;
+            let panel_x = (canvas_w - panel_w) / 2.0;
+            let panel_y = (canvas_h - panel_h) / 2.0;
+
+            // Panel background
+            ctx.set_fill_style_str("rgba(0,0,0,0.85)");
+            ctx.fill_rect(panel_x, panel_y, panel_w, panel_h);
+            ctx.set_stroke_style_str("#666");
+            ctx.set_line_width(2.0);
+            ctx.stroke_rect(panel_x, panel_y, panel_w, panel_h);
+
+            // Title
+            ctx.set_font("14px monospace");
+            ctx.set_fill_style_str("#fff");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("top");
+            let _ = ctx.fill_text("INVENTORY", panel_x + panel_w / 2.0, panel_y + 8.0);
+
+            // Items
+            ctx.set_font("12px monospace");
+            ctx.set_text_align("left");
+            let slot_h = 28.0;
+            let icon_size = 24.0;
+            let start_y = panel_y + 32.0;
+            for (i, item) in game.inventory.iter().enumerate() {
+                let y = start_y + i as f64 * slot_h;
+                // Draw item sprite icon
+                let sprite = sprites::item_sprite(item.name);
+                self.draw_sprite(sprite, panel_x + 12.0, y, icon_size, icon_size);
+                // Draw item name
+                let color = match item.kind {
+                    crate::game::ItemKind::Potion => "#f88",
+                    crate::game::ItemKind::Scroll => "#88f",
+                    crate::game::ItemKind::Weapon => "#aaf",
+                    crate::game::ItemKind::Armor => "#afa",
+                };
+                ctx.set_fill_style_str(color);
+                ctx.set_text_baseline("middle");
+                let label = format!("{} {}", i + 1, item.name);
+                let _ = ctx.fill_text(&label, panel_x + 42.0, y + icon_size / 2.0);
+            }
+            if game.inventory.is_empty() {
+                ctx.set_fill_style_str("#888");
+                let _ = ctx.fill_text("(empty)", panel_x + 16.0, start_y);
+            }
         }
 
         // Death / Victory overlay
