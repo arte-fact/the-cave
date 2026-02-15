@@ -4,16 +4,18 @@ mod input;
 mod map;
 mod renderer;
 mod sprites;
+mod world;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
-use game::Game;
+use game::{Game, TurnResult};
 use input::{Input, InputAction};
 use map::Map;
 use renderer::{Renderer, SpriteSheets};
+use world::World;
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     window
@@ -38,7 +40,8 @@ fn new_game() -> Game {
     let mut map = Map::generate_forest(200, 200, seed);
     let entrances = map.place_dungeons(seed.wrapping_add(1));
     map.build_roads(&entrances);
-    let mut game = Game::new_overworld(map);
+    let world = World::new(map, entrances, seed.wrapping_add(2));
+    let mut game = Game::new_overworld(world);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
     game
 }
@@ -85,13 +88,11 @@ pub fn start() -> Result<(), JsValue> {
         let loaded_count: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
         let renderer_for_load = Rc::clone(&renderer);
 
-        // We store images in Rc so they survive until all are loaded
         let tiles_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
         let monsters_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
         let rogues_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
         let items_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
 
-        // Helper: each onload increments counter; when all 4 loaded, assemble SpriteSheets
         let make_on_load = |slot: Rc<RefCell<Option<HtmlImageElement>>>,
                             loaded: Rc<RefCell<u32>>,
                             rend: Rc<RefCell<Renderer>>,
@@ -100,12 +101,10 @@ pub fn start() -> Result<(), JsValue> {
                             r: Rc<RefCell<Option<HtmlImageElement>>>,
                             i: Rc<RefCell<Option<HtmlImageElement>>>| {
             move || {
-                // Mark this slot as loaded (the image is already set)
-                let _ = slot.borrow(); // just confirm it's there
+                let _ = slot.borrow();
                 let mut count = loaded.borrow_mut();
                 *count += 1;
                 if *count == 4 {
-                    // All sheets loaded — assemble and hand to renderer
                     let sheets = SpriteSheets {
                         tiles: t.borrow_mut().take().unwrap(),
                         monsters: m.borrow_mut().take().unwrap(),
@@ -120,13 +119,8 @@ pub fn start() -> Result<(), JsValue> {
         let img = load_image(
             "assets/tiles.png",
             make_on_load(
-                Rc::clone(&tiles_img),
-                Rc::clone(&loaded_count),
-                Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img),
-                Rc::clone(&monsters_img),
-                Rc::clone(&rogues_img),
-                Rc::clone(&items_img),
+                Rc::clone(&tiles_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *tiles_img.borrow_mut() = Some(img);
@@ -134,13 +128,8 @@ pub fn start() -> Result<(), JsValue> {
         let img = load_image(
             "assets/monsters.png",
             make_on_load(
-                Rc::clone(&monsters_img),
-                Rc::clone(&loaded_count),
-                Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img),
-                Rc::clone(&monsters_img),
-                Rc::clone(&rogues_img),
-                Rc::clone(&items_img),
+                Rc::clone(&monsters_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *monsters_img.borrow_mut() = Some(img);
@@ -148,13 +137,8 @@ pub fn start() -> Result<(), JsValue> {
         let img = load_image(
             "assets/rogues.png",
             make_on_load(
-                Rc::clone(&rogues_img),
-                Rc::clone(&loaded_count),
-                Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img),
-                Rc::clone(&monsters_img),
-                Rc::clone(&rogues_img),
-                Rc::clone(&items_img),
+                Rc::clone(&rogues_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *rogues_img.borrow_mut() = Some(img);
@@ -162,13 +146,8 @@ pub fn start() -> Result<(), JsValue> {
         let img = load_image(
             "assets/items.png",
             make_on_load(
-                Rc::clone(&items_img),
-                Rc::clone(&loaded_count),
-                Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img),
-                Rc::clone(&monsters_img),
-                Rc::clone(&rogues_img),
-                Rc::clone(&items_img),
+                Rc::clone(&items_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *items_img.borrow_mut() = Some(img);
@@ -180,7 +159,8 @@ pub fn start() -> Result<(), JsValue> {
         let mut r = renderer.borrow_mut();
         r.resize(w, h);
         let gm = game.borrow();
-        r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
+        let map = gm.current_map();
+        r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
     }
 
     // Resize handler
@@ -194,8 +174,8 @@ pub fn start() -> Result<(), JsValue> {
             let gm = game.borrow();
             let mut r = renderer.borrow_mut();
             r.resize(w, h);
-            // Re-disable smoothing after resize (canvas reset clears it)
-            r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
+            let map = gm.current_map();
+            r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
             r.draw(&gm, &preview_path.borrow());
         });
         window
@@ -218,9 +198,11 @@ pub fn start() -> Result<(), JsValue> {
             if !gm.alive || gm.won {
                 *gm = new_game();
                 let mut r = renderer.borrow_mut();
-                r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
+                let map = gm.current_map();
+                r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
                 auto_path.borrow_mut().clear();
             } else {
+                let mut map_changed = false;
                 for action in actions {
                     match action {
                         InputAction::Step(dir) => {
@@ -231,7 +213,9 @@ pub fn start() -> Result<(), JsValue> {
                                 input::Direction::Left => (-1, 0),
                                 input::Direction::Right => (1, 0),
                             };
-                            gm.move_player(dx, dy);
+                            if matches!(gm.move_player(dx, dy), TurnResult::MapChanged) {
+                                map_changed = true;
+                            }
                         }
                         InputAction::ExecutePath => {
                             let pp = preview_path.borrow();
@@ -240,6 +224,13 @@ pub fn start() -> Result<(), JsValue> {
                             }
                         }
                     }
+                }
+                // Camera snap on map transition
+                if map_changed {
+                    let mut r = renderer.borrow_mut();
+                    let map = gm.current_map();
+                    r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
+                    auto_path.borrow_mut().clear();
                 }
             }
         }
@@ -255,8 +246,9 @@ pub fn start() -> Result<(), JsValue> {
                     let dy = (swipe.current_y - swipe.start_y) * 0.5;
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
                     let dest = (gm.player_x + gdx, gm.player_y + gdy);
-                    if gm.map.is_walkable(dest.0, dest.1) {
-                        let path = gm.map.find_path((gm.player_x, gm.player_y), dest);
+                    let map = gm.current_map();
+                    if map.is_walkable(dest.0, dest.1) {
+                        let path = map.find_path((gm.player_x, gm.player_y), dest);
                         *pp = path;
                     }
                 }
@@ -276,9 +268,10 @@ pub fn start() -> Result<(), JsValue> {
                         let (nx, ny) = ap[0];
                         let dx = nx - gm.player_x;
                         let dy = ny - gm.player_y;
-                        gm.move_player(dx, dy);
+                        let result = gm.move_player(dx, dy);
                         ap.remove(0);
-                        if gm.player_x != nx || gm.player_y != ny {
+                        // Clear auto-path if player didn't reach expected tile or map changed
+                        if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
                             ap.clear();
                         }
                     } else {
@@ -291,11 +284,12 @@ pub fn start() -> Result<(), JsValue> {
         // Update camera — follow the player
         {
             let gm = game.borrow();
+            let map = gm.current_map();
             renderer.borrow_mut().camera.follow(
                 gm.player_x as f64,
                 gm.player_y as f64,
-                gm.map.width,
-                gm.map.height,
+                map.width,
+                map.height,
             );
         }
 
