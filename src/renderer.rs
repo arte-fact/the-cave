@@ -1,12 +1,33 @@
-use web_sys::CanvasRenderingContext2d;
+use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::camera::Camera;
 use crate::game::Game;
 use crate::map::Tile;
+use crate::sprites::{self, Sheet, SpriteRef};
+
+/// Loaded sprite sheet images, indexed by Sheet enum.
+pub struct SpriteSheets {
+    pub tiles: HtmlImageElement,
+    pub monsters: HtmlImageElement,
+    pub rogues: HtmlImageElement,
+    pub items: HtmlImageElement,
+}
+
+impl SpriteSheets {
+    fn get(&self, sheet: Sheet) -> &HtmlImageElement {
+        match sheet {
+            Sheet::Tiles => &self.tiles,
+            Sheet::Monsters => &self.monsters,
+            Sheet::Rogues => &self.rogues,
+            Sheet::Items => &self.items,
+        }
+    }
+}
 
 pub struct Renderer {
     ctx: CanvasRenderingContext2d,
     pub camera: Camera,
+    sheets: Option<SpriteSheets>,
 }
 
 impl Renderer {
@@ -14,17 +35,40 @@ impl Renderer {
         Self {
             ctx,
             camera: Camera::new(),
+            sheets: None,
         }
+    }
+
+    pub fn set_sheets(&mut self, sheets: SpriteSheets) {
+        self.sheets = Some(sheets);
     }
 
     pub fn resize(&mut self, width: f64, height: f64) {
         self.camera.set_viewport(width, height);
     }
 
+    /// Draw a sprite at screen position. Returns true if drawn.
+    fn draw_sprite(&self, sprite: SpriteRef, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+        if let Some(sheets) = &self.sheets {
+            let img = sheets.get(sprite.sheet);
+            let _ = self.ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                img,
+                sprite.src_x(), sprite.src_y(), 32.0, 32.0,
+                dx, dy, dw, dh,
+            );
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn draw(&self, game: &Game, preview_path: &[(i32, i32)]) {
         let ctx = &self.ctx;
         let cam = &self.camera;
         let cell = cam.cell_size();
+
+        // Crisp pixel art — must set every frame (canvas resize resets context state)
+        ctx.set_image_smoothing_enabled(false);
 
         // Clear
         ctx.set_fill_style_str("#000");
@@ -33,36 +77,22 @@ impl Renderer {
         // Draw only visible tiles
         let (min_x, min_y, max_x, max_y) = cam.visible_range(game.map.width, game.map.height);
 
-        // Tile font for glyph-rendered tiles (Tree, Road, DungeonEntrance, Stairs)
-        let tile_font_size = (cell * 0.7).round();
-
         for y in min_y..max_y {
             for x in min_x..max_x {
                 let (px, py) = cam.world_to_screen(x, y);
                 let tile = game.map.get(x, y);
-                match tile {
-                    Tile::Wall => {
-                        ctx.set_fill_style_str(tile.color());
-                        ctx.fill_rect(px, py, cell, cell);
-                    }
-                    Tile::Floor | Tile::Grass => {
-                        ctx.set_fill_style_str(tile.color());
-                        ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
-                    }
-                    _ => {
-                        // Tree, Road, DungeonEntrance, Stairs: fill background + glyph
-                        ctx.set_fill_style_str(tile.color());
-                        ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
-                        ctx.set_font(&format!("{tile_font_size}px monospace"));
-                        ctx.set_text_align("center");
-                        ctx.set_text_baseline("middle");
-                        ctx.set_fill_style_str("#ddd");
-                        let _ = ctx.fill_text(
-                            &tile.glyph().to_string(),
-                            px + cell / 2.0,
-                            py + cell / 2.0,
-                        );
-                    }
+
+                // Determine wall orientation: face if tile below is not a wall
+                let wall_face = if tile == Tile::Wall {
+                    game.map.get(x, y + 1) != Tile::Wall
+                } else {
+                    false
+                };
+
+                let sprite = sprites::tile_sprite(tile, x, y, wall_face);
+                if !self.draw_sprite(sprite, px, py, cell, cell) {
+                    // Fallback: colored rectangles (no sprites loaded yet)
+                    self.draw_tile_fallback(tile, px, py, cell);
                 }
             }
         }
@@ -80,11 +110,6 @@ impl Renderer {
             }
         }
 
-        let font_size = (cell * 0.8).round();
-        ctx.set_font(&format!("{font_size}px monospace"));
-        ctx.set_text_align("center");
-        ctx.set_text_baseline("middle");
-
         // Draw enemies (only if visible)
         for e in &game.enemies {
             if e.hp <= 0 {
@@ -94,19 +119,34 @@ impl Renderer {
                 continue;
             }
             let (ex, ey) = cam.world_to_screen(e.x, e.y);
-            let color = if e.glyph == 'D' { "#f44" } else { "#4f4" };
-            ctx.set_fill_style_str(color);
-            let _ = ctx.fill_text(
-                &e.glyph.to_string(),
-                ex + cell / 2.0,
-                ey + cell / 2.0,
-            );
+            let sprite = sprites::enemy_sprite(e.glyph);
+            if !self.draw_sprite(sprite, ex, ey, cell, cell) {
+                // Fallback: text glyph
+                let font_size = (cell * 0.8).round();
+                ctx.set_font(&format!("{font_size}px monospace"));
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                let color = if e.glyph == 'D' { "#f44" } else { "#4f4" };
+                ctx.set_fill_style_str(color);
+                let _ = ctx.fill_text(
+                    &e.glyph.to_string(),
+                    ex + cell / 2.0,
+                    ey + cell / 2.0,
+                );
+            }
         }
 
-        // Draw player @
+        // Draw player
         let (px, py) = cam.world_to_screen(game.player_x, game.player_y);
-        ctx.set_fill_style_str("#fff");
-        let _ = ctx.fill_text("@", px + cell / 2.0, py + cell / 2.0);
+        let player_sprite = sprites::player_sprite();
+        if !self.draw_sprite(player_sprite, px, py, cell, cell) {
+            let font_size = (cell * 0.8).round();
+            ctx.set_font(&format!("{font_size}px monospace"));
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            ctx.set_fill_style_str("#fff");
+            let _ = ctx.fill_text("@", px + cell / 2.0, py + cell / 2.0);
+        }
 
         // HUD — HP bar at top
         let canvas_w = cam.viewport_w() * cell;
@@ -178,6 +218,35 @@ impl Renderer {
                 canvas_w / 2.0,
                 canvas_h / 2.0 + big * 0.5,
             );
+        }
+    }
+
+    /// Fallback rendering when sprite sheets aren't loaded yet.
+    fn draw_tile_fallback(&self, tile: Tile, px: f64, py: f64, cell: f64) {
+        let ctx = &self.ctx;
+        match tile {
+            Tile::Wall => {
+                ctx.set_fill_style_str(tile.color());
+                ctx.fill_rect(px, py, cell, cell);
+            }
+            Tile::Floor | Tile::Grass => {
+                ctx.set_fill_style_str(tile.color());
+                ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+            }
+            _ => {
+                ctx.set_fill_style_str(tile.color());
+                ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+                let tile_font_size = (cell * 0.7).round();
+                ctx.set_font(&format!("{tile_font_size}px monospace"));
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                ctx.set_fill_style_str("#ddd");
+                let _ = ctx.fill_text(
+                    &tile.glyph().to_string(),
+                    px + cell / 2.0,
+                    py + cell / 2.0,
+                );
+            }
         }
     }
 }

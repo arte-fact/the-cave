@@ -3,16 +3,17 @@ mod game;
 mod input;
 mod map;
 mod renderer;
+mod sprites;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use web_sys::HtmlCanvasElement;
+use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 use game::Game;
 use input::{Input, InputAction};
 use map::Map;
-use renderer::Renderer;
+use renderer::{Renderer, SpriteSheets};
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     window
@@ -42,6 +43,16 @@ fn new_game() -> Game {
     game
 }
 
+/// Load an image from a URL and call `on_load` when ready.
+fn load_image(src: &str, on_load: impl FnMut() + 'static) -> HtmlImageElement {
+    let img = HtmlImageElement::new().unwrap();
+    let cb = Closure::<dyn FnMut()>::new(on_load);
+    img.set_onload(Some(cb.as_ref().unchecked_ref()));
+    cb.forget();
+    img.set_src(src);
+    img
+}
+
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let window = web_sys::window().unwrap();
@@ -69,6 +80,100 @@ pub fn start() -> Result<(), JsValue> {
     // Frame counter for throttling auto-move speed
     let auto_move_tick: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
 
+    // Load sprite sheets asynchronously
+    {
+        let loaded_count: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+        let renderer_for_load = Rc::clone(&renderer);
+
+        // We store images in Rc so they survive until all are loaded
+        let tiles_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
+        let monsters_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
+        let rogues_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
+        let items_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
+
+        // Helper: each onload increments counter; when all 4 loaded, assemble SpriteSheets
+        let make_on_load = |slot: Rc<RefCell<Option<HtmlImageElement>>>,
+                            loaded: Rc<RefCell<u32>>,
+                            rend: Rc<RefCell<Renderer>>,
+                            t: Rc<RefCell<Option<HtmlImageElement>>>,
+                            m: Rc<RefCell<Option<HtmlImageElement>>>,
+                            r: Rc<RefCell<Option<HtmlImageElement>>>,
+                            i: Rc<RefCell<Option<HtmlImageElement>>>| {
+            move || {
+                // Mark this slot as loaded (the image is already set)
+                let _ = slot.borrow(); // just confirm it's there
+                let mut count = loaded.borrow_mut();
+                *count += 1;
+                if *count == 4 {
+                    // All sheets loaded — assemble and hand to renderer
+                    let sheets = SpriteSheets {
+                        tiles: t.borrow_mut().take().unwrap(),
+                        monsters: m.borrow_mut().take().unwrap(),
+                        rogues: r.borrow_mut().take().unwrap(),
+                        items: i.borrow_mut().take().unwrap(),
+                    };
+                    rend.borrow_mut().set_sheets(sheets);
+                }
+            }
+        };
+
+        let img = load_image(
+            "assets/tiles.png",
+            make_on_load(
+                Rc::clone(&tiles_img),
+                Rc::clone(&loaded_count),
+                Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img),
+                Rc::clone(&monsters_img),
+                Rc::clone(&rogues_img),
+                Rc::clone(&items_img),
+            ),
+        );
+        *tiles_img.borrow_mut() = Some(img);
+
+        let img = load_image(
+            "assets/monsters.png",
+            make_on_load(
+                Rc::clone(&monsters_img),
+                Rc::clone(&loaded_count),
+                Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img),
+                Rc::clone(&monsters_img),
+                Rc::clone(&rogues_img),
+                Rc::clone(&items_img),
+            ),
+        );
+        *monsters_img.borrow_mut() = Some(img);
+
+        let img = load_image(
+            "assets/rogues.png",
+            make_on_load(
+                Rc::clone(&rogues_img),
+                Rc::clone(&loaded_count),
+                Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img),
+                Rc::clone(&monsters_img),
+                Rc::clone(&rogues_img),
+                Rc::clone(&items_img),
+            ),
+        );
+        *rogues_img.borrow_mut() = Some(img);
+
+        let img = load_image(
+            "assets/items.png",
+            make_on_load(
+                Rc::clone(&items_img),
+                Rc::clone(&loaded_count),
+                Rc::clone(&renderer_for_load),
+                Rc::clone(&tiles_img),
+                Rc::clone(&monsters_img),
+                Rc::clone(&rogues_img),
+                Rc::clone(&items_img),
+            ),
+        );
+        *items_img.borrow_mut() = Some(img);
+    }
+
     // Initial sizing + camera snap
     {
         let (w, h) = fit_canvas(&canvas);
@@ -89,6 +194,7 @@ pub fn start() -> Result<(), JsValue> {
             let gm = game.borrow();
             let mut r = renderer.borrow_mut();
             r.resize(w, h);
+            // Re-disable smoothing after resize (canvas reset clears it)
             r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
             r.draw(&gm, &preview_path.borrow());
         });
