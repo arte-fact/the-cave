@@ -435,6 +435,18 @@ impl Map {
         x >= 0 && y >= 0 && x < self.width && y < self.height && self.get(x, y).is_walkable()
     }
 
+    /// Find the first tile of the given type, scanning top-to-bottom, left-to-right.
+    pub fn find_tile(&self, tile: Tile) -> Option<(i32, i32)> {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.get(x, y) == tile {
+                    return Some((x, y));
+                }
+            }
+        }
+        None
+    }
+
     /// A* pathfinding. Returns the path from `start` to `goal` (inclusive of both),
     /// or empty vec if unreachable. Moves in 4 cardinal directions only.
     pub fn find_path(&self, start: (i32, i32), goal: (i32, i32)) -> Vec<(i32, i32)> {

@@ -49,13 +49,32 @@ impl Renderer {
 
     /// Draw a sprite at screen position. Returns true if drawn.
     fn draw_sprite(&self, sprite: SpriteRef, dx: f64, dy: f64, dw: f64, dh: f64) -> bool {
+        self.draw_sprite_ex(sprite, dx, dy, dw, dh, false)
+    }
+
+    /// Draw a sprite, optionally mirrored horizontally. Returns true if drawn.
+    fn draw_sprite_ex(&self, sprite: SpriteRef, dx: f64, dy: f64, dw: f64, dh: f64, flip: bool) -> bool {
         if let Some(sheets) = &self.sheets {
             let img = sheets.get(sprite.sheet);
-            let _ = self.ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img,
-                sprite.src_x(), sprite.src_y(), 32.0, 32.0,
-                dx, dy, dw, dh,
-            );
+            if flip {
+                let ctx = &self.ctx;
+                ctx.save();
+                // Translate to the sprite center, flip x, draw offset back
+                ctx.translate(dx + dw, dy).unwrap();
+                ctx.scale(-1.0, 1.0).unwrap();
+                let _ = ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                    img,
+                    sprite.src_x(), sprite.src_y(), 32.0, 32.0,
+                    0.0, 0.0, dw, dh,
+                );
+                ctx.restore();
+            } else {
+                let _ = self.ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                    img,
+                    sprite.src_x(), sprite.src_y(), 32.0, 32.0,
+                    dx, dy, dw, dh,
+                );
+            }
             true
         } else {
             false
@@ -75,16 +94,16 @@ impl Renderer {
         ctx.fill_rect(0.0, 0.0, cam.viewport_w() * cell, cam.viewport_h() * cell + cell);
 
         // Draw only visible tiles
-        let (min_x, min_y, max_x, max_y) = cam.visible_range(game.map.width, game.map.height);
+        let (min_x, min_y, max_x, max_y) = cam.visible_range(game.current_map().width, game.current_map().height);
 
         for y in min_y..max_y {
             for x in min_x..max_x {
                 let (px, py) = cam.world_to_screen(x, y);
-                let tile = game.map.get(x, y);
+                let tile = game.current_map().get(x, y);
 
                 // Determine wall orientation: face if tile below is not a wall
                 let wall_face = if tile == Tile::Wall {
-                    game.map.get(x, y + 1) != Tile::Wall
+                    game.current_map().get(x, y + 1) != Tile::Wall
                 } else {
                     false
                 };
@@ -120,7 +139,7 @@ impl Renderer {
             }
             let (ex, ey) = cam.world_to_screen(e.x, e.y);
             let sprite = sprites::enemy_sprite(e.glyph);
-            if !self.draw_sprite(sprite, ex, ey, cell, cell) {
+            if !self.draw_sprite_ex(sprite, ex, ey, cell, cell, e.facing_left) {
                 // Fallback: text glyph
                 let font_size = (cell * 0.8).round();
                 ctx.set_font(&format!("{font_size}px monospace"));
@@ -139,7 +158,7 @@ impl Renderer {
         // Draw player
         let (px, py) = cam.world_to_screen(game.player_x, game.player_y);
         let player_sprite = sprites::player_sprite();
-        if !self.draw_sprite(player_sprite, px, py, cell, cell) {
+        if !self.draw_sprite_ex(player_sprite, px, py, cell, cell, game.player_facing_left) {
             let font_size = (cell * 0.8).round();
             ctx.set_font(&format!("{font_size}px monospace"));
             ctx.set_text_align("center");
