@@ -54,6 +54,65 @@ impl Map {
         x >= 0 && y >= 0 && x < self.width && y < self.height && self.get(x, y) == Tile::Floor
     }
 
+    /// A* pathfinding. Returns the path from `start` to `goal` (inclusive of both),
+    /// or empty vec if unreachable. Moves in 4 cardinal directions only.
+    pub fn find_path(&self, start: (i32, i32), goal: (i32, i32)) -> Vec<(i32, i32)> {
+        use std::collections::BinaryHeap;
+        use std::cmp::Reverse;
+
+        if !self.is_walkable(goal.0, goal.1) {
+            return Vec::new();
+        }
+        if start == goal {
+            return vec![start];
+        }
+
+        let idx = |x: i32, y: i32| (y * self.width + x) as usize;
+        let len = (self.width * self.height) as usize;
+        let mut g_score = vec![i32::MAX; len];
+        let mut came_from: Vec<(i32, i32)> = vec![(-1, -1); len];
+        let heuristic = |x: i32, y: i32| (x - goal.0).abs() + (y - goal.1).abs();
+
+        g_score[idx(start.0, start.1)] = 0;
+        // (f_score, g, x, y) — Reverse for min-heap
+        let mut open = BinaryHeap::new();
+        open.push(Reverse((heuristic(start.0, start.1), 0, start.0, start.1)));
+
+        while let Some(Reverse((_f, g, x, y))) = open.pop() {
+            if (x, y) == goal {
+                // Reconstruct path
+                let mut path = vec![goal];
+                let mut cur = goal;
+                while cur != start {
+                    cur = came_from[idx(cur.0, cur.1)];
+                    path.push(cur);
+                }
+                path.reverse();
+                return path;
+            }
+
+            if g > g_score[idx(x, y)] {
+                continue; // stale entry
+            }
+
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let (nx, ny) = (x + dx, y + dy);
+                if !self.is_walkable(nx, ny) {
+                    continue;
+                }
+                let ng = g + 1;
+                let ni = idx(nx, ny);
+                if ng < g_score[ni] {
+                    g_score[ni] = ng;
+                    came_from[ni] = (x, y);
+                    open.push(Reverse((ng + heuristic(nx, ny), ng, nx, ny)));
+                }
+            }
+        }
+
+        Vec::new() // unreachable
+    }
+
     /// Find a floor tile to spawn the player on, searching from the center outward.
     pub fn find_spawn(&self) -> (i32, i32) {
         let cx = self.width / 2;
@@ -170,6 +229,88 @@ mod tests {
         for y in 0..a.height {
             for x in 0..a.width {
                 assert_eq!(a.get(x, y), b.get(x, y), "mismatch at ({x},{y})");
+            }
+        }
+    }
+
+    // === A* pathfinding ===
+
+    #[test]
+    fn path_to_self_is_single_tile() {
+        let map = Map::generate(30, 20, 42);
+        let (sx, sy) = map.find_spawn();
+        let path = map.find_path((sx, sy), (sx, sy));
+        assert_eq!(path, vec![(sx, sy)]);
+    }
+
+    #[test]
+    fn path_to_adjacent_floor() {
+        let map = Map::generate(30, 20, 42);
+        let (sx, sy) = map.find_spawn();
+        // Find an adjacent walkable tile
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (sx + dx, sy + dy);
+            if map.is_walkable(nx, ny) {
+                let path = map.find_path((sx, sy), (nx, ny));
+                assert_eq!(path.len(), 2);
+                assert_eq!(path[0], (sx, sy));
+                assert_eq!(path[1], (nx, ny));
+                return;
+            }
+        }
+        panic!("spawn has no adjacent floor");
+    }
+
+    #[test]
+    fn path_to_wall_is_empty() {
+        let map = Map::generate(30, 20, 42);
+        let (sx, sy) = map.find_spawn();
+        // Border is always wall
+        let path = map.find_path((sx, sy), (0, 0));
+        assert!(path.is_empty(), "path to wall should be empty");
+    }
+
+    #[test]
+    fn path_all_tiles_walkable() {
+        let map = Map::generate(30, 20, 42);
+        let (sx, sy) = map.find_spawn();
+        // Find a distant floor tile
+        for y in (1..map.height - 1).rev() {
+            for x in (1..map.width - 1).rev() {
+                if map.is_walkable(x, y) && (x - sx).abs() + (y - sy).abs() > 5 {
+                    let path = map.find_path((sx, sy), (x, y));
+                    if path.is_empty() {
+                        continue; // might be unreachable
+                    }
+                    for &(px, py) in &path {
+                        assert!(map.is_walkable(px, py), "path tile ({px},{py}) not walkable");
+                    }
+                    // Each step should be adjacent (manhattan dist 1)
+                    for w in path.windows(2) {
+                        let dist = (w[0].0 - w[1].0).abs() + (w[0].1 - w[1].1).abs();
+                        assert_eq!(dist, 1, "steps must be adjacent");
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn path_starts_and_ends_correctly() {
+        let map = Map::generate(30, 20, 42);
+        let (sx, sy) = map.find_spawn();
+        for y in 1..map.height - 1 {
+            for x in 1..map.width - 1 {
+                if map.is_walkable(x, y) && (x != sx || y != sy) {
+                    let path = map.find_path((sx, sy), (x, y));
+                    if !path.is_empty() {
+                        assert_eq!(*path.first().unwrap(), (sx, sy));
+                        assert_eq!(*path.last().unwrap(), (x, y));
+                        return;
+                    }
+                }
             }
         }
     }

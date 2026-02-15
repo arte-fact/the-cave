@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
 use game::Game;
-use input::Input;
+use input::{Input, InputAction};
 use map::Map;
 use renderer::Renderer;
 
@@ -31,6 +31,14 @@ fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
     (px_w, px_h)
 }
 
+fn new_game() -> Game {
+    let seed = js_sys::Date::now() as u64 ^ 0xDEAD_BEEF;
+    let map = Map::generate(30, 20, seed);
+    let mut game = Game::new(map);
+    game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
+    game
+}
+
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let window = web_sys::window().unwrap();
@@ -46,12 +54,15 @@ pub fn start() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
-    let seed = (js_sys::Date::now() as u64) ^ 0xDEAD_BEEF;
-    let map = Map::generate(30, 20, seed);
-    let game = Rc::new(RefCell::new(Game::new(map)));
+    let game = Rc::new(RefCell::new(new_game()));
     let renderer = Rc::new(RefCell::new(Renderer::new(ctx)));
     let input = Rc::new(Input::new(&canvas));
     let canvas = Rc::new(canvas);
+
+    // Auto-move queue: steps remaining from a pathfind swipe
+    let auto_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
+    // Preview path: computed during live swipe for rendering
+    let preview_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
 
     // Initial sizing
     {
@@ -64,10 +75,11 @@ pub fn start() -> Result<(), JsValue> {
         let canvas = Rc::clone(&canvas);
         let game = Rc::clone(&game);
         let renderer = Rc::clone(&renderer);
+        let preview_path = Rc::clone(&preview_path);
         let cb = Closure::<dyn FnMut()>::new(move || {
             let (w, h) = fit_canvas(&canvas);
             renderer.borrow_mut().resize(w, h, &game.borrow());
-            renderer.borrow().draw(&game.borrow());
+            renderer.borrow().draw(&game.borrow(), &preview_path.borrow());
         });
         window
             .add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref())?;
@@ -80,19 +92,82 @@ pub fn start() -> Result<(), JsValue> {
 
     let window2 = web_sys::window().unwrap();
     *g.borrow_mut() = Some(Closure::new(move || {
-        // Process input
-        for dir in input.drain() {
-            let (dx, dy) = match dir {
-                input::Direction::Up => (0, -1),
-                input::Direction::Down => (0, 1),
-                input::Direction::Left => (-1, 0),
-                input::Direction::Right => (1, 0),
-            };
-            game.borrow_mut().move_player(dx, dy);
+        let dpr = web_sys::window().unwrap().device_pixel_ratio();
+
+        // Compute live preview path from swipe state
+        {
+            let mut pp = preview_path.borrow_mut();
+            pp.clear();
+            if let Some(swipe) = input.swipe_state() {
+                let gm = game.borrow();
+                if gm.alive && !gm.won {
+                    let dest = renderer.borrow().css_to_grid(swipe.current_x, swipe.current_y, dpr);
+                    if gm.map.is_walkable(dest.0, dest.1) {
+                        let path = gm.map.find_path((gm.player_x, gm.player_y), dest);
+                        *pp = path;
+                    }
+                }
+            }
+        }
+
+        // Process input actions
+        let actions = input.drain();
+        if !actions.is_empty() {
+            let mut gm = game.borrow_mut();
+            if !gm.alive || gm.won {
+                *gm = new_game();
+                let (w, h) = (renderer.borrow().canvas_w(), renderer.borrow().canvas_h());
+                renderer.borrow_mut().resize(w, h, &gm);
+                auto_path.borrow_mut().clear();
+            } else {
+                for action in actions {
+                    match action {
+                        InputAction::Step(dir) => {
+                            auto_path.borrow_mut().clear();
+                            let (dx, dy) = match dir {
+                                input::Direction::Up => (0, -1),
+                                input::Direction::Down => (0, 1),
+                                input::Direction::Left => (-1, 0),
+                                input::Direction::Right => (1, 0),
+                            };
+                            gm.move_player(dx, dy);
+                        }
+                        InputAction::ExecutePath => {
+                            // Grab the preview path and queue it for auto-move
+                            let pp = preview_path.borrow();
+                            if pp.len() > 1 {
+                                // Skip first element (current position)
+                                *auto_path.borrow_mut() = pp[1..].to_vec();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Process auto-move queue (one step per frame)
+        {
+            let mut ap = auto_path.borrow_mut();
+            if !ap.is_empty() {
+                let mut gm = game.borrow_mut();
+                if gm.alive && !gm.won {
+                    let (nx, ny) = ap[0];
+                    let dx = nx - gm.player_x;
+                    let dy = ny - gm.player_y;
+                    gm.move_player(dx, dy);
+                    ap.remove(0);
+                    // Stop if we got blocked (wall, enemy, etc.)
+                    if gm.player_x != nx || gm.player_y != ny {
+                        ap.clear();
+                    }
+                } else {
+                    ap.clear();
+                }
+            }
         }
 
         // Render
-        renderer.borrow().draw(&game.borrow());
+        renderer.borrow().draw(&game.borrow(), &preview_path.borrow());
 
         // Schedule next frame
         request_animation_frame(&window2, f.borrow().as_ref().unwrap());
