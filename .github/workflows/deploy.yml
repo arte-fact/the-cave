@@ -24,7 +24,9 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM
-        run: wasm-pack build --target web --out-dir web/pkg --no-typescript
+        run: |
+          wasm-pack build --target web --out-dir web/pkg --no-typescript
+          rm -f web/pkg/.gitignore
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
