@@ -90,12 +90,18 @@ pub fn player_sprite() -> SpriteRef {
 /// Enemy sprite based on glyph character.
 pub fn enemy_sprite(glyph: char) -> SpriteRef {
     match glyph {
+        // Forest animals
+        'w' => SpriteRef::new(Sheet::Monsters, 7, 0),  // wolf (8.a)
+        'b' => SpriteRef::new(Sheet::Monsters, 5, 0),  // boar (6.a)
+        'B' => SpriteRef::new(Sheet::Monsters, 6, 0),  // bear (7.a)
+        // Dungeon enemies
         'g' => SpriteRef::new(Sheet::Monsters, 0, 2),  // goblin (1.c)
-        'D' => SpriteRef::new(Sheet::Monsters, 8, 2),  // dragon (9.c)
-        'o' => SpriteRef::new(Sheet::Monsters, 0, 0),  // orc (1.a)
         's' => SpriteRef::new(Sheet::Monsters, 4, 0),  // skeleton (5.a)
-        'S' => SpriteRef::new(Sheet::Monsters, 2, 0),  // slime (3.a)
+        'o' => SpriteRef::new(Sheet::Monsters, 0, 0),  // orc (1.a)
         'T' => SpriteRef::new(Sheet::Monsters, 1, 2),  // troll (2.c)
+        'D' => SpriteRef::new(Sheet::Monsters, 8, 2),  // dragon boss (9.c)
+        // Unused but mapped
+        'S' => SpriteRef::new(Sheet::Monsters, 2, 0),  // slime (3.a)
         _   => SpriteRef::new(Sheet::Monsters, 0, 2),  // default: goblin
     }
 }
@@ -224,6 +230,30 @@ mod tests {
     }
 
     #[test]
+    fn enemy_sprite_wolf() {
+        let s = enemy_sprite('w');
+        assert_eq!(s.sheet, Sheet::Monsters);
+        assert_eq!(s.row, 7);
+        assert_eq!(s.col, 0);
+    }
+
+    #[test]
+    fn enemy_sprite_boar() {
+        let s = enemy_sprite('b');
+        assert_eq!(s.sheet, Sheet::Monsters);
+        assert_eq!(s.row, 5);
+        assert_eq!(s.col, 0);
+    }
+
+    #[test]
+    fn enemy_sprite_bear() {
+        let s = enemy_sprite('B');
+        assert_eq!(s.sheet, Sheet::Monsters);
+        assert_eq!(s.row, 6);
+        assert_eq!(s.col, 0);
+    }
+
+    #[test]
     fn enemy_sprite_unknown_defaults_to_goblin() {
         let s = enemy_sprite('?');
         assert_eq!(s.sheet, Sheet::Monsters);
@@ -275,7 +305,7 @@ mod tests {
     #[test]
     fn monster_sprites_within_sheet_bounds() {
         // monsters.png: 12 cols x 13 rows
-        for glyph in ['g', 'D', 'o', 's', 'S', 'T', '?'] {
+        for glyph in ['g', 'D', 'o', 's', 'S', 'T', 'w', 'b', 'B', '?'] {
             let s = enemy_sprite(glyph);
             assert!(s.row < 13, "glyph '{}' row {} >= 13", glyph, s.row);
             assert!(s.col < 12, "glyph '{}' col {} >= 12", glyph, s.col);

@@ -159,7 +159,11 @@ impl Renderer {
                 ctx.set_font(&format!("{font_size}px monospace"));
                 ctx.set_text_align("center");
                 ctx.set_text_baseline("middle");
-                let color = if e.glyph == 'D' { "#f44" } else { "#4f4" };
+                let color = match e.glyph {
+                    'D' => "#f44",              // dragon: bright red
+                    'w' | 'b' | 'B' => "#a84",  // forest animals: brown
+                    _ => "#4f4",                 // dungeon enemies: green
+                };
                 ctx.set_fill_style_str(color);
                 let _ = ctx.fill_text(
                     &e.glyph.to_string(),

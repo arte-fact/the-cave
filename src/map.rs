@@ -213,7 +213,7 @@ impl Map {
         count
     }
 
-    /// Place dungeon footprints on a forest map using BSP zone partitioning.
+    /// Place small dungeon entrance structures on a forest map using BSP zone partitioning.
     /// Returns the list of dungeon entrance positions.
     pub fn place_dungeons(&mut self, seed: u64) -> Vec<(i32, i32)> {
         let mut rng = seed;
@@ -227,54 +227,34 @@ impl Map {
                 continue;
             }
 
-            // Place a 15×15 dungeon footprint centered in the zone
-            let fw = 15.min(zone.2 - 4);
-            let fh = 15.min(zone.3 - 4);
-            if fw < 8 || fh < 8 {
+            // Place a small stone entrance structure (3×2) at zone center:
+            //   W W W
+            //   W > W
+            let cx = zone.0 + zone.2 / 2;
+            let cy = zone.1 + zone.3 / 2;
+
+            if cx < 2 || cy < 2 || cx >= self.width - 2 || cy + 2 >= self.height - 1 {
                 continue;
             }
-            let fx = zone.0 + (zone.2 - fw) / 2;
-            let fy = zone.1 + (zone.3 - fh) / 2;
 
-            // Carve the footprint as Floor (dungeon interior on overworld)
-            for y in fy..fy + fh {
-                for x in fx..fx + fw {
-                    self.set(x, y, Tile::Floor);
-                }
+            // Top row: 3 walls
+            for dx in -1..=1 {
+                self.set(cx + dx, cy, Tile::Wall);
             }
-            // Surround with walls
-            for x in (fx - 1)..=(fx + fw) {
-                if x >= 0 && x < self.width {
-                    if fy - 1 >= 0 {
-                        self.set(x, fy - 1, Tile::Wall);
-                    }
-                    if fy + fh < self.height {
-                        self.set(x, fy + fh, Tile::Wall);
-                    }
-                }
-            }
-            for y in (fy - 1)..=(fy + fh) {
-                if y >= 0 && y < self.height {
-                    if fx - 1 >= 0 {
-                        self.set(fx - 1, y, Tile::Wall);
-                    }
-                    if fx + fw < self.width {
-                        self.set(fx + fw, y, Tile::Wall);
-                    }
+            // Bottom row: wall | entrance | wall
+            self.set(cx - 1, cy + 1, Tile::Wall);
+            self.set(cx, cy + 1, Tile::DungeonEntrance);
+            self.set(cx + 1, cy + 1, Tile::Wall);
+
+            // Small grass clearing below entrance for road connection
+            for dx in -1..=1 {
+                let ny = cy + 2;
+                if self.get(cx + dx, ny) == Tile::Tree {
+                    self.set(cx + dx, ny, Tile::Grass);
                 }
             }
 
-            // Place entrance on the south edge of the footprint, centered
-            let ex = fx + fw / 2;
-            let ey = fy + fh; // one tile below the footprint
-            if ey < self.height - 1 {
-                self.set(ex, ey, Tile::DungeonEntrance);
-                // Ensure the tile below entrance is walkable (grass) for road connection
-                if ey + 1 < self.height - 1 {
-                    self.set(ex, ey + 1, Tile::Grass);
-                }
-                entrances.push((ex, ey));
-            }
+            entrances.push((cx, cy + 1));
         }
 
         // Guarantee at least 3 dungeons by retrying with offset seed

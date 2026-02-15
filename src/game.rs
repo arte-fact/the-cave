@@ -1,4 +1,4 @@
-use crate::map::{Map, Tile, Visibility};
+use crate::map::{Map, Tile};
 use crate::world::{Location, World};
 
 #[derive(Clone)]
@@ -95,10 +95,10 @@ impl Game {
         map.compute_fov(self.player_x, self.player_y, r);
     }
 
+    /// Spawn forest animals on the overworld: wolves, boars, bears.
     pub fn spawn_enemies(&mut self, seed: u64) {
         let map = self.world.current_map();
         let mut rng = seed;
-        let mut placed = 0;
         for y in 2..map.height - 2 {
             for x in 2..map.width - 2 {
                 if !map.is_walkable(x, y) {
@@ -108,39 +108,30 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // ~8% chance per floor tile
-                if rng % 100 < 8 {
-                    let is_dragon = placed > 0 && rng % 7 == 0;
-                    self.enemies.push(if is_dragon {
-                        Enemy { x, y, hp: 15, attack: 4, glyph: 'D', name: "Dragon", facing_left: false }
+                // ~3% chance per walkable tile (forest is sparse)
+                if rng % 100 < 3 {
+                    rng = xorshift64(rng);
+                    let roll = rng % 100;
+                    let enemy = if roll < 60 {
+                        Enemy { x, y, hp: 4, attack: 2, glyph: 'w', name: "Wolf", facing_left: false }
+                    } else if roll < 85 {
+                        Enemy { x, y, hp: 6, attack: 2, glyph: 'b', name: "Boar", facing_left: false }
                     } else {
-                        Enemy { x, y, hp: 5, attack: 2, glyph: 'g', name: "Goblin", facing_left: false }
-                    });
-                    placed += 1;
-                }
-            }
-        }
-        // Guarantee at least one dragon if none spawned
-        if !self.enemies.iter().any(|e| e.glyph == 'D') {
-            let map = self.world.current_map();
-            for y in (2..map.height - 2).rev() {
-                for x in (2..map.width - 2).rev() {
-                    if map.is_walkable(x, y)
-                        && (x - self.player_x).abs() + (y - self.player_y).abs() > 5
-                        && !self.enemies.iter().any(|e| e.x == x && e.y == y)
-                    {
-                        self.enemies.push(Enemy {
-                            x, y, hp: 15, attack: 4, glyph: 'D', name: "Dragon", facing_left: false,
-                        });
-                        return;
-                    }
+                        Enemy { x, y, hp: 10, attack: 3, glyph: 'B', name: "Bear", facing_left: false }
+                    };
+                    self.enemies.push(enemy);
                 }
             }
         }
     }
 
     /// Spawn enemies appropriate for a dungeon level.
+    /// Level 0: goblins + skeletons. Level 1: goblins + skeletons + orcs.
+    /// Level 2+: skeletons + orcs + trolls. Deepest level also gets a unique dragon boss.
     fn spawn_dungeon_enemies(&mut self, dungeon_index: usize, level: usize) {
+        let total_levels = self.world.dungeons[dungeon_index].levels.len();
+        let is_deepest = level == total_levels - 1;
+
         let map = self.world.current_map();
         let seed = (dungeon_index as u64)
             .wrapping_mul(31)
@@ -155,17 +146,62 @@ impl Game {
                 if x == self.player_x && y == self.player_y {
                     continue;
                 }
+                let tile = map.get(x, y);
+                if tile == Tile::StairsUp || tile == Tile::StairsDown {
+                    continue;
+                }
                 rng = xorshift64(rng);
                 // ~10% chance per walkable tile in dungeons
                 if rng % 100 < 10 {
-                    let deep = level >= 2;
                     rng = xorshift64(rng);
-                    let enemy = if deep && rng % 3 == 0 {
-                        Enemy { x, y, hp: 15, attack: 4, glyph: 'D', name: "Dragon", facing_left: false }
-                    } else {
-                        Enemy { x, y, hp: 5 + level as i32 * 2, attack: 2 + level as i32, glyph: 'g', name: "Goblin", facing_left: false }
+                    let roll = rng % 100;
+                    let enemy = match level {
+                        0 => {
+                            if roll < 70 {
+                                Enemy { x, y, hp: 5, attack: 2, glyph: 'g', name: "Goblin", facing_left: false }
+                            } else {
+                                Enemy { x, y, hp: 6, attack: 3, glyph: 's', name: "Skeleton", facing_left: false }
+                            }
+                        }
+                        1 => {
+                            if roll < 40 {
+                                Enemy { x, y, hp: 7, attack: 3, glyph: 'g', name: "Goblin", facing_left: false }
+                            } else if roll < 70 {
+                                Enemy { x, y, hp: 8, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
+                            } else {
+                                Enemy { x, y, hp: 10, attack: 4, glyph: 'o', name: "Orc", facing_left: false }
+                            }
+                        }
+                        _ => {
+                            if roll < 30 {
+                                Enemy { x, y, hp: 9, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
+                            } else if roll < 60 {
+                                Enemy { x, y, hp: 12, attack: 5, glyph: 'o', name: "Orc", facing_left: false }
+                            } else {
+                                Enemy { x, y, hp: 15, attack: 5, glyph: 'T', name: "Troll", facing_left: false }
+                            }
+                        }
                     };
                     self.enemies.push(enemy);
+                }
+            }
+        }
+
+        // Place unique dragon boss on deepest level
+        if is_deepest {
+            let map = self.world.current_map();
+            for y in (1..map.height - 1).rev() {
+                for x in (1..map.width - 1).rev() {
+                    if map.is_walkable(x, y)
+                        && map.get(x, y) == Tile::Floor
+                        && (x - self.player_x).abs() + (y - self.player_y).abs() > 5
+                        && !self.enemies.iter().any(|e| e.x == x && e.y == y)
+                    {
+                        self.enemies.push(Enemy {
+                            x, y, hp: 30, attack: 8, glyph: 'D', name: "Dragon", facing_left: false,
+                        });
+                        return;
+                    }
                 }
             }
         }
@@ -493,21 +529,36 @@ mod tests {
     }
 
     #[test]
-    fn at_least_one_dragon() {
+    fn overworld_has_forest_animals() {
         let g = test_game();
         assert!(
-            g.enemies.iter().any(|e| e.glyph == 'D'),
-            "must have a dragon to win"
+            g.enemies.iter().any(|e| e.glyph == 'w'),
+            "overworld should have wolves"
         );
+        for e in &g.enemies {
+            assert!(
+                e.glyph == 'w' || e.glyph == 'b' || e.glyph == 'B',
+                "unexpected overworld enemy: {} ({})", e.name, e.glyph
+            );
+        }
     }
 
     #[test]
-    fn at_least_one_goblin() {
-        let g = test_game();
+    fn deepest_dungeon_has_dragon_boss() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        let total_levels = g.world.dungeons[0].levels.len();
+        for level in 0..total_levels - 1 {
+            g.descend(0, level);
+        }
         assert!(
-            g.enemies.iter().any(|e| e.glyph == 'g'),
-            "should have goblins"
+            g.enemies.iter().any(|e| e.glyph == 'D'),
+            "deepest level should have dragon boss"
         );
+        // Dragon should be very strong
+        let dragon = g.enemies.iter().find(|e| e.glyph == 'D').unwrap();
+        assert!(dragon.hp >= 30, "dragon hp should be >= 30, got {}", dragon.hp);
+        assert!(dragon.attack >= 8, "dragon attack should be >= 8, got {}", dragon.attack);
     }
 
     // === Combat ===
@@ -746,22 +797,41 @@ mod tests {
     }
 
     #[test]
+    fn dungeon_has_classic_enemies() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        // Level 0 should have goblins and/or skeletons, not forest animals
+        for e in &g.enemies {
+            assert!(
+                e.glyph == 'g' || e.glyph == 's' || e.glyph == 'o' || e.glyph == 'T' || e.glyph == 'D',
+                "unexpected dungeon enemy: {} ({})", e.name, e.glyph
+            );
+        }
+    }
+
+    #[test]
+    fn no_dragon_on_shallow_levels() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        // Level 0 should not have a dragon
+        assert!(
+            !g.enemies.iter().any(|e| e.glyph == 'D'),
+            "level 0 should not have a dragon boss"
+        );
+    }
+
+    #[test]
     fn deeper_dungeon_enemies_are_stronger() {
         let mut g = overworld_game();
         g.enter_dungeon(0);
-        let level0_goblins: Vec<_> = g.enemies.iter()
-            .filter(|e| e.glyph == 'g')
-            .collect();
-        let l0_hp = level0_goblins.first().map(|e| e.hp).unwrap_or(0);
+        let l0_max_hp = g.enemies.iter().filter(|e| e.glyph != 'D').map(|e| e.hp).max().unwrap_or(0);
 
         g.descend(0, 0);
         g.descend(0, 1);
-        let level2_goblins: Vec<_> = g.enemies.iter()
-            .filter(|e| e.glyph == 'g')
-            .collect();
-        let l2_hp = level2_goblins.first().map(|e| e.hp).unwrap_or(0);
+        let l2_max_hp = g.enemies.iter().filter(|e| e.glyph != 'D').map(|e| e.hp).max().unwrap_or(0);
 
-        assert!(l2_hp > l0_hp, "deeper goblins should have more hp: l0={l0_hp}, l2={l2_hp}");
+        assert!(l2_max_hp > l0_max_hp,
+            "deeper enemies should be stronger: l0_max={l0_max_hp}, l2_max={l2_max_hp}");
     }
 
     #[test]
