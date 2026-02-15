@@ -57,6 +57,103 @@ pub enum TurnResult {
     MapChanged,
 }
 
+/// Structured info about a tile at a specific world position.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TileInfo {
+    pub tile_name: &'static str,
+    pub tile_desc: &'static str,
+    pub walkable: bool,
+    pub enemy: Option<EnemyInfo>,
+    pub item: Option<ItemInfo>,
+    pub is_player: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnemyInfo {
+    pub name: &'static str,
+    pub hp: i32,
+    pub attack: i32,
+    pub desc: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ItemInfo {
+    pub name: &'static str,
+    pub desc: String,
+}
+
+fn tile_name(tile: Tile) -> &'static str {
+    match tile {
+        Tile::Wall => "Stone Wall",
+        Tile::Floor => "Stone Floor",
+        Tile::Tree => "Dense Tree",
+        Tile::Grass => "Grass",
+        Tile::Road => "Road",
+        Tile::DungeonEntrance => "Dungeon Entrance",
+        Tile::StairsDown => "Stairs Down",
+        Tile::StairsUp => "Stairs Up",
+    }
+}
+
+fn tile_desc(tile: Tile) -> &'static str {
+    match tile {
+        Tile::Wall => "A solid stone wall. Impassable.",
+        Tile::Floor => "Rough stone floor. Watch your step.",
+        Tile::Tree => "Thick forest. Cannot pass through.",
+        Tile::Grass => "An open clearing in the forest.",
+        Tile::Road => "A well-worn path between dungeons.",
+        Tile::DungeonEntrance => "A dark passage leading underground. Step on to enter.",
+        Tile::StairsDown => "Crumbling stairs descending deeper.",
+        Tile::StairsUp => "Stairs leading back up.",
+    }
+}
+
+fn enemy_desc(name: &str) -> &'static str {
+    match name {
+        "Wolf" => "A cunning forest predator. Fast but fragile.",
+        "Boar" => "A wild pig with sharp tusks. Sturdy.",
+        "Bear" => "A massive beast. Hits hard, takes punishment.",
+        "Goblin" => "A sneaky green creature. Weak alone.",
+        "Skeleton" => "Animated bones. Relentless and tireless.",
+        "Orc" => "A fierce warrior. Strong and armored.",
+        "Troll" => "A hulking brute. Devastating attacks.",
+        "Dragon" => "The cave's ancient guardian. Legendary power.",
+        _ => "A mysterious creature.",
+    }
+}
+
+fn xp_for_enemy(name: &str) -> u32 {
+    match name {
+        "Wolf" => 5,
+        "Boar" => 7,
+        "Bear" => 12,
+        "Goblin" => 4,
+        "Skeleton" => 6,
+        "Orc" => 10,
+        "Troll" => 15,
+        "Dragon" => 100,
+        _ => 3,
+    }
+}
+
+fn item_info_desc(item: &Item) -> String {
+    let effect = match &item.effect {
+        ItemEffect::Heal(n) => format!("Restores {} HP", n),
+        ItemEffect::DamageAoe(n) => format!("Deals {} damage in area", n),
+        ItemEffect::BuffAttack(n) => format!("+{} Attack", n),
+        ItemEffect::BuffDefense(n) => format!("+{} Defense", n),
+    };
+    format!("{} — {}", item.name, effect)
+}
+
+/// Which bottom drawer is currently open.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Drawer {
+    None,
+    Inventory,
+    Stats,
+}
+
 pub struct Game {
     pub player_x: i32,
     pub player_y: i32,
@@ -76,6 +173,13 @@ pub struct Game {
     pub player_defense: i32,
     pub ground_items: Vec<GroundItem>,
     pub inventory_open: bool,
+    /// Currently open drawer (slides up from bottom).
+    pub drawer: Drawer,
+    /// Tile currently being inspected (shown in HUD detail strip).
+    pub inspected: Option<TileInfo>,
+    /// Player XP and level for progression.
+    pub player_xp: u32,
+    pub player_level: u32,
 }
 
 impl Game {
@@ -99,6 +203,10 @@ impl Game {
             player_defense: 0,
             ground_items: Vec::new(),
             inventory_open: false,
+            drawer: Drawer::None,
+            inspected: None,
+            player_xp: 0,
+            player_level: 1,
         }
     }
 
@@ -122,6 +230,10 @@ impl Game {
             player_defense: 0,
             ground_items: Vec::new(),
             inventory_open: false,
+            drawer: Drawer::None,
+            inspected: None,
+            player_xp: 0,
+            player_level: 1,
         }
     }
 
@@ -172,6 +284,65 @@ impl Game {
 
     pub fn toggle_inventory(&mut self) {
         self.inventory_open = !self.inventory_open;
+    }
+
+    /// Inspect a world tile and return structured info for the HUD.
+    /// Returns None if the tile is not visible (Hidden).
+    pub fn inspect_tile(&self, x: i32, y: i32) -> Option<TileInfo> {
+        let map = self.current_map();
+        if x < 0 || y < 0 || x >= map.width || y >= map.height {
+            return None;
+        }
+        let vis = map.get_visibility(x, y);
+        if vis == crate::map::Visibility::Hidden {
+            return None;
+        }
+
+        let tile = map.get(x, y);
+        let mut info = TileInfo {
+            tile_name: tile_name(tile),
+            tile_desc: tile_desc(tile),
+            walkable: tile.is_walkable(),
+            enemy: None,
+            item: None,
+            is_player: x == self.player_x && y == self.player_y,
+        };
+
+        // Only show entities on currently visible tiles
+        if vis == crate::map::Visibility::Visible {
+            if let Some(e) = self.enemies.iter().find(|e| e.x == x && e.y == y && e.hp > 0) {
+                info.enemy = Some(EnemyInfo {
+                    name: e.name,
+                    hp: e.hp,
+                    attack: e.attack,
+                    desc: enemy_desc(e.name),
+                });
+            }
+            if let Some(gi) = self.ground_items.iter().find(|gi| gi.x == x && gi.y == y) {
+                info.item = Some(ItemInfo {
+                    name: gi.item.name,
+                    desc: item_info_desc(&gi.item),
+                });
+            }
+        }
+
+        Some(info)
+    }
+
+    /// Returns a description of the current location for the HUD.
+    pub fn location_name(&self) -> String {
+        match &self.world.location {
+            crate::world::Location::Overworld => "Overworld".into(),
+            crate::world::Location::Dungeon { index, level } => {
+                let depth = level + 1;
+                let total = self.world.dungeons[*index].levels.len();
+                if *level == total - 1 && total == 4 {
+                    format!("Dragon's Lair (B{})", depth)
+                } else {
+                    format!("Dungeon {} (B{})", index + 1, depth)
+                }
+            }
+        }
     }
 
     /// Use a consumable item from inventory. Returns true if used successfully.
@@ -341,6 +512,33 @@ impl Game {
         }
     }
 
+    pub fn toggle_drawer(&mut self, drawer: Drawer) {
+        if self.drawer == drawer {
+            self.drawer = Drawer::None;
+        } else {
+            self.drawer = drawer;
+        }
+    }
+
+    /// XP required to reach next level: 20 * current_level^1.5 (rounded).
+    pub fn xp_to_next_level(&self) -> u32 {
+        (20.0 * (self.player_level as f64).powf(1.5)).round() as u32
+    }
+
+    fn check_level_up(&mut self) {
+        while self.player_xp >= self.xp_to_next_level() {
+            self.player_xp -= self.xp_to_next_level();
+            self.player_level += 1;
+            self.player_max_hp += 3;
+            self.player_hp = self.player_max_hp;
+            self.player_attack += 1;
+            self.messages.push(format!(
+                "Level up! You are now level {}. HP+3, ATK+1.",
+                self.player_level
+            ));
+        }
+    }
+
     /// Spawn forest animals on the overworld: wolves, boars, bears.
     pub fn spawn_enemies(&mut self, seed: u64) {
         let map = self.world.current_map();
@@ -482,7 +680,10 @@ impl Game {
             let name = self.enemies[idx].name;
 
             if self.enemies[idx].hp <= 0 {
-                self.messages.push(format!("You slay the {name}!"));
+                let xp = xp_for_enemy(name);
+                self.player_xp += xp;
+                self.check_level_up();
+                self.messages.push(format!("You slay the {name}! (+{xp} XP)"));
                 // Check win: dragon killed
                 if self.enemies[idx].glyph == 'D' {
                     self.won = true;
@@ -1564,5 +1765,189 @@ mod tests {
         assert_eq!(g.inventory[0].name, "Rusty Sword");
         g.exit_dungeon();
         assert_eq!(g.inventory.len(), 1);
+    }
+
+    // === Phase 6: UI, Tile Info, XP & Drawers ===
+
+    // --- Tile info ---
+
+    #[test]
+    fn inspect_player_tile() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.update_fov();
+        let info = g.inspect_tile(g.player_x, g.player_y).unwrap();
+        assert_eq!(info.tile_name, "Stone Floor");
+        assert!(info.walkable);
+        assert!(info.is_player);
+        assert!(info.enemy.is_none());
+    }
+
+    #[test]
+    fn inspect_hidden_tile_returns_none() {
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new(map);
+        // Without update_fov, all tiles are Hidden
+        assert!(g.inspect_tile(0, 0).is_none());
+    }
+
+    #[test]
+    fn inspect_enemy_tile() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.update_fov();
+        let (ex, ey) = (g.player_x + 1, g.player_y);
+        g.enemies.push(Enemy {
+            x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false,
+        });
+        let info = g.inspect_tile(ex, ey).unwrap();
+        let enemy = info.enemy.unwrap();
+        assert_eq!(enemy.name, "Goblin");
+        assert_eq!(enemy.hp, 10);
+        assert_eq!(enemy.attack, 3);
+        assert_eq!(enemy.desc, "A sneaky green creature. Weak alone.");
+    }
+
+    #[test]
+    fn inspect_item_tile() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.update_fov();
+        let (ix, iy) = (g.player_x + 1, g.player_y);
+        g.ground_items.push(GroundItem { x: ix, y: iy, item: rusty_sword() });
+        let info = g.inspect_tile(ix, iy).unwrap();
+        let item = info.item.unwrap();
+        assert_eq!(item.name, "Rusty Sword");
+        assert!(item.desc.contains("+2 Attack"));
+    }
+
+    #[test]
+    fn inspect_out_of_bounds_returns_none() {
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new(map);
+        assert!(g.inspect_tile(-1, -1).is_none());
+        assert!(g.inspect_tile(999, 999).is_none());
+    }
+
+    #[test]
+    fn every_tile_has_name_and_desc() {
+        let tiles = [
+            Tile::Wall, Tile::Floor, Tile::Tree, Tile::Grass,
+            Tile::Road, Tile::DungeonEntrance, Tile::StairsDown, Tile::StairsUp,
+        ];
+        for tile in tiles {
+            assert!(!tile_name(tile).is_empty(), "{:?} has no name", tile);
+            assert!(!tile_desc(tile).is_empty(), "{:?} has no desc", tile);
+        }
+    }
+
+    #[test]
+    fn every_enemy_has_desc() {
+        for name in ["Wolf", "Boar", "Bear", "Goblin", "Skeleton", "Orc", "Troll", "Dragon"] {
+            let desc = enemy_desc(name);
+            assert!(!desc.is_empty(), "{name} has no desc");
+            assert_ne!(desc, "A mysterious creature.", "{name} should have a unique desc");
+        }
+    }
+
+    // --- Location name ---
+
+    #[test]
+    fn location_name_overworld() {
+        let g = overworld_game();
+        assert_eq!(g.location_name(), "Overworld");
+    }
+
+    #[test]
+    fn location_name_dungeon() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        let name = g.location_name();
+        assert!(name.starts_with("Dungeon") || name.starts_with("Dragon"),
+            "unexpected location name: {name}");
+        assert!(name.contains("B1"));
+    }
+
+    // --- Drawers ---
+
+    #[test]
+    fn toggle_drawer_opens_and_closes() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert_eq!(g.drawer, Drawer::None);
+        g.toggle_drawer(Drawer::Inventory);
+        assert_eq!(g.drawer, Drawer::Inventory);
+        g.toggle_drawer(Drawer::Inventory);
+        assert_eq!(g.drawer, Drawer::None);
+    }
+
+    #[test]
+    fn toggle_drawer_switches_between_drawers() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.toggle_drawer(Drawer::Inventory);
+        g.toggle_drawer(Drawer::Stats);
+        assert_eq!(g.drawer, Drawer::Stats);
+    }
+
+    // --- XP and leveling ---
+
+    #[test]
+    fn xp_granted_on_kill() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        assert_eq!(g.player_xp, 4); // goblin = 4 XP
+    }
+
+    #[test]
+    fn level_up_increases_stats() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let old_max = g.player_max_hp;
+        let old_atk = g.player_attack;
+        // Force enough XP for level 2 (need 20 XP at level 1)
+        g.player_xp = 20;
+        g.check_level_up();
+        assert_eq!(g.player_level, 2);
+        assert_eq!(g.player_max_hp, old_max + 3);
+        assert_eq!(g.player_attack, old_atk + 1);
+        assert_eq!(g.player_hp, g.player_max_hp); // full heal on level up
+    }
+
+    #[test]
+    fn xp_to_next_level_scales() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let l1 = g.xp_to_next_level();
+        g.player_level = 3;
+        let l3 = g.xp_to_next_level();
+        assert!(l3 > l1, "higher levels should need more XP");
+    }
+
+    #[test]
+    fn xp_for_each_enemy_type() {
+        assert_eq!(xp_for_enemy("Wolf"), 5);
+        assert_eq!(xp_for_enemy("Boar"), 7);
+        assert_eq!(xp_for_enemy("Bear"), 12);
+        assert_eq!(xp_for_enemy("Goblin"), 4);
+        assert_eq!(xp_for_enemy("Skeleton"), 6);
+        assert_eq!(xp_for_enemy("Orc"), 10);
+        assert_eq!(xp_for_enemy("Troll"), 15);
+        assert_eq!(xp_for_enemy("Dragon"), 100);
+    }
+
+    #[test]
+    fn kill_message_includes_xp() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.messages.iter().any(|m| m.contains("+4 XP")));
     }
 }

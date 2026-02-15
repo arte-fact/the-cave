@@ -28,6 +28,12 @@ pub enum InputAction {
     Step(Direction),
     /// Swipe released — execute the path to the previewed destination.
     ExecutePath,
+    /// Tap at a CSS pixel position (for UI buttons and tile inspection).
+    Tap(f64, f64),
+    /// Toggle inventory drawer (keyboard shortcut).
+    ToggleInventory,
+    /// Toggle stats drawer (keyboard shortcut).
+    ToggleStats,
 }
 
 pub struct Input {
@@ -110,7 +116,7 @@ impl Input {
             cb.forget();
         }
 
-        // touchend — execute path or fall back to single-step
+        // touchend — execute path, single-step, or tap
         {
             let start = Rc::clone(&start);
             let swipe = Rc::clone(&swipe);
@@ -127,7 +133,9 @@ impl Input {
 
                         let threshold = 10.0;
                         if dx.abs() < threshold && dy.abs() < threshold {
-                            return; // tap — ignore
+                            // Tap — emit CSS-pixel position
+                            queue.borrow_mut().push(InputAction::Tap(sx, sy));
+                            return;
                         }
 
                         // Long swipe (>40px) = pathfinding mode
@@ -156,16 +164,32 @@ impl Input {
     fn bind_keyboard(queue: Rc<RefCell<Vec<InputAction>>>) {
         let window = web_sys::window().unwrap();
         let cb = Closure::<dyn FnMut(KeyboardEvent)>::new(move |e: KeyboardEvent| {
-            let dir = match e.key().as_str() {
-                "ArrowUp" | "w" | "k" => Some(Direction::Up),
-                "ArrowDown" | "s" | "j" => Some(Direction::Down),
-                "ArrowLeft" | "a" | "h" => Some(Direction::Left),
-                "ArrowRight" | "d" | "l" => Some(Direction::Right),
-                _ => None,
-            };
-            if let Some(d) = dir {
-                e.prevent_default();
-                queue.borrow_mut().push(InputAction::Step(d));
+            match e.key().as_str() {
+                "ArrowUp" | "k" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::Up));
+                }
+                "ArrowDown" | "j" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::Down));
+                }
+                "ArrowLeft" | "h" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::Left));
+                }
+                "ArrowRight" | "l" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::Right));
+                }
+                "i" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::ToggleInventory);
+                }
+                "c" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::ToggleStats);
+                }
+                _ => {}
             }
         });
         window
