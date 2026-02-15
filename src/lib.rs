@@ -94,26 +94,7 @@ pub fn start() -> Result<(), JsValue> {
     *g.borrow_mut() = Some(Closure::new(move || {
         let dpr = web_sys::window().unwrap().device_pixel_ratio();
 
-        // Compute live preview path from swipe state
-        {
-            let mut pp = preview_path.borrow_mut();
-            pp.clear();
-            if let Some(swipe) = input.swipe_state() {
-                let gm = game.borrow();
-                if gm.alive && !gm.won {
-                    let dx = swipe.current_x - swipe.start_x;
-                    let dy = swipe.current_y - swipe.start_y;
-                    let (gdx, gdy) = renderer.borrow().css_delta_to_grid(dx, dy, dpr);
-                    let dest = (gm.player_x + gdx, gm.player_y + gdy);
-                    if gm.map.is_walkable(dest.0, dest.1) {
-                        let path = gm.map.find_path((gm.player_x, gm.player_y), dest);
-                        *pp = path;
-                    }
-                }
-            }
-        }
-
-        // Process input actions
+        // Process input actions (before preview clear, so ExecutePath can read it)
         let actions = input.drain();
         if !actions.is_empty() {
             let mut gm = game.borrow_mut();
@@ -143,6 +124,25 @@ pub fn start() -> Result<(), JsValue> {
                                 *auto_path.borrow_mut() = pp[1..].to_vec();
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // Compute live preview path from swipe state
+        {
+            let mut pp = preview_path.borrow_mut();
+            pp.clear();
+            if let Some(swipe) = input.swipe_state() {
+                let gm = game.borrow();
+                if gm.alive && !gm.won {
+                    let dx = swipe.current_x - swipe.start_x;
+                    let dy = swipe.current_y - swipe.start_y;
+                    let (gdx, gdy) = renderer.borrow().css_delta_to_grid(dx, dy, dpr);
+                    let dest = (gm.player_x + gdx, gm.player_y + gdy);
+                    if gm.map.is_walkable(dest.0, dest.1) {
+                        let path = gm.map.find_path((gm.player_x, gm.player_y), dest);
+                        *pp = path;
                     }
                 }
             }
