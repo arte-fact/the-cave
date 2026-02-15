@@ -1,6 +1,7 @@
 use web_sys::CanvasRenderingContext2d;
 
 use crate::game::Game;
+use crate::map::Tile;
 
 pub struct Renderer {
     ctx: CanvasRenderingContext2d,
@@ -27,14 +28,12 @@ impl Renderer {
         self.canvas_w = width;
         self.canvas_h = height;
 
-        // Fit the grid into the viewport, pick the smaller axis
-        let cell_w = width / game.grid_cols as f64;
-        let cell_h = height / game.grid_rows as f64;
+        let cell_w = width / game.map.width as f64;
+        let cell_h = height / game.map.height as f64;
         self.cell_size = cell_w.min(cell_h).floor();
 
-        // Center the grid
-        let grid_w = self.cell_size * game.grid_cols as f64;
-        let grid_h = self.cell_size * game.grid_rows as f64;
+        let grid_w = self.cell_size * game.map.width as f64;
+        let grid_h = self.cell_size * game.map.height as f64;
         self.offset_x = ((width - grid_w) / 2.0).floor();
         self.offset_y = ((height - grid_h) / 2.0).floor();
     }
@@ -46,13 +45,21 @@ impl Renderer {
         ctx.set_fill_style_str("#000");
         ctx.fill_rect(0.0, 0.0, self.canvas_w, self.canvas_h);
 
-        // Draw grid dots
-        ctx.set_fill_style_str("#1a1a1a");
-        for y in 0..game.grid_rows {
-            for x in 0..game.grid_cols {
+        // Draw tiles
+        for y in 0..game.map.height {
+            for x in 0..game.map.width {
                 let px = self.offset_x + x as f64 * self.cell_size;
                 let py = self.offset_y + y as f64 * self.cell_size;
-                ctx.fill_rect(px + 1.0, py + 1.0, self.cell_size - 2.0, self.cell_size - 2.0);
+                match game.map.get(x, y) {
+                    Tile::Wall => {
+                        ctx.set_fill_style_str("#333");
+                        ctx.fill_rect(px, py, self.cell_size, self.cell_size);
+                    }
+                    Tile::Floor => {
+                        ctx.set_fill_style_str("#111");
+                        ctx.fill_rect(px + 1.0, py + 1.0, self.cell_size - 2.0, self.cell_size - 2.0);
+                    }
+                }
             }
         }
 
