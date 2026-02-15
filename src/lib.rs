@@ -34,8 +34,10 @@ fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
 
 fn new_game() -> Game {
     let seed = js_sys::Date::now() as u64 ^ 0xDEAD_BEEF;
-    let map = Map::generate(80, 50, seed);
-    let mut game = Game::new(map);
+    let mut map = Map::generate_forest(200, 200, seed);
+    let entrances = map.place_dungeons(seed.wrapping_add(1));
+    map.build_roads(&entrances);
+    let mut game = Game::new_overworld(map);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
     game
 }
@@ -64,6 +66,8 @@ pub fn start() -> Result<(), JsValue> {
     let auto_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
     // Preview path: computed during live swipe for rendering
     let preview_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
+    // Frame counter for throttling auto-move speed
+    let auto_move_tick: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
 
     // Initial sizing + camera snap
     {
@@ -141,8 +145,8 @@ pub fn start() -> Result<(), JsValue> {
             if let Some(swipe) = input.swipe_state() {
                 let gm = game.borrow();
                 if gm.alive && !gm.won {
-                    let dx = swipe.current_x - swipe.start_x;
-                    let dy = swipe.current_y - swipe.start_y;
+                    let dx = (swipe.current_x - swipe.start_x) * 0.5;
+                    let dy = (swipe.current_y - swipe.start_y) * 0.5;
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
                     let dest = (gm.player_x + gdx, gm.player_y + gdy);
                     if gm.map.is_walkable(dest.0, dest.1) {
@@ -153,22 +157,27 @@ pub fn start() -> Result<(), JsValue> {
             }
         }
 
-        // Process auto-move queue (one step per frame)
+        // Process auto-move queue (one step every 8 frames ≈ 7.5 tiles/sec)
         {
             let mut ap = auto_path.borrow_mut();
             if !ap.is_empty() {
-                let mut gm = game.borrow_mut();
-                if gm.alive && !gm.won {
-                    let (nx, ny) = ap[0];
-                    let dx = nx - gm.player_x;
-                    let dy = ny - gm.player_y;
-                    gm.move_player(dx, dy);
-                    ap.remove(0);
-                    if gm.player_x != nx || gm.player_y != ny {
+                let mut tick = auto_move_tick.borrow_mut();
+                *tick += 1;
+                if *tick >= 8 {
+                    *tick = 0;
+                    let mut gm = game.borrow_mut();
+                    if gm.alive && !gm.won {
+                        let (nx, ny) = ap[0];
+                        let dx = nx - gm.player_x;
+                        let dy = ny - gm.player_y;
+                        gm.move_player(dx, dy);
+                        ap.remove(0);
+                        if gm.player_x != nx || gm.player_y != ny {
+                            ap.clear();
+                        }
+                    } else {
                         ap.clear();
                     }
-                } else {
-                    ap.clear();
                 }
             }
         }

@@ -48,6 +48,22 @@ impl Game {
         }
     }
 
+    pub fn new_overworld(map: Map) -> Self {
+        let (px, py) = map.find_road_spawn();
+        Self {
+            player_x: px,
+            player_y: py,
+            player_hp: 20,
+            player_max_hp: 20,
+            player_attack: 5,
+            map,
+            enemies: Vec::new(),
+            messages: vec!["You emerge into the forest.".into()],
+            alive: true,
+            won: false,
+        }
+    }
+
     pub fn spawn_enemies(&mut self, seed: u64) {
         let mut rng = seed;
         let mut placed = 0;

@@ -32,17 +32,36 @@ impl Renderer {
 
         // Draw only visible tiles
         let (min_x, min_y, max_x, max_y) = cam.visible_range(game.map.width, game.map.height);
+
+        // Tile font for glyph-rendered tiles (Tree, Road, DungeonEntrance, Stairs)
+        let tile_font_size = (cell * 0.7).round();
+
         for y in min_y..max_y {
             for x in min_x..max_x {
                 let (px, py) = cam.world_to_screen(x, y);
-                match game.map.get(x, y) {
+                let tile = game.map.get(x, y);
+                match tile {
                     Tile::Wall => {
-                        ctx.set_fill_style_str("#333");
+                        ctx.set_fill_style_str(tile.color());
                         ctx.fill_rect(px, py, cell, cell);
                     }
-                    Tile::Floor => {
-                        ctx.set_fill_style_str("#111");
+                    Tile::Floor | Tile::Grass => {
+                        ctx.set_fill_style_str(tile.color());
                         ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+                    }
+                    _ => {
+                        // Tree, Road, DungeonEntrance, Stairs: fill background + glyph
+                        ctx.set_fill_style_str(tile.color());
+                        ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+                        ctx.set_font(&format!("{tile_font_size}px monospace"));
+                        ctx.set_text_align("center");
+                        ctx.set_text_baseline("middle");
+                        ctx.set_fill_style_str("#ddd");
+                        let _ = ctx.fill_text(
+                            &tile.glyph().to_string(),
+                            px + cell / 2.0,
+                            py + cell / 2.0,
+                        );
                     }
                 }
             }
