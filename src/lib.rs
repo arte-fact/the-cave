@@ -1,5 +1,6 @@
 mod game;
 mod input;
+mod map;
 mod renderer;
 
 use std::cell::RefCell;
@@ -9,6 +10,7 @@ use web_sys::HtmlCanvasElement;
 
 use game::Game;
 use input::Input;
+use map::Map;
 use renderer::Renderer;
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
@@ -44,7 +46,9 @@ pub fn start() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
-    let game = Rc::new(RefCell::new(Game::new(20, 20)));
+    let seed = (js_sys::Date::now() as u64) ^ 0xDEAD_BEEF;
+    let map = Map::generate(30, 20, seed);
+    let game = Rc::new(RefCell::new(Game::new(map)));
     let renderer = Rc::new(RefCell::new(Renderer::new(ctx)));
     let input = Rc::new(Input::new(&canvas));
     let canvas = Rc::new(canvas);
