@@ -41,6 +41,13 @@ impl Renderer {
         (gx, gy)
     }
 
+    /// Convert a CSS pixel delta (swipe displacement) to grid tile offset.
+    pub fn css_delta_to_grid(&self, dx: f64, dy: f64, dpr: f64) -> (i32, i32) {
+        let gx = (dx * dpr / self.cell_size).round() as i32;
+        let gy = (dy * dpr / self.cell_size).round() as i32;
+        (gx, gy)
+    }
+
     pub fn resize(&mut self, width: f64, height: f64, game: &Game) {
         self.canvas_w = width;
         self.canvas_h = height;
