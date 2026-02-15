@@ -17,6 +17,13 @@ version = "0.3"
 features = [
     "Window",
     "Document",
+    "Element",
     "HtmlCanvasElement",
     "CanvasRenderingContext2d",
+    "EventTarget",
+    "Event",
+    "TouchEvent",
+    "TouchList",
+    "Touch",
+    "KeyboardEvent",
 ]
