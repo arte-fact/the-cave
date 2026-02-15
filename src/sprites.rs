@@ -127,6 +127,13 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Leather Armor" => SpriteRef::new(Sheet::Items, 8, 0),
         "Chain Mail"    => SpriteRef::new(Sheet::Items, 8, 2),
         "Dragon Scale"  => SpriteRef::new(Sheet::Items, 8, 3),
+        // Food — row 17: berries, mushrooms, meat, rations
+        "Wild Berries"  => SpriteRef::new(Sheet::Items, 17, 0),
+        "Mushrooms"     => SpriteRef::new(Sheet::Items, 17, 1),
+        "Wolf Meat"     => SpriteRef::new(Sheet::Items, 17, 4),
+        "Boar Meat"     => SpriteRef::new(Sheet::Items, 17, 5),
+        "Bear Meat"     => SpriteRef::new(Sheet::Items, 17, 6),
+        "Dried Rations" => SpriteRef::new(Sheet::Items, 17, 2),
         // Default fallback
         _ => SpriteRef::new(Sheet::Items, 15, 2),
     }
@@ -416,6 +423,27 @@ mod tests {
         assert_eq!(item_sprite("Leather Armor").row, 8);
         assert_eq!(item_sprite("Chain Mail").row, 8);
         assert_eq!(item_sprite("Dragon Scale").row, 8);
+    }
+
+    #[test]
+    fn item_sprite_food_on_row_17() {
+        assert_eq!(item_sprite("Wild Berries").row, 17);
+        assert_eq!(item_sprite("Mushrooms").row, 17);
+        assert_eq!(item_sprite("Wolf Meat").row, 17);
+        assert_eq!(item_sprite("Boar Meat").row, 17);
+        assert_eq!(item_sprite("Bear Meat").row, 17);
+        assert_eq!(item_sprite("Dried Rations").row, 17);
+    }
+
+    #[test]
+    fn food_sprites_within_sheet_bounds() {
+        let names = ["Wild Berries", "Mushrooms", "Wolf Meat", "Boar Meat", "Bear Meat", "Dried Rations"];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+        }
     }
 
     #[test]

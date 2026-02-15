@@ -3,12 +3,19 @@ use crate::world::{Location, World};
 
 pub const MAX_INVENTORY: usize = 10;
 
+// Survival constants
+const SPRINT_COST: i32 = 15;
+const STAMINA_REGEN: i32 = 5;
+const HUNGER_DRAIN: i32 = 1;
+const STARVATION_DAMAGE: i32 = 1;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ItemKind {
     Potion,
     Scroll,
     Weapon,
     Armor,
+    Food,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -17,6 +24,8 @@ pub enum ItemEffect {
     DamageAoe(i32),
     BuffAttack(i32),
     BuffDefense(i32),
+    /// Restores hunger points.
+    Feed(i32),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -142,6 +151,7 @@ fn item_info_desc(item: &Item) -> String {
         ItemEffect::DamageAoe(n) => format!("Deals {} damage in area", n),
         ItemEffect::BuffAttack(n) => format!("+{} Attack", n),
         ItemEffect::BuffDefense(n) => format!("+{} Defense", n),
+        ItemEffect::Feed(n) => format!("Restores {} hunger", n),
     };
     format!("{} — {}", item.name, effect)
 }
@@ -180,6 +190,16 @@ pub struct Game {
     /// Player XP and level for progression.
     pub player_xp: u32,
     pub player_level: u32,
+    /// Stamina for sprinting. Max 100, regen 5/turn while walking.
+    pub stamina: i32,
+    pub max_stamina: i32,
+    /// Whether sprint mode is active (toggle).
+    pub sprinting: bool,
+    /// Hunger. Starts full (100). Decreases 1/turn. 0 = starvation.
+    pub hunger: i32,
+    pub max_hunger: i32,
+    /// Turn counter for hunger tracking.
+    pub turn: u32,
 }
 
 impl Game {
@@ -207,6 +227,12 @@ impl Game {
             inspected: None,
             player_xp: 0,
             player_level: 1,
+            stamina: 100,
+            max_stamina: 100,
+            sprinting: false,
+            hunger: 100,
+            max_hunger: 100,
+            turn: 0,
         }
     }
 
@@ -234,6 +260,12 @@ impl Game {
             inspected: None,
             player_xp: 0,
             player_level: 1,
+            stamina: 100,
+            max_stamina: 100,
+            sprinting: false,
+            hunger: 100,
+            max_hunger: 100,
+            turn: 0,
         }
     }
 
@@ -386,6 +418,7 @@ impl Game {
                 }
                 false
             }
+            ItemKind::Food => self.eat_food(index),
             _ => false, // Weapons/Armor should be equipped, not used
         }
     }
@@ -482,6 +515,32 @@ impl Game {
         }
     }
 
+    /// Spawn food on the overworld: berries and mushrooms on grass tiles.
+    pub fn spawn_overworld_food(&mut self, seed: u64) {
+        let map = self.world.current_map();
+        let mut rng = seed;
+        for y in 2..map.height - 2 {
+            for x in 2..map.width - 2 {
+                let tile = map.get(x, y);
+                if tile != Tile::Grass {
+                    continue;
+                }
+                rng = xorshift64(rng);
+                // ~0.8% chance per grass tile
+                if rng % 1000 >= 8 {
+                    continue;
+                }
+                rng = xorshift64(rng);
+                let food = if rng % 3 == 0 {
+                    Item { kind: ItemKind::Food, name: "Mushrooms", glyph: '%', effect: ItemEffect::Feed(12) }
+                } else {
+                    Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(10) }
+                };
+                self.ground_items.push(GroundItem { x, y, item: food });
+            }
+        }
+    }
+
     /// Spawn items on a dungeon level. Deeper = better loot.
     fn spawn_dungeon_items(&mut self, dungeon_index: usize, level: usize) {
         let total_levels = self.world.dungeons[dungeon_index].levels.len();
@@ -509,6 +568,72 @@ impl Game {
                 let item = random_item(tier, &mut rng);
                 self.ground_items.push(GroundItem { x, y, item });
             }
+        }
+    }
+
+    pub fn toggle_sprint(&mut self) {
+        if self.sprinting {
+            self.sprinting = false;
+            self.messages.push("Sprint off.".into());
+        } else if self.stamina >= SPRINT_COST {
+            self.sprinting = true;
+            self.messages.push("Sprint on!".into());
+        } else {
+            self.messages.push("Too exhausted to sprint.".into());
+        }
+    }
+
+    /// Called each turn the player moves. Handles stamina drain/regen and hunger.
+    fn tick_survival(&mut self) {
+        self.turn += 1;
+
+        // Stamina: sprint drains, walking regenerates
+        if self.sprinting {
+            self.stamina -= SPRINT_COST;
+            if self.stamina <= 0 {
+                self.stamina = 0;
+                self.sprinting = false;
+                self.messages.push("Exhausted! Sprint disabled.".into());
+            }
+        } else {
+            self.stamina = (self.stamina + STAMINA_REGEN).min(self.max_stamina);
+        }
+
+        // Hunger: decrease every turn
+        self.hunger -= HUNGER_DRAIN;
+        if self.hunger < 0 { self.hunger = 0; }
+
+        // Starvation damage
+        if self.hunger == 0 {
+            self.player_hp -= STARVATION_DAMAGE;
+            if self.turn % 5 == 0 {
+                self.messages.push("You are starving!".into());
+            }
+            if self.player_hp <= 0 {
+                self.alive = false;
+                self.messages.push("You starved to death.".into());
+            }
+        }
+    }
+
+    /// Eat food from inventory. Returns true if eaten.
+    pub fn eat_food(&mut self, index: usize) -> bool {
+        if index >= self.inventory.len() {
+            return false;
+        }
+        if self.inventory[index].kind != ItemKind::Food {
+            return false;
+        }
+        if let ItemEffect::Feed(amount) = self.inventory[index].effect {
+            let old = self.hunger;
+            self.hunger = (self.hunger + amount).min(self.max_hunger);
+            let gained = self.hunger - old;
+            let name = self.inventory[index].name;
+            self.messages.push(format!("You eat {name}. Hunger +{gained}."));
+            self.inventory.remove(index);
+            true
+        } else {
+            false
         }
     }
 
@@ -681,9 +806,16 @@ impl Game {
 
             if self.enemies[idx].hp <= 0 {
                 let xp = xp_for_enemy(name);
+                let ex = self.enemies[idx].x;
+                let ey = self.enemies[idx].y;
                 self.player_xp += xp;
                 self.check_level_up();
                 self.messages.push(format!("You slay the {name}! (+{xp} XP)"));
+                // Animals drop meat
+                if let Some(meat) = meat_drop(name) {
+                    self.ground_items.push(GroundItem { x: ex, y: ey, item: meat });
+                    self.messages.push("It dropped some meat.".into());
+                }
                 // Check win: dragon killed
                 if self.enemies[idx].glyph == 'D' {
                     self.won = true;
@@ -724,8 +856,13 @@ impl Game {
             return TurnResult::MapChanged;
         }
 
-        // Enemies take a turn
-        self.enemy_turn();
+        // Enemies take a turn (skip if sprinting — player outruns them)
+        if !self.sprinting {
+            self.enemy_turn();
+        }
+
+        // Survival tick: stamina drain/regen, hunger
+        self.tick_survival();
 
         // Update fog of war
         self.update_fov();
@@ -902,38 +1039,63 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
     let roll = *rng % 100;
     match tier {
         0 => {
-            if roll < 40 {
+            if roll < 35 {
                 Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
-            } else if roll < 60 {
+            } else if roll < 50 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
-            } else if roll < 80 {
+            } else if roll < 65 {
                 Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) }
-            } else {
+            } else if roll < 80 {
                 Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
+            } else {
+                Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(10) }
             }
         }
         1 => {
-            if roll < 35 {
+            if roll < 30 {
                 Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10) }
-            } else if roll < 55 {
+            } else if roll < 45 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12) }
-            } else if roll < 75 {
+            } else if roll < 60 {
                 Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) }
-            } else {
+            } else if roll < 75 {
                 Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
+            } else {
+                Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20) }
             }
         }
         _ => {
-            if roll < 30 {
+            if roll < 25 {
                 Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15) }
-            } else if roll < 50 {
+            } else if roll < 40 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16) }
-            } else if roll < 75 {
+            } else if roll < 60 {
                 Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(6) }
-            } else {
+            } else if roll < 80 {
                 Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6) }
+            } else {
+                Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20) }
             }
         }
+    }
+}
+
+/// Returns a meat item if the killed enemy is an animal.
+fn meat_drop(enemy_name: &str) -> Option<Item> {
+    match enemy_name {
+        "Wolf" => Some(Item {
+            kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
+            effect: ItemEffect::Feed(15),
+        }),
+        "Boar" => Some(Item {
+            kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
+            effect: ItemEffect::Feed(25),
+        }),
+        "Bear" => Some(Item {
+            kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
+            effect: ItemEffect::Feed(35),
+        }),
+        _ => None,
     }
 }
 
@@ -1949,5 +2111,390 @@ mod tests {
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false });
         g.move_player(1, 0);
         assert!(g.messages.iter().any(|m| m.contains("+4 XP")));
+    }
+
+    // === Stamina, Sprint, Hunger & Food ===
+
+    fn raw_food(amount: i32) -> Item {
+        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount) }
+    }
+
+    // --- Stamina ---
+
+    #[test]
+    fn player_starts_with_full_stamina() {
+        let g = test_game();
+        assert_eq!(g.stamina, 100);
+        assert_eq!(g.max_stamina, 100);
+        assert!(!g.sprinting);
+    }
+
+    #[test]
+    fn stamina_regens_on_walk() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.stamina = 50;
+        // Find a walkable neighbor
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                // Walking regens STAMINA_REGEN (5)
+                assert_eq!(g.stamina, 55, "stamina should regen by 5 on walk");
+                return;
+            }
+        }
+        panic!("no walkable neighbor");
+    }
+
+    #[test]
+    fn stamina_capped_at_max() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.stamina = 98;
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.stamina, 100, "stamina should cap at max");
+                return;
+            }
+        }
+    }
+
+    // --- Sprint ---
+
+    #[test]
+    fn toggle_sprint_on_and_off() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert!(!g.sprinting);
+        g.toggle_sprint();
+        assert!(g.sprinting);
+        g.toggle_sprint();
+        assert!(!g.sprinting);
+    }
+
+    #[test]
+    fn sprint_denied_when_low_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.stamina = 5; // below SPRINT_COST (15)
+        g.toggle_sprint();
+        assert!(!g.sprinting, "sprint should be denied when stamina too low");
+        assert!(g.messages.iter().any(|m| m.contains("exhausted")));
+    }
+
+    #[test]
+    fn sprint_drains_stamina_on_move() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        let stam_before = g.stamina;
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.stamina, stam_before - 15, "sprint should drain 15 stamina");
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn sprint_auto_disables_when_exhausted() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        g.stamina = 15; // exactly one sprint move left
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.stamina, 0);
+                assert!(!g.sprinting, "sprint should auto-disable at 0 stamina");
+                assert!(g.messages.iter().any(|m| m.contains("Exhausted")));
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn sprint_skips_enemy_turn() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        // Place enemy 2 tiles away
+        let ex = g.player_x + 2;
+        let ey = g.player_y;
+        if g.current_map().is_walkable(ex, ey) {
+            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false });
+            // Move away from enemy
+            if g.current_map().is_walkable(g.player_x, g.player_y + 1) {
+                g.move_player(0, 1);
+                // Enemy should NOT have moved because player is sprinting
+                assert_eq!(g.enemies[0].x, ex, "enemy should not chase during sprint");
+                assert_eq!(g.enemies[0].y, ey, "enemy should not chase during sprint");
+            }
+        }
+    }
+
+    // --- Hunger ---
+
+    #[test]
+    fn player_starts_with_full_hunger() {
+        let g = test_game();
+        assert_eq!(g.hunger, 100);
+        assert_eq!(g.max_hunger, 100);
+    }
+
+    #[test]
+    fn hunger_drains_on_move() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let hunger_before = g.hunger;
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.hunger, hunger_before - 1, "hunger should drain 1 per move");
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn starvation_damages_player() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 1; // Will reach 0 after one move
+        let hp_before = g.player_hp;
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.hunger, 0);
+                assert_eq!(g.player_hp, hp_before - 1, "starvation should deal 1 damage");
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn starvation_can_kill_player() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 1;
+        g.player_hp = 1;
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert!(!g.alive, "starvation should kill at 0 HP");
+                assert!(g.messages.iter().any(|m| m.contains("starved")));
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn hunger_doesnt_go_negative() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 0;
+        g.player_hp = 20; // Won't die
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.hunger, 0, "hunger should not go below 0");
+                return;
+            }
+        }
+    }
+
+    // --- Food ---
+
+    #[test]
+    fn eat_food_restores_hunger() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 50;
+        g.inventory.push(raw_food(20));
+        assert!(g.eat_food(0));
+        assert_eq!(g.hunger, 70);
+        assert!(g.inventory.is_empty());
+    }
+
+    #[test]
+    fn eat_food_capped_at_max() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 90;
+        g.inventory.push(raw_food(20));
+        g.eat_food(0);
+        assert_eq!(g.hunger, 100);
+    }
+
+    #[test]
+    fn eat_food_message() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 80;
+        g.inventory.push(raw_food(10));
+        g.eat_food(0);
+        assert!(g.messages.iter().any(|m| m.contains("Hunger +10")));
+    }
+
+    #[test]
+    fn eat_non_food_fails() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        assert!(!g.eat_food(0));
+        assert_eq!(g.inventory.len(), 1);
+    }
+
+    #[test]
+    fn use_item_works_on_food() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.hunger = 50;
+        g.inventory.push(raw_food(15));
+        assert!(g.use_item(0));
+        assert_eq!(g.hunger, 65);
+        assert!(g.inventory.is_empty());
+    }
+
+    // --- Meat drops ---
+
+    #[test]
+    fn killing_wolf_drops_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'w', name: "Wolf", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Wolf Meat"),
+            "wolf should drop meat");
+    }
+
+    #[test]
+    fn killing_boar_drops_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'b', name: "Boar", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Boar Meat"));
+    }
+
+    #[test]
+    fn killing_bear_drops_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'B', name: "Bear", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Bear Meat"));
+    }
+
+    #[test]
+    fn killing_goblin_drops_no_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.is_empty(), "goblin should not drop meat");
+    }
+
+    #[test]
+    fn meat_has_feed_effect() {
+        let meat = meat_drop("Wolf").unwrap();
+        assert_eq!(meat.kind, ItemKind::Food);
+        assert!(matches!(meat.effect, ItemEffect::Feed(_)));
+    }
+
+    #[test]
+    fn bear_meat_restores_more_than_wolf() {
+        let wolf = meat_drop("Wolf").unwrap();
+        let bear = meat_drop("Bear").unwrap();
+        let wolf_feed = match wolf.effect { ItemEffect::Feed(n) => n, _ => 0 };
+        let bear_feed = match bear.effect { ItemEffect::Feed(n) => n, _ => 0 };
+        assert!(bear_feed > wolf_feed, "bear meat should restore more hunger");
+    }
+
+    // --- Food spawning ---
+
+    #[test]
+    fn overworld_has_food_on_grass() {
+        let mut g = overworld_game();
+        g.spawn_overworld_food(42);
+        let food_count = g.ground_items.iter()
+            .filter(|gi| gi.item.kind == ItemKind::Food)
+            .count();
+        assert!(food_count > 0, "overworld should have food items on grass");
+        // All food should be on grass
+        let map = g.current_map();
+        for gi in g.ground_items.iter().filter(|gi| gi.item.kind == ItemKind::Food) {
+            assert_eq!(map.get(gi.x, gi.y), Tile::Grass,
+                "food should only spawn on grass, found at ({},{})", gi.x, gi.y);
+        }
+    }
+
+    #[test]
+    fn random_item_includes_food() {
+        let mut rng = 42u64;
+        let items: Vec<_> = (0..200).map(|_| random_item(0, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.kind == ItemKind::Food),
+            "tier 0 random_item should sometimes produce food");
+    }
+
+    #[test]
+    fn dungeon_random_item_includes_rations() {
+        let mut rng = 42u64;
+        let items: Vec<_> = (0..200).map(|_| random_item(1, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.name == "Dried Rations"),
+            "dungeon tier should produce rations");
+    }
+
+    // --- Turn counter ---
+
+    #[test]
+    fn turn_counter_increments_on_move() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert_eq!(g.turn, 0);
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.turn, 1);
+                return;
+            }
+        }
+    }
+
+    // --- Item info for food ---
+
+    #[test]
+    fn food_item_info_desc() {
+        let food = raw_food(15);
+        let desc = item_info_desc(&food);
+        assert!(desc.contains("Restores 15 hunger"), "food desc: {desc}");
     }
 }

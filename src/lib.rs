@@ -17,22 +17,29 @@ use map::Map;
 use renderer::{Renderer, SpriteSheets};
 use world::World;
 
-/// Bottom bar button layout: returns which Drawer was tapped (if any).
+/// Result of tapping the bottom bar.
+enum BarTap {
+    OpenDrawer(Drawer),
+    Sprint,
+}
+
+/// Bottom bar button layout: returns which button was tapped (if any).
 /// `css_y` and `canvas_h_css` are in CSS pixels (pre-DPR).
-fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css: f64) -> Option<Drawer> {
+fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css: f64) -> Option<BarTap> {
     let bar_top = css_h - bar_h_css;
     if css_y < bar_top {
         return None;
     }
-    let btn_count = 3.0;
-    let btn_w = (css_w / btn_count).min(140.0);
+    let btn_count = 4.0;
+    let btn_w = (css_w / btn_count).min(110.0);
     let total_w = btn_w * btn_count;
     let start_x = (css_w - total_w) / 2.0;
     let idx = ((css_x - start_x) / btn_w).floor() as i32;
     match idx {
-        0 => Some(Drawer::Inventory),
-        1 => Some(Drawer::Stats),
-        2 => Some(Drawer::None), // Menu (currently just closes drawers)
+        0 => Some(BarTap::OpenDrawer(Drawer::Inventory)),
+        1 => Some(BarTap::OpenDrawer(Drawer::Stats)),
+        2 => Some(BarTap::Sprint),
+        3 => Some(BarTap::OpenDrawer(Drawer::None)), // Menu (closes drawers)
         _ => None,
     }
 }
@@ -64,6 +71,7 @@ fn new_game() -> Game {
     let mut game = Game::new_overworld(world);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
     game.spawn_overworld_items(seed.wrapping_add(3));
+    game.spawn_overworld_food(seed.wrapping_add(4));
     game.update_fov();
     game
 }
@@ -253,11 +261,17 @@ pub fn start() -> Result<(), JsValue> {
                             let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
 
                             // Bottom bar hit test first
-                            if let Some(drawer) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
-                                if drawer == Drawer::None {
-                                    gm.drawer = Drawer::None;
-                                } else {
-                                    gm.toggle_drawer(drawer);
+                            if let Some(tap) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
+                                match tap {
+                                    BarTap::OpenDrawer(Drawer::None) => {
+                                        gm.drawer = Drawer::None;
+                                    }
+                                    BarTap::OpenDrawer(drawer) => {
+                                        gm.toggle_drawer(drawer);
+                                    }
+                                    BarTap::Sprint => {
+                                        gm.toggle_sprint();
+                                    }
                                 }
                             } else if css_y < css_h - bar_h_css {
                                 // Tap in game area — inspect the tapped tile
@@ -271,6 +285,9 @@ pub fn start() -> Result<(), JsValue> {
                         }
                         InputAction::ToggleStats => {
                             gm.toggle_drawer(Drawer::Stats);
+                        }
+                        InputAction::ToggleSprint => {
+                            gm.toggle_sprint();
                         }
                     }
                 }
