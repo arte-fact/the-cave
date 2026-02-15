@@ -24,16 +24,18 @@ impl SpriteSheets {
     }
 }
 
-/// Heights of the fixed HUD regions (in canvas pixels).
-const TOP_BAR_H: f64 = 52.0;
-const DETAIL_STRIP_H: f64 = 52.0;
-const BOTTOM_BAR_H: f64 = 44.0;
-const MSG_AREA_H: f64 = 42.0;
+/// Base heights of the fixed HUD regions (in CSS points, scaled by DPR).
+const TOP_BAR_BASE: f64 = 52.0;
+const DETAIL_STRIP_BASE: f64 = 52.0;
+const BOTTOM_BAR_BASE: f64 = 48.0;
+const MSG_AREA_BASE: f64 = 42.0;
 
 pub struct Renderer {
     ctx: CanvasRenderingContext2d,
     pub camera: Camera,
     sheets: Option<SpriteSheets>,
+    /// Device pixel ratio — used to scale HUD elements.
+    dpr: f64,
 }
 
 impl Renderer {
@@ -42,6 +44,7 @@ impl Renderer {
             ctx,
             camera: Camera::new(),
             sheets: None,
+            dpr: 1.0,
         }
     }
 
@@ -49,13 +52,30 @@ impl Renderer {
         self.sheets = Some(sheets);
     }
 
-    pub fn resize(&mut self, width: f64, height: f64) {
+    pub fn resize(&mut self, width: f64, height: f64, dpr: f64) {
+        self.dpr = dpr;
         self.camera.set_viewport(width, height);
     }
 
+    /// Scaled HUD dimension helpers.
+    fn top_bar_h(&self) -> f64 { TOP_BAR_BASE * self.dpr }
+    fn detail_strip_h(&self) -> f64 { DETAIL_STRIP_BASE * self.dpr }
+    fn bottom_bar_h(&self) -> f64 { BOTTOM_BAR_BASE * self.dpr }
+    fn msg_area_h(&self) -> f64 { MSG_AREA_BASE * self.dpr }
+
     /// Height of the bottom bar in canvas pixels.
     pub fn bottom_bar_height(&self) -> f64 {
-        BOTTOM_BAR_H
+        self.bottom_bar_h()
+    }
+
+    /// Format a font string scaled by DPR.
+    fn font(&self, base_px: f64, weight: &str) -> String {
+        let sz = (base_px * self.dpr).round();
+        if weight.is_empty() {
+            format!("{sz}px monospace")
+        } else {
+            format!("{weight} {sz}px monospace")
+        }
     }
 
     /// Draw a sprite at screen position. Returns true if drawn.
@@ -125,12 +145,15 @@ impl Renderer {
         // ---- World rendering (tiles, entities) ----
         self.draw_world(game, preview_path);
 
-        // ---- UI overlay ----
-        self.draw_top_bar(game, canvas_w);
-        self.draw_tile_detail(game, canvas_w);
-        self.draw_messages(game, canvas_w, canvas_h);
-        self.draw_bottom_bar(game, canvas_w, canvas_h);
-        self.draw_drawer(game, canvas_w, canvas_h);
+        // ---- UI overlay (all use self.dpr-scaled sizes) ----
+        let top_h = self.top_bar_h();
+        let bottom_h = self.bottom_bar_h();
+        let msg_h = self.msg_area_h();
+        self.draw_top_bar(game, canvas_w, top_h);
+        self.draw_tile_detail(game, canvas_w, top_h);
+        self.draw_messages(game, canvas_w, canvas_h, bottom_h, msg_h);
+        self.draw_bottom_bar(game, canvas_w, canvas_h, bottom_h);
+        self.draw_drawer(game, canvas_w, canvas_h, bottom_h);
 
         // Death / Victory overlay (on top of everything)
         if !game.alive || game.won {
@@ -235,79 +258,83 @@ impl Renderer {
 
     // ---- Top bar: player stats ----
 
-    fn draw_top_bar(&self, game: &Game, canvas_w: f64) {
+    fn draw_top_bar(&self, game: &Game, canvas_w: f64, top_h: f64) {
         let ctx = &self.ctx;
-        let pad = 6.0;
+        let d = self.dpr;
+        let pad = 8.0 * d;
 
         // Semi-transparent background strip
         ctx.set_fill_style_str("rgba(0,0,0,0.75)");
-        ctx.fill_rect(0.0, 0.0, canvas_w, TOP_BAR_H);
+        ctx.fill_rect(0.0, 0.0, canvas_w, top_h);
 
-        let bar_h = 10.0;
-        let bar_w = canvas_w * 0.42;
+        let bar_h = 12.0 * d;
+        let bar_gap = 3.0 * d;
+        let bar_w = canvas_w * 0.44;
         let bar_x = pad;
+        let bar_r = 3.0 * d;
+        let text_inset = 4.0 * d;
 
         // Row 1: HP bar — left
-        let row1_y = 5.0;
+        let row1_y = 5.0 * d;
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
         ctx.set_fill_style_str("#2a0a0a");
-        self.fill_rounded_rect(bar_x, row1_y, bar_w, bar_h, 3.0);
+        self.fill_rounded_rect(bar_x, row1_y, bar_w, bar_h, bar_r);
         let hp_color = if hp_frac > 0.5 { "#2a2" }
             else if hp_frac > 0.25 { "#aa2" }
             else { "#a22" };
         ctx.set_fill_style_str(hp_color);
-        self.fill_rounded_rect(bar_x, row1_y, bar_w * hp_frac.max(0.0), bar_h, 3.0);
-        ctx.set_font("9px monospace");
+        self.fill_rounded_rect(bar_x, row1_y, bar_w * hp_frac.max(0.0), bar_h, bar_r);
+        ctx.set_font(&self.font(10.0, "bold"));
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("left");
         ctx.set_text_baseline("middle");
         let _ = ctx.fill_text(
             &format!("HP {}/{}", game.player_hp, game.player_max_hp),
-            bar_x + 3.0, row1_y + bar_h / 2.0,
+            bar_x + text_inset, row1_y + bar_h / 2.0,
         );
 
-        // Row 2: Stamina bar — left
-        let row2_y = row1_y + bar_h + 3.0;
+        // Row 2: Stamina bar
+        let row2_y = row1_y + bar_h + bar_gap;
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
         ctx.set_fill_style_str("#0a0a2a");
-        self.fill_rounded_rect(bar_x, row2_y, bar_w, bar_h, 3.0);
+        self.fill_rounded_rect(bar_x, row2_y, bar_w, bar_h, bar_r);
         let stam_color = if game.sprinting { "#4af" } else { "#28a" };
         ctx.set_fill_style_str(stam_color);
-        self.fill_rounded_rect(bar_x, row2_y, bar_w * stam_frac.max(0.0), bar_h, 3.0);
-        ctx.set_font("9px monospace");
+        self.fill_rounded_rect(bar_x, row2_y, bar_w * stam_frac.max(0.0), bar_h, bar_r);
+        ctx.set_font(&self.font(10.0, ""));
         ctx.set_fill_style_str("#fff");
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
         let _ = ctx.fill_text(
             &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
-            bar_x + 3.0, row2_y + bar_h / 2.0,
+            bar_x + text_inset, row2_y + bar_h / 2.0,
         );
 
-        // Row 3: Hunger bar — left
-        let row3_y = row2_y + bar_h + 3.0;
+        // Row 3: Hunger bar
+        let row3_y = row2_y + bar_h + bar_gap;
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
         ctx.set_fill_style_str("#2a1a0a");
-        self.fill_rounded_rect(bar_x, row3_y, bar_w, bar_h, 3.0);
+        self.fill_rounded_rect(bar_x, row3_y, bar_w, bar_h, bar_r);
         let hunger_color = if hunger_frac > 0.3 { "#a82" }
             else if hunger_frac > 0.1 { "#a52" }
             else { "#a22" };
         ctx.set_fill_style_str(hunger_color);
-        self.fill_rounded_rect(bar_x, row3_y, bar_w * hunger_frac.max(0.0), bar_h, 3.0);
-        ctx.set_font("9px monospace");
+        self.fill_rounded_rect(bar_x, row3_y, bar_w * hunger_frac.max(0.0), bar_h, bar_r);
+        ctx.set_font(&self.font(10.0, ""));
         ctx.set_fill_style_str("#fff");
         let _ = ctx.fill_text(
             &format!("FOOD {}/{}", game.hunger, game.max_hunger),
-            bar_x + 3.0, row3_y + bar_h / 2.0,
+            bar_x + text_inset, row3_y + bar_h / 2.0,
         );
 
         // Right column: location + stats + XP
         ctx.set_text_align("right");
         ctx.set_fill_style_str("#ccc");
-        ctx.set_font("10px monospace");
+        ctx.set_font(&self.font(11.0, "bold"));
         let _ = ctx.fill_text(&game.location_name(), canvas_w - pad, row1_y + bar_h / 2.0);
 
         let atk = game.effective_attack();
         let def = game.effective_defense();
-        ctx.set_font("9px monospace");
+        ctx.set_font(&self.font(10.0, ""));
         ctx.set_fill_style_str("#8cf");
         let _ = ctx.fill_text(
             &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
@@ -324,84 +351,75 @@ impl Renderer {
 
     // ---- Tile detail strip (below top bar, shown when inspecting) ----
 
-    fn draw_tile_detail(&self, game: &Game, canvas_w: f64) {
+    fn draw_tile_detail(&self, game: &Game, canvas_w: f64, top_h: f64) {
         let info = match &game.inspected {
             Some(info) => info,
             None => return,
         };
         let ctx = &self.ctx;
-        let y0 = TOP_BAR_H;
-        let pad = 8.0;
+        let d = self.dpr;
+        let strip_h = self.detail_strip_h();
+        let y0 = top_h;
+        let pad = 8.0 * d;
 
         // Background
         ctx.set_fill_style_str("rgba(0,0,0,0.8)");
-        ctx.fill_rect(0.0, y0, canvas_w, DETAIL_STRIP_H);
-        // Thin accent line at top
+        ctx.fill_rect(0.0, y0, canvas_w, strip_h);
         ctx.set_fill_style_str("rgba(0,180,255,0.6)");
         ctx.fill_rect(0.0, y0, canvas_w, 1.0);
 
-        let icon_size = 28.0;
-        let text_x = pad + icon_size + 8.0;
-        let line1_y = y0 + 10.0;
-        let line2_y = y0 + 26.0;
-        let line3_y = y0 + 40.0;
+        let icon_size = 32.0 * d;
+        let text_x = pad + icon_size + 8.0 * d;
+        let line1_y = y0 + 8.0 * d;
+        let line2_y = y0 + 24.0 * d;
+        let line3_y = y0 + 38.0 * d;
 
-        // Enemy info takes priority display
         if let Some(ref ei) = info.enemy {
-            // Draw enemy sprite
             let e_glyph = game.enemies.iter()
                 .find(|e| e.name == ei.name && e.hp > 0)
                 .map(|e| e.glyph)
                 .unwrap_or('?');
             let sprite = sprites::enemy_sprite(e_glyph);
-            self.draw_sprite(sprite, pad, y0 + (DETAIL_STRIP_H - icon_size) / 2.0, icon_size, icon_size);
+            self.draw_sprite(sprite, pad, y0 + (strip_h - icon_size) / 2.0, icon_size, icon_size);
 
-            // Name + HP
-            ctx.set_font("12px monospace");
+            ctx.set_font(&self.font(13.0, "bold"));
             ctx.set_fill_style_str("#f88");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text(ei.name, text_x, line1_y);
 
-            // Stats
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
-            let _ = ctx.fill_text(
-                &format!("HP {} ATK {}", ei.hp, ei.attack),
-                text_x, line2_y,
-            );
+            let _ = ctx.fill_text(&format!("HP {} ATK {}", ei.hp, ei.attack), text_x, line2_y);
 
-            // Description
             ctx.set_fill_style_str("#999");
             let _ = ctx.fill_text(ei.desc, text_x, line3_y);
         } else if let Some(ref ii) = info.item {
-            // Draw item sprite
             if let Some(gi) = game.ground_items.iter().find(|gi| gi.item.name == ii.name) {
                 let sprite = sprites::item_sprite(gi.item.name);
-                self.draw_sprite(sprite, pad, y0 + (DETAIL_STRIP_H - icon_size) / 2.0, icon_size, icon_size);
+                self.draw_sprite(sprite, pad, y0 + (strip_h - icon_size) / 2.0, icon_size, icon_size);
             }
 
-            ctx.set_font("12px monospace");
+            ctx.set_font(&self.font(13.0, "bold"));
             ctx.set_fill_style_str("#ff0");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text(ii.name, text_x, line1_y);
 
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
             let _ = ctx.fill_text(&ii.desc, text_x, line2_y);
         } else if info.is_player {
-            // Player sprite
             let sprite = sprites::player_sprite();
-            self.draw_sprite(sprite, pad, y0 + (DETAIL_STRIP_H - icon_size) / 2.0, icon_size, icon_size);
+            self.draw_sprite(sprite, pad, y0 + (strip_h - icon_size) / 2.0, icon_size, icon_size);
 
-            ctx.set_font("12px monospace");
+            ctx.set_font(&self.font(13.0, "bold"));
             ctx.set_fill_style_str("#fff");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("You", text_x, line1_y);
 
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
             let _ = ctx.fill_text(
                 &format!("HP {}/{} ATK {} DEF {}",
@@ -410,68 +428,65 @@ impl Renderer {
                 text_x, line2_y,
             );
         } else {
-            // Tile info
-            ctx.set_font("12px monospace");
+            ctx.set_font(&self.font(13.0, "bold"));
             ctx.set_fill_style_str("#ccc");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
-            let _ = ctx.fill_text(info.tile_name, text_x - icon_size - 4.0, line1_y);
+            let _ = ctx.fill_text(info.tile_name, pad, line1_y);
 
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#888");
-            let _ = ctx.fill_text(info.tile_desc, text_x - icon_size - 4.0, line2_y);
+            let _ = ctx.fill_text(info.tile_desc, pad, line2_y);
         }
     }
 
     // ---- Messages (above bottom bar) ----
 
-    fn draw_messages(&self, game: &Game, canvas_w: f64, canvas_h: f64) {
+    fn draw_messages(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64, msg_h: f64) {
         let ctx = &self.ctx;
-        let msg_bottom = canvas_h - BOTTOM_BAR_H;
-        let msg_top = msg_bottom - MSG_AREA_H;
+        let d = self.dpr;
+        let msg_bottom = canvas_h - bottom_h;
+        let msg_top = msg_bottom - msg_h;
 
-        // Semi-transparent message background
         ctx.set_fill_style_str("rgba(0,0,0,0.5)");
-        ctx.fill_rect(0.0, msg_top, canvas_w, MSG_AREA_H);
+        ctx.fill_rect(0.0, msg_top, canvas_w, msg_h);
 
         let msg_count = game.messages.len();
         let show = msg_count.min(3);
-        ctx.set_font("10px monospace");
+        ctx.set_font(&self.font(11.0, ""));
         ctx.set_text_align("left");
         ctx.set_text_baseline("bottom");
+        let line_h = 14.0 * d;
         for i in 0..show {
             let msg = &game.messages[msg_count - show + i];
             let alpha = if i == show - 1 { "ddd" }
                 else if i == show - 2 { "999" }
                 else { "666" };
             ctx.set_fill_style_str(&format!("#{alpha}"));
-            let y = msg_bottom - (show - 1 - i) as f64 * 13.0 - 4.0;
-            let _ = ctx.fill_text(msg, 8.0, y);
+            let y = msg_bottom - (show - 1 - i) as f64 * line_h - 4.0 * d;
+            let _ = ctx.fill_text(msg, 8.0 * d, y);
         }
     }
 
     // ---- Bottom action bar ----
 
-    fn draw_bottom_bar(&self, game: &Game, canvas_w: f64, canvas_h: f64) {
+    fn draw_bottom_bar(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
         let ctx = &self.ctx;
-        let bar_y = canvas_h - BOTTOM_BAR_H;
+        let d = self.dpr;
+        let bar_y = canvas_h - bottom_h;
 
-        // Solid dark background
         ctx.set_fill_style_str("rgba(12,12,18,0.92)");
-        ctx.fill_rect(0.0, bar_y, canvas_w, BOTTOM_BAR_H);
-        // Top edge line
+        ctx.fill_rect(0.0, bar_y, canvas_w, bottom_h);
         ctx.set_fill_style_str("rgba(255,255,255,0.08)");
         ctx.fill_rect(0.0, bar_y, canvas_w, 1.0);
 
-        // Button layout: 4 buttons evenly spaced
         let btn_count = 4.0;
-        let btn_w = (canvas_w / btn_count).min(110.0);
-        let btn_h = 30.0;
-        let btn_y = bar_y + (BOTTOM_BAR_H - btn_h) / 2.0;
+        let btn_w = (canvas_w / btn_count).min(120.0 * d);
+        let btn_h = 34.0 * d;
+        let btn_y = bar_y + (bottom_h - btn_h) / 2.0;
         let total_w = btn_w * btn_count;
         let start_x = (canvas_w - total_w) / 2.0;
 
-        // Sprint button has special highlight
         let sprint_color = if game.sprinting { "#4ef" } else { "#48a" };
         let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
 
@@ -483,16 +498,15 @@ impl Renderer {
         ];
 
         for (i, (label, color, active)) in buttons.iter().enumerate() {
-            let bx = start_x + i as f64 * btn_w + 3.0;
-            let bw = btn_w - 6.0;
+            let bx = start_x + i as f64 * btn_w + 3.0 * d;
+            let bw = btn_w - 6.0 * d;
 
-            // Highlight active buttons
             if *active {
                 ctx.set_fill_style_str("rgba(255,255,255,0.12)");
-                self.fill_rounded_rect(bx, btn_y, bw, btn_h, 6.0);
+                self.fill_rounded_rect(bx, btn_y, bw, btn_h, 6.0 * d);
             }
 
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(12.0, "bold"));
             ctx.set_fill_style_str(color);
             ctx.set_text_align("center");
             ctx.set_text_baseline("middle");
@@ -502,107 +516,108 @@ impl Renderer {
 
     // ---- Drawer: slide-up panel ----
 
-    fn draw_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64) {
+    fn draw_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
         match game.drawer {
             Drawer::None => return,
-            Drawer::Inventory => self.draw_inventory_drawer(game, canvas_w, canvas_h),
-            Drawer::Stats => self.draw_stats_drawer(game, canvas_w, canvas_h),
+            Drawer::Inventory => self.draw_inventory_drawer(game, canvas_w, canvas_h, bottom_h),
+            Drawer::Stats => self.draw_stats_drawer(game, canvas_w, canvas_h, bottom_h),
         }
     }
 
-    fn draw_inventory_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64) {
+    fn draw_inventory_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
         let ctx = &self.ctx;
+        let d = self.dpr;
         let drawer_h = canvas_h * 0.55;
-        let drawer_y = canvas_h - BOTTOM_BAR_H - drawer_h;
-        let pad = 12.0;
+        let drawer_y = canvas_h - bottom_h - drawer_h;
+        let pad = 12.0 * d;
 
-        // Background
         ctx.set_fill_style_str("rgba(8,8,16,0.94)");
-        self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0);
-        // Top accent
+        self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
         ctx.set_fill_style_str("rgba(80,130,255,0.3)");
-        self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0, 1.5);
+        self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
 
         // Title
-        ctx.set_font("13px monospace");
+        ctx.set_font(&self.font(14.0, "bold"));
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("center");
         ctx.set_text_baseline("top");
-        let _ = ctx.fill_text("INVENTORY", canvas_w / 2.0, drawer_y + 10.0);
+        let _ = ctx.fill_text("INVENTORY", canvas_w / 2.0, drawer_y + 10.0 * d);
 
         // Equipment slots
-        let eq_y = drawer_y + 30.0;
-        ctx.set_font("10px monospace");
+        let eq_y = drawer_y + 32.0 * d;
+        let eq_h = 36.0 * d;
+        let eq_icon = 28.0 * d;
         ctx.set_text_align("left");
         ctx.set_text_baseline("top");
 
         // Weapon slot
         ctx.set_fill_style_str("rgba(255,255,255,0.06)");
-        self.fill_rounded_rect(pad, eq_y, canvas_w / 2.0 - pad * 1.5, 32.0, 4.0);
-        let wep_icon_x = pad + 4.0;
+        self.fill_rounded_rect(pad, eq_y, canvas_w / 2.0 - pad * 1.5, eq_h, 4.0 * d);
+        let wep_icon_x = pad + 4.0 * d;
         if let Some(ref w) = game.equipped_weapon {
             let sprite = sprites::item_sprite(w.name);
-            self.draw_sprite(sprite, wep_icon_x, eq_y + 4.0, 24.0, 24.0);
+            self.draw_sprite(sprite, wep_icon_x, eq_y + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#8af");
-            let _ = ctx.fill_text(w.name, wep_icon_x + 28.0, eq_y + 10.0);
+            let _ = ctx.fill_text(w.name, wep_icon_x + eq_icon + 4.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
         } else {
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#555");
-            let _ = ctx.fill_text("No weapon", wep_icon_x + 4.0, eq_y + 10.0);
+            let _ = ctx.fill_text("No weapon", wep_icon_x + 4.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
         }
 
         // Armor slot
         let armor_x = canvas_w / 2.0 + pad * 0.5;
         ctx.set_fill_style_str("rgba(255,255,255,0.06)");
-        self.fill_rounded_rect(armor_x, eq_y, canvas_w / 2.0 - pad * 1.5, 32.0, 4.0);
+        self.fill_rounded_rect(armor_x, eq_y, canvas_w / 2.0 - pad * 1.5, eq_h, 4.0 * d);
         if let Some(ref a) = game.equipped_armor {
             let sprite = sprites::item_sprite(a.name);
-            self.draw_sprite(sprite, armor_x + 4.0, eq_y + 4.0, 24.0, 24.0);
+            self.draw_sprite(sprite, armor_x + 4.0 * d, eq_y + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#afa");
-            let _ = ctx.fill_text(a.name, armor_x + 32.0, eq_y + 10.0);
+            let _ = ctx.fill_text(a.name, armor_x + eq_icon + 8.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
         } else {
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#555");
-            let _ = ctx.fill_text("No armor", armor_x + 4.0, eq_y + 10.0);
+            let _ = ctx.fill_text("No armor", armor_x + 4.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
         }
 
         // Item list
-        let list_y = eq_y + 40.0;
-        let slot_h = 30.0;
-        let icon_size = 24.0;
+        let list_y = eq_y + eq_h + 8.0 * d;
+        let slot_h = 34.0 * d;
+        let icon_size = 28.0 * d;
 
         if game.inventory.is_empty() {
             ctx.set_fill_style_str("#555");
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_text_baseline("top");
-            let _ = ctx.fill_text("No items", pad + 4.0, list_y + 4.0);
+            let _ = ctx.fill_text("No items", pad + 4.0 * d, list_y + 4.0 * d);
         } else {
             for (i, item) in game.inventory.iter().enumerate() {
                 let iy = list_y + i as f64 * slot_h;
-                if iy + slot_h > drawer_y + drawer_h - 4.0 { break; } // clip
+                if iy + slot_h > drawer_y + drawer_h - 8.0 * d { break; }
 
-                // Subtle row background
                 if i % 2 == 0 {
                     ctx.set_fill_style_str("rgba(255,255,255,0.03)");
                     ctx.fill_rect(pad, iy, canvas_w - pad * 2.0, slot_h);
                 }
 
-                // Icon
                 let sprite = sprites::item_sprite(item.name);
-                self.draw_sprite(sprite, pad + 4.0, iy + (slot_h - icon_size) / 2.0, icon_size, icon_size);
+                self.draw_sprite(sprite, pad + 4.0 * d, iy + (slot_h - icon_size) / 2.0, icon_size, icon_size);
 
-                // Name
                 let color = match item.kind {
                     ItemKind::Potion => "#f88",
                     ItemKind::Scroll => "#88f",
                     ItemKind::Weapon => "#aaf",
                     ItemKind::Armor => "#afa",
                     ItemKind::Food => "#fa8",
+                    ItemKind::Ring => "#ff8",
                 };
-                ctx.set_font("11px monospace");
+                ctx.set_font(&self.font(12.0, ""));
                 ctx.set_fill_style_str(color);
                 ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text(item.name, pad + 32.0, iy + slot_h / 2.0);
+                let _ = ctx.fill_text(item.name, pad + icon_size + 8.0 * d, iy + slot_h / 2.0);
 
-                // Effect hint on right
                 let hint = match &item.effect {
                     crate::game::ItemEffect::Heal(n) => format!("+{} HP", n),
                     crate::game::ItemEffect::DamageAoe(n) => format!("{} DMG", n),
@@ -611,74 +626,75 @@ impl Renderer {
                     crate::game::ItemEffect::Feed(n) => format!("+{} FOOD", n),
                 };
                 ctx.set_text_align("right");
-                ctx.set_fill_style_str("#888");
-                ctx.set_font("9px monospace");
-                let _ = ctx.fill_text(&hint, canvas_w - pad - 4.0, iy + slot_h / 2.0);
+                ctx.set_fill_style_str("#999");
+                ctx.set_font(&self.font(10.0, ""));
+                let _ = ctx.fill_text(&hint, canvas_w - pad - 4.0 * d, iy + slot_h / 2.0);
                 ctx.set_text_align("left");
             }
         }
 
         // Slot count
-        ctx.set_font("9px monospace");
+        ctx.set_font(&self.font(10.0, ""));
         ctx.set_fill_style_str("#555");
         ctx.set_text_align("right");
         ctx.set_text_baseline("bottom");
         let _ = ctx.fill_text(
             &format!("{}/10", game.inventory.len()),
-            canvas_w - pad, drawer_y + drawer_h - 6.0,
+            canvas_w - pad, drawer_y + drawer_h - 6.0 * d,
         );
     }
 
-    fn draw_stats_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64) {
+    fn draw_stats_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
         let ctx = &self.ctx;
+        let d = self.dpr;
         let drawer_h = canvas_h * 0.45;
-        let drawer_y = canvas_h - BOTTOM_BAR_H - drawer_h;
-        let pad = 12.0;
+        let drawer_y = canvas_h - bottom_h - drawer_h;
+        let pad = 12.0 * d;
 
-        // Background
         ctx.set_fill_style_str("rgba(8,8,16,0.94)");
-        self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0);
+        self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
         ctx.set_fill_style_str("rgba(160,80,255,0.3)");
-        self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0, 1.5);
+        self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
 
-        // Title
-        ctx.set_font("13px monospace");
+        ctx.set_font(&self.font(14.0, "bold"));
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("center");
         ctx.set_text_baseline("top");
-        let _ = ctx.fill_text("CHARACTER", canvas_w / 2.0, drawer_y + 10.0);
+        let _ = ctx.fill_text("CHARACTER", canvas_w / 2.0, drawer_y + 10.0 * d);
 
-        let mut y = drawer_y + 34.0;
-        let line_h = 22.0;
+        let icon_sz = 36.0 * d;
+        let mut y = drawer_y + 32.0 * d;
+        let line_h = 24.0 * d;
 
         // Player sprite + level
         let sprite = sprites::player_sprite();
-        self.draw_sprite(sprite, pad, y, 32.0, 32.0);
-        ctx.set_font("12px monospace");
+        self.draw_sprite(sprite, pad, y, icon_sz, icon_sz);
+        ctx.set_font(&self.font(13.0, "bold"));
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("left");
         ctx.set_text_baseline("top");
-        let _ = ctx.fill_text(&format!("Level {}", game.player_level), pad + 40.0, y + 2.0);
-        ctx.set_font("10px monospace");
+        let _ = ctx.fill_text(&format!("Level {}", game.player_level), pad + icon_sz + 8.0 * d, y + 2.0 * d);
+        ctx.set_font(&self.font(11.0, ""));
         ctx.set_fill_style_str("#a8f");
         let _ = ctx.fill_text(
             &format!("XP {}/{}", game.player_xp, game.xp_to_next_level()),
-            pad + 40.0, y + 18.0,
+            pad + icon_sz + 8.0 * d, y + 18.0 * d,
         );
 
-        y += 42.0;
+        y += icon_sz + 6.0 * d;
 
         // XP progress bar
         let xp_bar_w = canvas_w - pad * 2.0;
+        let xp_bar_h = 10.0 * d;
         let xp_frac = if game.xp_to_next_level() > 0 {
             game.player_xp as f64 / game.xp_to_next_level() as f64
         } else { 1.0 };
         ctx.set_fill_style_str("#1a0a2a");
-        self.fill_rounded_rect(pad, y, xp_bar_w, 8.0, 3.0);
+        self.fill_rounded_rect(pad, y, xp_bar_w, xp_bar_h, 3.0 * d);
         ctx.set_fill_style_str("#a6f");
-        self.fill_rounded_rect(pad, y, xp_bar_w * xp_frac, 8.0, 3.0);
+        self.fill_rounded_rect(pad, y, xp_bar_w * xp_frac, xp_bar_h, 3.0 * d);
 
-        y += 20.0;
+        y += xp_bar_h + 12.0 * d;
 
         // Stat rows
         let stats: [(&str, String, &str); 4] = [
@@ -689,7 +705,7 @@ impl Renderer {
         ];
 
         for (label, value, color) in &stats {
-            ctx.set_font("10px monospace");
+            ctx.set_font(&self.font(12.0, ""));
             ctx.set_fill_style_str("#888");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
@@ -701,36 +717,56 @@ impl Renderer {
         }
 
         // Equipment section
-        y += 6.0;
-        ctx.set_font("10px monospace");
+        y += 8.0 * d;
+        ctx.set_font(&self.font(11.0, "bold"));
         ctx.set_fill_style_str("#666");
         ctx.set_text_align("left");
         let _ = ctx.fill_text("Equipment", pad, y);
-        y += 16.0;
+        y += 20.0 * d;
 
+        let eq_icon = 24.0 * d;
         if let Some(ref w) = game.equipped_weapon {
             let sprite = sprites::item_sprite(w.name);
-            self.draw_sprite(sprite, pad, y, 20.0, 20.0);
+            self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#8af");
             ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text(w.name, pad + 24.0, y + 10.0);
+            let _ = ctx.fill_text(w.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
         } else {
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#444");
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("- No weapon", pad, y);
         }
-        y += 24.0;
+        y += eq_icon + 6.0 * d;
 
         if let Some(ref a) = game.equipped_armor {
             let sprite = sprites::item_sprite(a.name);
-            self.draw_sprite(sprite, pad, y, 20.0, 20.0);
+            self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#afa");
             ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text(a.name, pad + 24.0, y + 10.0);
+            let _ = ctx.fill_text(a.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
         } else {
+            ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#444");
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("- No armor", pad, y);
+        }
+        y += eq_icon + 6.0 * d;
+
+        if let Some(ref r) = game.equipped_ring {
+            let sprite = sprites::item_sprite(r.name);
+            self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
+            ctx.set_font(&self.font(11.0, ""));
+            ctx.set_fill_style_str("#ff8");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text(r.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
+        } else {
+            ctx.set_font(&self.font(11.0, ""));
+            ctx.set_fill_style_str("#444");
+            ctx.set_text_baseline("top");
+            let _ = ctx.fill_text("- No ring", pad, y);
         }
     }
 

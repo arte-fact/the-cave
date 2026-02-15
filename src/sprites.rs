@@ -119,14 +119,32 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Scroll of Fire"      => SpriteRef::new(Sheet::Items, 16, 1),
         "Scroll of Lightning" => SpriteRef::new(Sheet::Items, 16, 3),
         "Scroll of Storm"     => SpriteRef::new(Sheet::Items, 16, 5),
-        // Weapons — row 0: short sword, broad sword, cyan enchanted blade
+        // Weapons — swords (row 0), daggers (row 1), axes (row 2), clubs (row 4), staves (row 6)
         "Rusty Sword"     => SpriteRef::new(Sheet::Items, 0, 1),
         "Iron Sword"      => SpriteRef::new(Sheet::Items, 0, 3),
         "Enchanted Blade" => SpriteRef::new(Sheet::Items, 0, 10),
-        // Armor — row 8: leather vest, chain tunic, plate armor
-        "Leather Armor" => SpriteRef::new(Sheet::Items, 8, 0),
-        "Chain Mail"    => SpriteRef::new(Sheet::Items, 8, 2),
-        "Dragon Scale"  => SpriteRef::new(Sheet::Items, 8, 3),
+        "Iron Dagger"     => SpriteRef::new(Sheet::Items, 1, 0),
+        "Battle Axe"      => SpriteRef::new(Sheet::Items, 2, 0),
+        "War Hammer"      => SpriteRef::new(Sheet::Items, 2, 4),
+        "Wooden Club"     => SpriteRef::new(Sheet::Items, 4, 0),
+        "Crystal Staff"   => SpriteRef::new(Sheet::Items, 3, 6),
+        "Flame Sword"     => SpriteRef::new(Sheet::Items, 0, 8),
+        // Armor — body (row 8), shields (row 7), helmets (row 11), boots (row 10)
+        "Leather Armor"  => SpriteRef::new(Sheet::Items, 8, 0),
+        "Chain Mail"     => SpriteRef::new(Sheet::Items, 8, 2),
+        "Dragon Scale"   => SpriteRef::new(Sheet::Items, 8, 3),
+        "Wooden Shield"  => SpriteRef::new(Sheet::Items, 7, 0),
+        "Iron Shield"    => SpriteRef::new(Sheet::Items, 7, 4),
+        "Leather Cap"    => SpriteRef::new(Sheet::Items, 11, 0),
+        "Iron Helmet"    => SpriteRef::new(Sheet::Items, 11, 3),
+        "Mithril Helm"   => SpriteRef::new(Sheet::Items, 11, 4),
+        "Plate Boots"    => SpriteRef::new(Sheet::Items, 10, 3),
+        // Rings — row 13
+        "Copper Ring"   => SpriteRef::new(Sheet::Items, 13, 0),
+        "Silver Ring"   => SpriteRef::new(Sheet::Items, 13, 2),
+        "Ruby Ring"     => SpriteRef::new(Sheet::Items, 13, 1),
+        "Gold Ring"     => SpriteRef::new(Sheet::Items, 13, 3),
+        "Diamond Ring"  => SpriteRef::new(Sheet::Items, 13, 4),
         // Food — row 17: berries, mushrooms, meat, rations
         "Wild Berries"  => SpriteRef::new(Sheet::Items, 17, 0),
         "Mushrooms"     => SpriteRef::new(Sheet::Items, 17, 1),
@@ -442,6 +460,39 @@ mod tests {
             let s = item_sprite(name);
             assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
             assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+        }
+    }
+
+    #[test]
+    fn item_sprite_new_weapons_within_bounds() {
+        let names = ["Iron Dagger", "Battle Axe", "War Hammer", "Wooden Club", "Crystal Staff", "Flame Sword"];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+        }
+    }
+
+    #[test]
+    fn item_sprite_new_armor_within_bounds() {
+        let names = ["Wooden Shield", "Iron Shield", "Leather Cap", "Iron Helmet", "Mithril Helm", "Plate Boots"];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+        }
+    }
+
+    #[test]
+    fn item_sprite_rings_within_bounds() {
+        let names = ["Copper Ring", "Silver Ring", "Ruby Ring", "Gold Ring", "Diamond Ring"];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert_eq!(s.row, 13, "{name} should be on row 13");
             assert!(s.col < 11, "{name} col {} >= 11", s.col);
         }
     }

@@ -16,6 +16,7 @@ pub enum ItemKind {
     Weapon,
     Armor,
     Food,
+    Ring,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -180,6 +181,7 @@ pub struct Game {
     pub inventory: Vec<Item>,
     pub equipped_weapon: Option<Item>,
     pub equipped_armor: Option<Item>,
+    pub equipped_ring: Option<Item>,
     pub player_defense: i32,
     pub ground_items: Vec<GroundItem>,
     pub inventory_open: bool,
@@ -220,6 +222,7 @@ impl Game {
             inventory: Vec::new(),
             equipped_weapon: None,
             equipped_armor: None,
+            equipped_ring: None,
             player_defense: 0,
             ground_items: Vec::new(),
             inventory_open: false,
@@ -253,6 +256,7 @@ impl Game {
             inventory: Vec::new(),
             equipped_weapon: None,
             equipped_armor: None,
+            equipped_ring: None,
             player_defense: 0,
             ground_items: Vec::new(),
             inventory_open: false,
@@ -292,26 +296,26 @@ impl Game {
 
     /// Player's total attack: base + weapon bonus.
     pub fn effective_attack(&self) -> i32 {
-        let base = self.player_attack;
-        match &self.equipped_weapon {
-            Some(item) => match item.effect {
-                ItemEffect::BuffAttack(bonus) => base + bonus,
-                _ => base,
-            },
-            None => base,
+        let mut total = self.player_attack;
+        if let Some(item) = &self.equipped_weapon {
+            if let ItemEffect::BuffAttack(bonus) = item.effect { total += bonus; }
         }
+        if let Some(ring) = &self.equipped_ring {
+            if let ItemEffect::BuffAttack(bonus) = ring.effect { total += bonus; }
+        }
+        total
     }
 
-    /// Player's total defense: base + armor bonus.
+    /// Player's total defense: base + armor bonus + ring bonus.
     pub fn effective_defense(&self) -> i32 {
-        let base = self.player_defense;
-        match &self.equipped_armor {
-            Some(item) => match item.effect {
-                ItemEffect::BuffDefense(bonus) => base + bonus,
-                _ => base,
-            },
-            None => base,
+        let mut total = self.player_defense;
+        if let Some(item) = &self.equipped_armor {
+            if let ItemEffect::BuffDefense(bonus) = item.effect { total += bonus; }
         }
+        if let Some(ring) = &self.equipped_ring {
+            if let ItemEffect::BuffDefense(bonus) = ring.effect { total += bonus; }
+        }
+        total
     }
 
     pub fn toggle_inventory(&mut self) {
@@ -445,6 +449,17 @@ impl Game {
                 let new_item = self.inventory.remove(index);
                 let name = new_item.name;
                 if let Some(old) = self.equipped_armor.replace(new_item) {
+                    self.messages.push(format!("You swap {} for {name}.", old.name));
+                    self.inventory.push(old);
+                } else {
+                    self.messages.push(format!("You equip {name}."));
+                }
+                true
+            }
+            ItemKind::Ring => {
+                let new_item = self.inventory.remove(index);
+                let name = new_item.name;
+                if let Some(old) = self.equipped_ring.replace(new_item) {
                     self.messages.push(format!("You swap {} for {name}.", old.name));
                     self.inventory.push(old);
                 } else {
@@ -1037,42 +1052,81 @@ impl Game {
 fn random_item(tier: usize, rng: &mut u64) -> Item {
     *rng = xorshift64(*rng);
     let roll = *rng % 100;
+    // Sub-roll for variant selection within a category
+    *rng = xorshift64(*rng);
+    let sub = *rng % 3;
     match tier {
         0 => {
-            if roll < 35 {
+            if roll < 30 {
                 Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
-            } else if roll < 50 {
+            } else if roll < 42 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
-            } else if roll < 65 {
-                Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) }
-            } else if roll < 80 {
-                Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
+            } else if roll < 55 {
+                match sub {
+                    0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) },
+                    1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(1) },
+                    _ => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(2) },
+                }
+            } else if roll < 68 {
+                match sub {
+                    0 => Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) },
+                    1 => Item { kind: ItemKind::Armor, name: "Wooden Shield", glyph: '[', effect: ItemEffect::BuffDefense(1) },
+                    _ => Item { kind: ItemKind::Armor, name: "Leather Cap", glyph: '[', effect: ItemEffect::BuffDefense(1) },
+                }
+            } else if roll < 78 {
+                Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1) }
             } else {
                 Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(10) }
             }
         }
         1 => {
-            if roll < 30 {
+            if roll < 25 {
                 Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10) }
-            } else if roll < 45 {
+            } else if roll < 38 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12) }
-            } else if roll < 60 {
-                Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) }
-            } else if roll < 75 {
-                Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
+            } else if roll < 52 {
+                match sub {
+                    0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                    1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(5) },
+                    _ => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                }
+            } else if roll < 66 {
+                match sub {
+                    0 => Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) },
+                    1 => Item { kind: ItemKind::Armor, name: "Iron Helmet", glyph: '[', effect: ItemEffect::BuffDefense(3) },
+                    _ => Item { kind: ItemKind::Armor, name: "Iron Shield", glyph: '[', effect: ItemEffect::BuffDefense(3) },
+                }
+            } else if roll < 78 {
+                match sub {
+                    0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2) },
+                    _ => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3) },
+                }
             } else {
                 Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20) }
             }
         }
         _ => {
-            if roll < 25 {
+            if roll < 20 {
                 Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15) }
-            } else if roll < 40 {
+            } else if roll < 34 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16) }
-            } else if roll < 60 {
-                Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(6) }
+            } else if roll < 50 {
+                match sub {
+                    0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                    1 => Item { kind: ItemKind::Weapon, name: "Crystal Staff", glyph: '/', effect: ItemEffect::BuffAttack(7) },
+                    _ => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                }
+            } else if roll < 66 {
+                match sub {
+                    0 => Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6) },
+                    1 => Item { kind: ItemKind::Armor, name: "Mithril Helm", glyph: '[', effect: ItemEffect::BuffDefense(5) },
+                    _ => Item { kind: ItemKind::Armor, name: "Plate Boots", glyph: '[', effect: ItemEffect::BuffDefense(5) },
+                }
             } else if roll < 80 {
-                Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6) }
+                match sub {
+                    0 => Item { kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4) },
+                    _ => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4) },
+                }
             } else {
                 Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20) }
             }
@@ -2496,5 +2550,83 @@ mod tests {
         let food = raw_food(15);
         let desc = item_info_desc(&food);
         assert!(desc.contains("Restores 15 hunger"), "food desc: {desc}");
+    }
+
+    // --- Rings ---
+
+    #[test]
+    fn equip_ring() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(Item {
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4),
+        });
+        assert!(g.equip_item(0));
+        assert!(g.inventory.is_empty());
+        assert!(g.equipped_ring.is_some());
+        assert_eq!(g.equipped_ring.as_ref().unwrap().name, "Gold Ring");
+    }
+
+    #[test]
+    fn ring_boosts_attack() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let base_atk = g.effective_attack();
+        g.equipped_ring = Some(Item {
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4),
+        });
+        assert_eq!(g.effective_attack(), base_atk + 4);
+    }
+
+    #[test]
+    fn ring_boosts_defense() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let base_def = g.effective_defense();
+        g.equipped_ring = Some(Item {
+            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4),
+        });
+        assert_eq!(g.effective_defense(), base_def + 4);
+    }
+
+    #[test]
+    fn ring_swaps_to_inventory() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_ring = Some(Item {
+            kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1),
+        });
+        g.inventory.push(Item {
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4),
+        });
+        g.equip_item(0);
+        assert_eq!(g.equipped_ring.as_ref().unwrap().name, "Gold Ring");
+        assert_eq!(g.inventory[0].name, "Copper Ring");
+    }
+
+    // --- Item variety ---
+
+    #[test]
+    fn random_item_produces_variety() {
+        let mut rng = 42u64;
+        let items: Vec<_> = (0..500).map(|_| random_item(1, &mut rng)).collect();
+        // Should produce weapons, armor, rings, food, potions, scrolls
+        assert!(items.iter().any(|i| i.kind == ItemKind::Weapon), "should have weapons");
+        assert!(items.iter().any(|i| i.kind == ItemKind::Armor), "should have armor");
+        assert!(items.iter().any(|i| i.kind == ItemKind::Ring), "should have rings");
+        assert!(items.iter().any(|i| i.kind == ItemKind::Food), "should have food");
+        assert!(items.iter().any(|i| i.kind == ItemKind::Potion), "should have potions");
+        assert!(items.iter().any(|i| i.kind == ItemKind::Scroll), "should have scrolls");
+    }
+
+    #[test]
+    fn weapon_names_vary() {
+        let mut rng = 42u64;
+        let weapons: Vec<_> = (0..500)
+            .map(|_| random_item(0, &mut rng))
+            .filter(|i| i.kind == ItemKind::Weapon)
+            .collect();
+        let names: std::collections::HashSet<&str> = weapons.iter().map(|i| i.name).collect();
+        assert!(names.len() >= 2, "should have at least 2 weapon variants, got: {:?}", names);
     }
 }
