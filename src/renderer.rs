@@ -32,6 +32,15 @@ impl Renderer {
         self.canvas_h
     }
 
+    /// Convert CSS pixel coordinates to grid tile coordinates.
+    pub fn css_to_grid(&self, css_x: f64, css_y: f64, dpr: f64) -> (i32, i32) {
+        let px = css_x * dpr;
+        let py = css_y * dpr;
+        let gx = ((px - self.offset_x) / self.cell_size).floor() as i32;
+        let gy = ((py - self.offset_y) / self.cell_size).floor() as i32;
+        (gx, gy)
+    }
+
     pub fn resize(&mut self, width: f64, height: f64, game: &Game) {
         self.canvas_w = width;
         self.canvas_h = height;
@@ -46,7 +55,7 @@ impl Renderer {
         self.offset_y = ((height - grid_h) / 2.0).floor();
     }
 
-    pub fn draw(&self, game: &Game) {
+    pub fn draw(&self, game: &Game, preview_path: &[(i32, i32)]) {
         let ctx = &self.ctx;
 
         // Clear
@@ -68,6 +77,22 @@ impl Renderer {
                         ctx.fill_rect(px + 1.0, py + 1.0, self.cell_size - 2.0, self.cell_size - 2.0);
                     }
                 }
+            }
+        }
+
+        // Draw path preview (highlighted tiles)
+        if preview_path.len() > 1 {
+            for (i, &(tx, ty)) in preview_path.iter().enumerate() {
+                let px = self.offset_x + tx as f64 * self.cell_size;
+                let py = self.offset_y + ty as f64 * self.cell_size;
+                if i == preview_path.len() - 1 {
+                    // Destination tile
+                    ctx.set_fill_style_str("rgba(0,180,255,0.4)");
+                } else {
+                    // Path tile
+                    ctx.set_fill_style_str("rgba(0,180,255,0.2)");
+                }
+                ctx.fill_rect(px + 1.0, py + 1.0, self.cell_size - 2.0, self.cell_size - 2.0);
             }
         }
 
