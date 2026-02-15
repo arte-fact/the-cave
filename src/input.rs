@@ -34,6 +34,8 @@ pub enum InputAction {
     ToggleInventory,
     /// Toggle stats drawer (keyboard shortcut).
     ToggleStats,
+    /// Toggle sprint mode.
+    ToggleSprint,
 }
 
 pub struct Input {
@@ -188,6 +190,10 @@ impl Input {
                 "c" => {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::ToggleStats);
+                }
+                "s" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::ToggleSprint);
                 }
                 _ => {}
             }

@@ -25,7 +25,7 @@ impl SpriteSheets {
 }
 
 /// Heights of the fixed HUD regions (in canvas pixels).
-const TOP_BAR_H: f64 = 36.0;
+const TOP_BAR_H: f64 = 52.0;
 const DETAIL_STRIP_H: f64 = 52.0;
 const BOTTOM_BAR_H: f64 = 44.0;
 const MSG_AREA_H: f64 = 42.0;
@@ -243,54 +243,82 @@ impl Renderer {
         ctx.set_fill_style_str("rgba(0,0,0,0.75)");
         ctx.fill_rect(0.0, 0.0, canvas_w, TOP_BAR_H);
 
-        // HP bar — left side
+        let bar_h = 10.0;
+        let bar_w = canvas_w * 0.42;
         let bar_x = pad;
-        let bar_y = 6.0;
-        let bar_w = canvas_w * 0.32;
-        let bar_h = 12.0;
-        let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
 
+        // Row 1: HP bar — left
+        let row1_y = 5.0;
+        let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
         ctx.set_fill_style_str("#2a0a0a");
-        self.fill_rounded_rect(bar_x, bar_y, bar_w, bar_h, 3.0);
+        self.fill_rounded_rect(bar_x, row1_y, bar_w, bar_h, 3.0);
         let hp_color = if hp_frac > 0.5 { "#2a2" }
             else if hp_frac > 0.25 { "#aa2" }
             else { "#a22" };
         ctx.set_fill_style_str(hp_color);
-        self.fill_rounded_rect(bar_x, bar_y, bar_w * hp_frac.max(0.0), bar_h, 3.0);
-
-        ctx.set_font("10px monospace");
+        self.fill_rounded_rect(bar_x, row1_y, bar_w * hp_frac.max(0.0), bar_h, 3.0);
+        ctx.set_font("9px monospace");
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("left");
         ctx.set_text_baseline("middle");
         let _ = ctx.fill_text(
             &format!("HP {}/{}", game.player_hp, game.player_max_hp),
-            bar_x + 4.0, bar_y + bar_h / 2.0,
+            bar_x + 3.0, row1_y + bar_h / 2.0,
         );
 
-        // Stats row below HP bar
-        let stat_y = bar_y + bar_h + 4.0;
+        // Row 2: Stamina bar — left
+        let row2_y = row1_y + bar_h + 3.0;
+        let stam_frac = game.stamina as f64 / game.max_stamina as f64;
+        ctx.set_fill_style_str("#0a0a2a");
+        self.fill_rounded_rect(bar_x, row2_y, bar_w, bar_h, 3.0);
+        let stam_color = if game.sprinting { "#4af" } else { "#28a" };
+        ctx.set_fill_style_str(stam_color);
+        self.fill_rounded_rect(bar_x, row2_y, bar_w * stam_frac.max(0.0), bar_h, 3.0);
         ctx.set_font("9px monospace");
-        ctx.set_fill_style_str("#8cf");
-        let atk = game.effective_attack();
-        let def = game.effective_defense();
+        ctx.set_fill_style_str("#fff");
+        let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
         let _ = ctx.fill_text(
-            &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
-            bar_x, stat_y,
+            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
+            bar_x + 3.0, row2_y + bar_h / 2.0,
         );
 
-        // Location — right side
+        // Row 3: Hunger bar — left
+        let row3_y = row2_y + bar_h + 3.0;
+        let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
+        ctx.set_fill_style_str("#2a1a0a");
+        self.fill_rounded_rect(bar_x, row3_y, bar_w, bar_h, 3.0);
+        let hunger_color = if hunger_frac > 0.3 { "#a82" }
+            else if hunger_frac > 0.1 { "#a52" }
+            else { "#a22" };
+        ctx.set_fill_style_str(hunger_color);
+        self.fill_rounded_rect(bar_x, row3_y, bar_w * hunger_frac.max(0.0), bar_h, 3.0);
+        ctx.set_font("9px monospace");
+        ctx.set_fill_style_str("#fff");
+        let _ = ctx.fill_text(
+            &format!("FOOD {}/{}", game.hunger, game.max_hunger),
+            bar_x + 3.0, row3_y + bar_h / 2.0,
+        );
+
+        // Right column: location + stats + XP
         ctx.set_text_align("right");
         ctx.set_fill_style_str("#ccc");
         ctx.set_font("10px monospace");
-        let _ = ctx.fill_text(&game.location_name(), canvas_w - pad, bar_y + bar_h / 2.0);
+        let _ = ctx.fill_text(&game.location_name(), canvas_w - pad, row1_y + bar_h / 2.0);
 
-        // XP progress — right side, below location
-        let xp_needed = game.xp_to_next_level();
+        let atk = game.effective_attack();
+        let def = game.effective_defense();
         ctx.set_font("9px monospace");
+        ctx.set_fill_style_str("#8cf");
+        let _ = ctx.fill_text(
+            &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
+            canvas_w - pad, row2_y + bar_h / 2.0,
+        );
+
+        let xp_needed = game.xp_to_next_level();
         ctx.set_fill_style_str("#a8f");
         let _ = ctx.fill_text(
             &format!("XP {}/{}", game.player_xp, xp_needed),
-            canvas_w - pad, stat_y,
+            canvas_w - pad, row3_y + bar_h / 2.0,
         );
     }
 
@@ -435,31 +463,36 @@ impl Renderer {
         ctx.set_fill_style_str("rgba(255,255,255,0.08)");
         ctx.fill_rect(0.0, bar_y, canvas_w, 1.0);
 
-        // Button layout: evenly spaced across width
-        let btn_count = 3.0;
-        let btn_w = (canvas_w / btn_count).min(140.0);
+        // Button layout: 4 buttons evenly spaced
+        let btn_count = 4.0;
+        let btn_w = (canvas_w / btn_count).min(110.0);
         let btn_h = 30.0;
         let btn_y = bar_y + (BOTTOM_BAR_H - btn_h) / 2.0;
         let total_w = btn_w * btn_count;
         let start_x = (canvas_w - total_w) / 2.0;
 
-        let buttons: [(&str, Drawer, &str); 3] = [
-            ("Inventory", Drawer::Inventory, "#58f"),
-            ("Stats", Drawer::Stats, "#a8f"),
-            ("Menu", Drawer::None, "#888"),
+        // Sprint button has special highlight
+        let sprint_color = if game.sprinting { "#4ef" } else { "#48a" };
+        let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
+
+        let buttons: [(&str, &str, bool); 4] = [
+            ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
+            ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
+            (sprint_label, sprint_color, game.sprinting),
+            ("Menu", "#888", false),
         ];
 
-        for (i, (label, drawer, color)) in buttons.iter().enumerate() {
-            let bx = start_x + i as f64 * btn_w + 4.0;
-            let bw = btn_w - 8.0;
+        for (i, (label, color, active)) in buttons.iter().enumerate() {
+            let bx = start_x + i as f64 * btn_w + 3.0;
+            let bw = btn_w - 6.0;
 
-            // Highlight if this drawer is open
-            if game.drawer == *drawer && *drawer != Drawer::None {
-                ctx.set_fill_style_str("rgba(255,255,255,0.1)");
+            // Highlight active buttons
+            if *active {
+                ctx.set_fill_style_str("rgba(255,255,255,0.12)");
                 self.fill_rounded_rect(bx, btn_y, bw, btn_h, 6.0);
             }
 
-            ctx.set_font("11px monospace");
+            ctx.set_font("10px monospace");
             ctx.set_fill_style_str(color);
             ctx.set_text_align("center");
             ctx.set_text_baseline("middle");
@@ -562,6 +595,7 @@ impl Renderer {
                     ItemKind::Scroll => "#88f",
                     ItemKind::Weapon => "#aaf",
                     ItemKind::Armor => "#afa",
+                    ItemKind::Food => "#fa8",
                 };
                 ctx.set_font("11px monospace");
                 ctx.set_fill_style_str(color);
@@ -574,6 +608,7 @@ impl Renderer {
                     crate::game::ItemEffect::DamageAoe(n) => format!("{} DMG", n),
                     crate::game::ItemEffect::BuffAttack(n) => format!("+{} ATK", n),
                     crate::game::ItemEffect::BuffDefense(n) => format!("+{} DEF", n),
+                    crate::game::ItemEffect::Feed(n) => format!("+{} FOOD", n),
                 };
                 ctx.set_text_align("right");
                 ctx.set_fill_style_str("#888");
