@@ -185,9 +185,10 @@ pub fn start() -> Result<(), JsValue> {
 
     // Initial sizing + camera snap
     {
+        let dpr = window.device_pixel_ratio();
         let (w, h) = fit_canvas(&canvas);
         let mut r = renderer.borrow_mut();
-        r.resize(w, h);
+        r.resize(w, h, dpr);
         let gm = game.borrow();
         let map = gm.current_map();
         r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
@@ -200,10 +201,11 @@ pub fn start() -> Result<(), JsValue> {
         let renderer = Rc::clone(&renderer);
         let preview_path = Rc::clone(&preview_path);
         let cb = Closure::<dyn FnMut()>::new(move || {
+            let dpr = web_sys::window().unwrap().device_pixel_ratio();
             let (w, h) = fit_canvas(&canvas);
             let gm = game.borrow();
             let mut r = renderer.borrow_mut();
-            r.resize(w, h);
+            r.resize(w, h, dpr);
             let map = gm.current_map();
             r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
             r.draw(&gm, &preview_path.borrow());
