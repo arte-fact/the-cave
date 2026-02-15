@@ -101,7 +101,10 @@ pub fn start() -> Result<(), JsValue> {
             if let Some(swipe) = input.swipe_state() {
                 let gm = game.borrow();
                 if gm.alive && !gm.won {
-                    let dest = renderer.borrow().css_to_grid(swipe.current_x, swipe.current_y, dpr);
+                    let dx = swipe.current_x - swipe.start_x;
+                    let dy = swipe.current_y - swipe.start_y;
+                    let (gdx, gdy) = renderer.borrow().css_delta_to_grid(dx, dy, dpr);
+                    let dest = (gm.player_x + gdx, gm.player_y + gdy);
                     if gm.map.is_walkable(dest.0, dest.1) {
                         let path = gm.map.find_path((gm.player_x, gm.player_y), dest);
                         *pp = path;
