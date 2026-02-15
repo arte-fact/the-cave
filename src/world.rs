@@ -1,4 +1,4 @@
-use crate::game::Enemy;
+use crate::game::{Enemy, GroundItem};
 use crate::map::{Dungeon, Map};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -16,6 +16,8 @@ pub struct World {
     pub saved_overworld_pos: (i32, i32),
     /// Overworld enemies saved when entering a dungeon.
     pub saved_overworld_enemies: Vec<Enemy>,
+    /// Overworld ground items saved when entering a dungeon.
+    pub saved_overworld_items: Vec<GroundItem>,
 }
 
 impl World {
@@ -41,6 +43,7 @@ impl World {
             location: Location::Overworld,
             saved_overworld_pos: (0, 0),
             saved_overworld_enemies: Vec::new(),
+            saved_overworld_items: Vec::new(),
         }
     }
 
@@ -53,6 +56,7 @@ impl World {
             location: Location::Overworld,
             saved_overworld_pos: (0, 0),
             saved_overworld_enemies: Vec::new(),
+            saved_overworld_items: Vec::new(),
         }
     }
 

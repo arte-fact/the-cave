@@ -1,6 +1,39 @@
 use crate::map::{Map, Tile};
 use crate::world::{Location, World};
 
+pub const MAX_INVENTORY: usize = 10;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ItemKind {
+    Potion,
+    Scroll,
+    Weapon,
+    Armor,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ItemEffect {
+    Heal(i32),
+    DamageAoe(i32),
+    BuffAttack(i32),
+    BuffDefense(i32),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Item {
+    pub kind: ItemKind,
+    pub name: &'static str,
+    pub glyph: char,
+    pub effect: ItemEffect,
+}
+
+#[derive(Clone, Debug)]
+pub struct GroundItem {
+    pub x: i32,
+    pub y: i32,
+    pub item: Item,
+}
+
 #[derive(Clone)]
 pub struct Enemy {
     pub x: i32,
@@ -37,6 +70,12 @@ pub struct Game {
     pub messages: Vec<String>,
     pub alive: bool,
     pub won: bool,
+    pub inventory: Vec<Item>,
+    pub equipped_weapon: Option<Item>,
+    pub equipped_armor: Option<Item>,
+    pub player_defense: i32,
+    pub ground_items: Vec<GroundItem>,
+    pub inventory_open: bool,
 }
 
 impl Game {
@@ -54,6 +93,12 @@ impl Game {
             messages: vec!["You enter the cave.".into()],
             alive: true,
             won: false,
+            inventory: Vec::new(),
+            equipped_weapon: None,
+            equipped_armor: None,
+            player_defense: 0,
+            ground_items: Vec::new(),
+            inventory_open: false,
         }
     }
 
@@ -71,6 +116,12 @@ impl Game {
             messages: vec!["You emerge into the forest.".into()],
             alive: true,
             won: false,
+            inventory: Vec::new(),
+            equipped_weapon: None,
+            equipped_armor: None,
+            player_defense: 0,
+            ground_items: Vec::new(),
+            inventory_open: false,
         }
     }
 
@@ -93,6 +144,201 @@ impl Game {
         let map = self.world.current_map_mut();
         map.age_visibility();
         map.compute_fov(self.player_x, self.player_y, r);
+    }
+
+    /// Player's total attack: base + weapon bonus.
+    pub fn effective_attack(&self) -> i32 {
+        let base = self.player_attack;
+        match &self.equipped_weapon {
+            Some(item) => match item.effect {
+                ItemEffect::BuffAttack(bonus) => base + bonus,
+                _ => base,
+            },
+            None => base,
+        }
+    }
+
+    /// Player's total defense: base + armor bonus.
+    pub fn effective_defense(&self) -> i32 {
+        let base = self.player_defense;
+        match &self.equipped_armor {
+            Some(item) => match item.effect {
+                ItemEffect::BuffDefense(bonus) => base + bonus,
+                _ => base,
+            },
+            None => base,
+        }
+    }
+
+    pub fn toggle_inventory(&mut self) {
+        self.inventory_open = !self.inventory_open;
+    }
+
+    /// Use a consumable item from inventory. Returns true if used successfully.
+    pub fn use_item(&mut self, index: usize) -> bool {
+        if index >= self.inventory.len() {
+            return false;
+        }
+        let item = &self.inventory[index];
+        match item.kind {
+            ItemKind::Potion => {
+                if let ItemEffect::Heal(amount) = item.effect {
+                    let old_hp = self.player_hp;
+                    self.player_hp = (self.player_hp + amount).min(self.player_max_hp);
+                    let healed = self.player_hp - old_hp;
+                    let name = item.name;
+                    self.messages.push(format!("You drink {name}. Healed {healed} HP."));
+                    self.inventory.remove(index);
+                    return true;
+                }
+                false
+            }
+            ItemKind::Scroll => {
+                if let ItemEffect::DamageAoe(damage) = item.effect {
+                    let name = item.name;
+                    self.messages.push(format!("You read {name}!"));
+                    self.inventory.remove(index);
+                    // Damage all enemies within 3 tiles
+                    let px = self.player_x;
+                    let py = self.player_y;
+                    for enemy in &mut self.enemies {
+                        if enemy.hp <= 0 { continue; }
+                        let dist = (enemy.x - px).abs() + (enemy.y - py).abs();
+                        if dist <= 3 {
+                            enemy.hp -= damage;
+                            if enemy.hp <= 0 {
+                                self.messages.push(format!("{} is destroyed!", enemy.name));
+                            }
+                        }
+                    }
+                    return true;
+                }
+                false
+            }
+            _ => false, // Weapons/Armor should be equipped, not used
+        }
+    }
+
+    /// Equip a weapon or armor from inventory. Returns true if equipped.
+    /// If a slot is already occupied, the old item goes back to inventory.
+    pub fn equip_item(&mut self, index: usize) -> bool {
+        if index >= self.inventory.len() {
+            return false;
+        }
+        match self.inventory[index].kind {
+            ItemKind::Weapon => {
+                let new_item = self.inventory.remove(index);
+                let name = new_item.name;
+                if let Some(old) = self.equipped_weapon.replace(new_item) {
+                    self.messages.push(format!("You swap {} for {name}.", old.name));
+                    self.inventory.push(old);
+                } else {
+                    self.messages.push(format!("You equip {name}."));
+                }
+                true
+            }
+            ItemKind::Armor => {
+                let new_item = self.inventory.remove(index);
+                let name = new_item.name;
+                if let Some(old) = self.equipped_armor.replace(new_item) {
+                    self.messages.push(format!("You swap {} for {name}.", old.name));
+                    self.inventory.push(old);
+                } else {
+                    self.messages.push(format!("You equip {name}."));
+                }
+                true
+            }
+            _ => false, // Potions/Scrolls should be used, not equipped
+        }
+    }
+
+    /// Drop an item from inventory onto the ground. Returns true if dropped.
+    pub fn drop_item(&mut self, index: usize) -> bool {
+        if index >= self.inventory.len() {
+            return false;
+        }
+        let item = self.inventory.remove(index);
+        let name = item.name;
+        self.messages.push(format!("You drop {name}."));
+        self.ground_items.push(GroundItem {
+            x: self.player_x,
+            y: self.player_y,
+            item,
+        });
+        true
+    }
+
+    /// Auto-pickup items at the player's position.
+    fn pickup_items(&mut self) {
+        let px = self.player_x;
+        let py = self.player_y;
+        let mut i = 0;
+        while i < self.ground_items.len() {
+            if self.ground_items[i].x == px && self.ground_items[i].y == py {
+                if self.inventory.len() >= MAX_INVENTORY {
+                    self.messages.push("Inventory full!".into());
+                    break;
+                }
+                let gi = self.ground_items.remove(i);
+                self.messages.push(format!("Picked up {}.", gi.item.name));
+                self.inventory.push(gi.item);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    /// Spawn items on the overworld (rare, near roads).
+    pub fn spawn_overworld_items(&mut self, seed: u64) {
+        let map = self.world.current_map();
+        let mut rng = seed;
+        for y in 2..map.height - 2 {
+            for x in 2..map.width - 2 {
+                let tile = map.get(x, y);
+                if tile != Tile::Road && tile != Tile::Grass {
+                    continue;
+                }
+                rng = xorshift64(rng);
+                // ~0.3% chance on roads, ~0.1% on grass
+                let threshold = if tile == Tile::Road { 3 } else { 1 };
+                if rng % 1000 >= threshold {
+                    continue;
+                }
+                rng = xorshift64(rng);
+                let item = random_item(0, &mut rng);
+                self.ground_items.push(GroundItem { x, y, item });
+            }
+        }
+    }
+
+    /// Spawn items on a dungeon level. Deeper = better loot.
+    fn spawn_dungeon_items(&mut self, dungeon_index: usize, level: usize) {
+        let total_levels = self.world.dungeons[dungeon_index].levels.len();
+        let is_cave = total_levels == 4 && level == 3;
+
+        let map = self.world.current_map();
+        let seed = (dungeon_index as u64)
+            .wrapping_mul(37)
+            .wrapping_add(level as u64)
+            .wrapping_mul(2654435761);
+        let mut rng = seed;
+        for y in 1..map.height - 1 {
+            for x in 1..map.width - 1 {
+                if map.get(x, y) != Tile::Floor {
+                    continue;
+                }
+                rng = xorshift64(rng);
+                // ~5% chance per floor tile in dungeons, ~3% in cave
+                let threshold = if is_cave { 3 } else { 5 };
+                if rng % 100 >= threshold {
+                    continue;
+                }
+                rng = xorshift64(rng);
+                let tier = if is_cave { 2 } else { level };
+                let item = random_item(tier, &mut rng);
+                self.ground_items.push(GroundItem { x, y, item });
+            }
+        }
     }
 
     /// Spawn forest animals on the overworld: wolves, boars, bears.
@@ -231,7 +477,7 @@ impl Game {
 
         // Check for enemy at target
         if let Some(idx) = self.enemies.iter().position(|e| e.x == nx && e.y == ny && e.hp > 0) {
-            let dmg = self.player_attack;
+            let dmg = self.effective_attack();
             self.enemies[idx].hp -= dmg;
             let name = self.enemies[idx].name;
 
@@ -247,8 +493,9 @@ impl Game {
             }
             self.messages.push(format!("You hit {name} for {dmg} damage."));
 
-            // Enemy retaliates
-            let retaliation = self.enemies[idx].attack;
+            // Enemy retaliates — reduced by player defense
+            let raw = self.enemies[idx].attack;
+            let retaliation = (raw - self.effective_defense()).max(1);
             self.player_hp -= retaliation;
             self.messages.push(format!("{name} hits you for {retaliation} damage."));
             if self.player_hp <= 0 {
@@ -266,6 +513,9 @@ impl Game {
 
         self.player_x = nx;
         self.player_y = ny;
+
+        // Auto-pickup items at new position
+        self.pickup_items();
 
         // Check for map transitions
         let tile = self.world.current_map().get(nx, ny);
@@ -324,6 +574,7 @@ impl Game {
         // Save overworld state
         self.world.saved_overworld_pos = (self.player_x, self.player_y);
         self.world.saved_overworld_enemies = self.enemies.clone();
+        self.world.saved_overworld_items = std::mem::take(&mut self.ground_items);
 
         // Switch to dungeon level 0
         self.world.location = Location::Dungeon { index: dungeon_index, level: 0 };
@@ -341,6 +592,7 @@ impl Game {
 
         self.enemies.clear();
         self.spawn_dungeon_enemies(dungeon_index, 0);
+        self.spawn_dungeon_items(dungeon_index, 0);
         self.messages.push("You descend into the dungeon.".into());
         self.update_fov();
     }
@@ -351,6 +603,7 @@ impl Game {
         self.player_x = ox;
         self.player_y = oy;
         self.enemies = std::mem::take(&mut self.world.saved_overworld_enemies);
+        self.ground_items = std::mem::take(&mut self.world.saved_overworld_items);
         self.world.location = Location::Overworld;
         self.messages.push("You return to the overworld.".into());
         self.update_fov();
@@ -368,7 +621,9 @@ impl Game {
             self.player_y = sy;
         }
         self.enemies.clear();
+        self.ground_items.clear();
         self.spawn_dungeon_enemies(dungeon_index, current_level + 1);
+        self.spawn_dungeon_items(dungeon_index, current_level + 1);
         self.messages.push(format!("You descend to level {}.", current_level + 2));
         self.update_fov();
     }
@@ -385,7 +640,9 @@ impl Game {
             self.player_y = sy;
         }
         self.enemies.clear();
+        self.ground_items.clear();
         self.spawn_dungeon_enemies(dungeon_index, current_level - 1);
+        self.spawn_dungeon_items(dungeon_index, current_level - 1);
         self.messages.push(format!("You ascend to level {}.", current_level));
         self.update_fov();
     }
@@ -409,8 +666,9 @@ impl Game {
                 let candidates = [(ex + dx, ey), (ex, ey + dy)];
                 for (cx, cy) in candidates {
                     if cx == px && cy == py {
-                        // Attack player
-                        let atk = self.enemies[i].attack;
+                        // Attack player — reduced by defense
+                        let raw = self.enemies[i].attack;
+                        let atk = (raw - self.effective_defense()).max(1);
                         let name = self.enemies[i].name;
                         self.player_hp -= atk;
                         self.messages.push(format!("{name} hits you for {atk} damage."));
@@ -431,6 +689,48 @@ impl Game {
                         break;
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Generate a random item appropriate for the given dungeon tier.
+/// Tier 0 = shallow/overworld, 1 = mid, 2+ = deep.
+fn random_item(tier: usize, rng: &mut u64) -> Item {
+    *rng = xorshift64(*rng);
+    let roll = *rng % 100;
+    match tier {
+        0 => {
+            if roll < 40 {
+                Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
+            } else if roll < 60 {
+                Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
+            } else if roll < 80 {
+                Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) }
+            } else {
+                Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
+            }
+        }
+        1 => {
+            if roll < 35 {
+                Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10) }
+            } else if roll < 55 {
+                Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12) }
+            } else if roll < 75 {
+                Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) }
+            } else {
+                Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
+            }
+        }
+        _ => {
+            if roll < 30 {
+                Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15) }
+            } else if roll < 50 {
+                Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16) }
+            } else if roll < 75 {
+                Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(6) }
+            } else {
+                Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6) }
             }
         }
     }
@@ -883,5 +1183,386 @@ mod tests {
         g.enter_dungeon(0);
         g.exit_dungeon();
         assert!(g.messages.iter().any(|m| m.contains("overworld")));
+    }
+
+    // === Items, Inventory & Equipment (Phase 5) ===
+
+    fn health_potion() -> Item {
+        Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
+    }
+    fn scroll_fire() -> Item {
+        Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
+    }
+    fn rusty_sword() -> Item {
+        Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) }
+    }
+    fn iron_sword() -> Item {
+        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) }
+    }
+    fn leather_armor() -> Item {
+        Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
+    }
+    fn chain_mail() -> Item {
+        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
+    }
+
+    // --- Pickup ---
+
+    #[test]
+    fn pickup_item_on_move() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Place an item one tile to the right of the player
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.ground_items.push(GroundItem { x: nx, y: ny, item: health_potion() });
+                g.move_player(dx, dy);
+                assert_eq!(g.inventory.len(), 1);
+                assert_eq!(g.inventory[0].name, "Health Potion");
+                assert!(g.ground_items.is_empty());
+                return;
+            }
+        }
+        panic!("no adjacent walkable tile");
+    }
+
+    #[test]
+    fn pickup_generates_message() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.ground_items.push(GroundItem { x: nx, y: ny, item: rusty_sword() });
+                let msg_before = g.messages.len();
+                g.move_player(dx, dy);
+                assert!(g.messages.len() > msg_before);
+                assert!(g.messages.last().unwrap().contains("Picked up"));
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn inventory_full_stops_pickup() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..MAX_INVENTORY {
+            g.inventory.push(health_potion());
+        }
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.ground_items.push(GroundItem { x: nx, y: ny, item: rusty_sword() });
+                g.move_player(dx, dy);
+                assert_eq!(g.inventory.len(), MAX_INVENTORY);
+                assert_eq!(g.ground_items.len(), 1, "item should stay on ground");
+                return;
+            }
+        }
+    }
+
+    // --- Use ---
+
+    #[test]
+    fn use_potion_heals() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.player_hp = 10;
+        g.inventory.push(health_potion());
+        assert!(g.use_item(0));
+        assert_eq!(g.player_hp, 15);
+        assert!(g.inventory.is_empty());
+    }
+
+    #[test]
+    fn use_potion_caps_at_max_hp() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.player_hp = 18;
+        g.inventory.push(health_potion());
+        g.use_item(0);
+        assert_eq!(g.player_hp, 20); // max_hp is 20
+    }
+
+    #[test]
+    fn use_scroll_damages_nearby_enemies() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let (px, py) = (g.player_x, g.player_y);
+        // Place enemies: one close (dist 2), one far (dist 10)
+        g.enemies.push(Enemy { x: px + 2, y: py, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        g.enemies.push(Enemy { x: px + 10, y: py, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        g.inventory.push(scroll_fire());
+        g.use_item(0);
+        assert_eq!(g.enemies[0].hp, 20 - 8, "close enemy should take 8 damage");
+        assert_eq!(g.enemies[1].hp, 20, "far enemy should be unaffected");
+        assert!(g.inventory.is_empty());
+    }
+
+    #[test]
+    fn use_weapon_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        assert!(!g.use_item(0), "weapon should not be usable");
+        assert_eq!(g.inventory.len(), 1, "weapon should remain in inventory");
+    }
+
+    #[test]
+    fn use_invalid_index_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert!(!g.use_item(0));
+        assert!(!g.use_item(99));
+    }
+
+    // --- Equip ---
+
+    #[test]
+    fn equip_weapon() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        assert!(g.equip_item(0));
+        assert!(g.inventory.is_empty());
+        assert_eq!(g.equipped_weapon.as_ref().unwrap().name, "Rusty Sword");
+        assert_eq!(g.effective_attack(), 5 + 2);
+    }
+
+    #[test]
+    fn equip_armor() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(leather_armor());
+        assert!(g.equip_item(0));
+        assert!(g.inventory.is_empty());
+        assert_eq!(g.equipped_armor.as_ref().unwrap().name, "Leather Armor");
+        assert_eq!(g.effective_defense(), 0 + 2);
+    }
+
+    #[test]
+    fn equip_weapon_swaps_old_to_inventory() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        g.equip_item(0);
+        g.inventory.push(iron_sword());
+        g.equip_item(0);
+        assert_eq!(g.equipped_weapon.as_ref().unwrap().name, "Iron Sword");
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.inventory[0].name, "Rusty Sword");
+        assert_eq!(g.effective_attack(), 5 + 4);
+    }
+
+    #[test]
+    fn equip_armor_swaps_old_to_inventory() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(leather_armor());
+        g.equip_item(0);
+        g.inventory.push(chain_mail());
+        g.equip_item(0);
+        assert_eq!(g.equipped_armor.as_ref().unwrap().name, "Chain Mail");
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.inventory[0].name, "Leather Armor");
+        assert_eq!(g.effective_defense(), 0 + 4);
+    }
+
+    #[test]
+    fn equip_potion_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        assert!(!g.equip_item(0));
+        assert_eq!(g.inventory.len(), 1);
+    }
+
+    // --- Drop ---
+
+    #[test]
+    fn drop_item_places_on_ground() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        assert!(g.drop_item(0));
+        assert!(g.inventory.is_empty());
+        assert_eq!(g.ground_items.len(), 1);
+        assert_eq!(g.ground_items[0].x, g.player_x);
+        assert_eq!(g.ground_items[0].y, g.player_y);
+        assert_eq!(g.ground_items[0].item.name, "Health Potion");
+    }
+
+    #[test]
+    fn drop_invalid_index_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert!(!g.drop_item(0));
+    }
+
+    // --- Combat with equipment ---
+
+    #[test]
+    fn weapon_increases_damage() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        // Base attack 5 + weapon 2 = 7 damage
+        assert_eq!(g.enemies[0].hp, 20 - 7);
+    }
+
+    #[test]
+    fn armor_reduces_damage_taken() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_armor = Some(leather_armor());
+        let hp_before = g.player_hp;
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        // Enemy attack 5 - defense 2 = 3 damage
+        assert_eq!(g.player_hp, hp_before - 3);
+    }
+
+    #[test]
+    fn defense_minimum_damage_is_one() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Defense higher than enemy attack
+        g.equipped_armor = Some(Item {
+            kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[',
+            effect: ItemEffect::BuffDefense(6),
+        });
+        let hp_before = g.player_hp;
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 2, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        // Attack 2 - defense 6 = max(1, -4) = 1
+        assert_eq!(g.player_hp, hp_before - 1);
+    }
+
+    #[test]
+    fn effective_attack_without_weapon() {
+        let g = test_game();
+        assert_eq!(g.effective_attack(), 5);
+    }
+
+    #[test]
+    fn effective_defense_without_armor() {
+        let g = test_game();
+        assert_eq!(g.effective_defense(), 0);
+    }
+
+    // --- Item spawning ---
+
+    #[test]
+    fn dungeon_has_ground_items() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        assert!(!g.ground_items.is_empty(), "dungeon level 0 should have items");
+    }
+
+    #[test]
+    fn dungeon_items_on_floor_tiles() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        let map = g.current_map();
+        for gi in &g.ground_items {
+            assert_eq!(map.get(gi.x, gi.y), Tile::Floor,
+                "item '{}' at ({},{}) not on Floor", gi.item.name, gi.x, gi.y);
+        }
+    }
+
+    #[test]
+    fn deeper_dungeon_has_better_loot() {
+        let mut g = overworld_game();
+        g.enter_dungeon(0);
+        let l0_items: Vec<_> = g.ground_items.iter().map(|gi| gi.item.name).collect();
+        g.descend(0, 0);
+        g.descend(0, 1);
+        let l2_items: Vec<_> = g.ground_items.iter().map(|gi| gi.item.name).collect();
+        // Level 2 should have higher-tier items
+        let l0_has_basic = l0_items.iter().any(|n| *n == "Health Potion" || *n == "Rusty Sword");
+        let l2_has_advanced = l2_items.iter().any(|n|
+            *n == "Superior Health Potion" || *n == "Enchanted Blade" || *n == "Dragon Scale" || *n == "Scroll of Storm"
+        );
+        assert!(l0_has_basic || l0_items.is_empty(), "level 0 should have basic items");
+        assert!(l2_has_advanced || l2_items.is_empty(), "level 2 should have advanced items");
+    }
+
+    #[test]
+    fn overworld_items_sparse() {
+        let mut g = overworld_game();
+        g.spawn_overworld_items(42);
+        // Overworld should have very few items
+        let map = g.current_map();
+        let total_walkable = (0..map.height)
+            .flat_map(|y| (0..map.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| map.is_walkable(x, y))
+            .count();
+        assert!(g.ground_items.len() < total_walkable / 50,
+            "overworld items should be sparse: {} items for {} walkable tiles",
+            g.ground_items.len(), total_walkable);
+    }
+
+    #[test]
+    fn random_item_tiers_correct() {
+        // Tier 0 produces basic items
+        let mut rng = 42u64;
+        let items: Vec<_> = (0..50).map(|_| random_item(0, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.name == "Health Potion" || i.name == "Rusty Sword"));
+        // Tier 2 produces advanced items
+        rng = 42;
+        let items: Vec<_> = (0..50).map(|_| random_item(2, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.name == "Superior Health Potion" || i.name == "Enchanted Blade" || i.name == "Dragon Scale"));
+    }
+
+    // --- Inventory toggle ---
+
+    #[test]
+    fn toggle_inventory() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert!(!g.inventory_open);
+        g.toggle_inventory();
+        assert!(g.inventory_open);
+        g.toggle_inventory();
+        assert!(!g.inventory_open);
+    }
+
+    // --- Ground items persist across dungeon transitions ---
+
+    #[test]
+    fn overworld_items_saved_on_enter_dungeon() {
+        let mut g = overworld_game();
+        g.ground_items.push(GroundItem { x: 10, y: 10, item: health_potion() });
+        let ow_item_count = g.ground_items.len();
+        g.enter_dungeon(0);
+        // Dungeon should have its own items, overworld items saved
+        assert_ne!(g.ground_items.len(), ow_item_count);
+        g.exit_dungeon();
+        // Overworld items restored
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Health Potion"));
+    }
+
+    #[test]
+    fn inventory_persists_across_transitions() {
+        let mut g = overworld_game();
+        g.inventory.push(rusty_sword());
+        g.enter_dungeon(0);
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.inventory[0].name, "Rusty Sword");
+        g.exit_dungeon();
+        assert_eq!(g.inventory.len(), 1);
     }
 }

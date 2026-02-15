@@ -43,6 +43,7 @@ fn new_game() -> Game {
     let world = World::new(map, entrances, seed.wrapping_add(2));
     let mut game = Game::new_overworld(world);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
+    game.spawn_overworld_items(seed.wrapping_add(3));
     game.update_fov();
     game
 }

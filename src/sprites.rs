@@ -106,6 +106,31 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
     }
 }
 
+/// Item sprite based on item name. Each tier gets a distinct sprite.
+/// items.png: 11 cols × 26 rows, 32×32 cells.
+pub fn item_sprite(name: &str) -> SpriteRef {
+    match name {
+        // Potions — row 15: red, blue, green
+        "Health Potion"          => SpriteRef::new(Sheet::Items, 15, 2),
+        "Greater Health Potion"  => SpriteRef::new(Sheet::Items, 15, 3),
+        "Superior Health Potion" => SpriteRef::new(Sheet::Items, 15, 4),
+        // Scrolls — row 16: red book, blue book, scroll
+        "Scroll of Fire"      => SpriteRef::new(Sheet::Items, 16, 1),
+        "Scroll of Lightning" => SpriteRef::new(Sheet::Items, 16, 3),
+        "Scroll of Storm"     => SpriteRef::new(Sheet::Items, 16, 5),
+        // Weapons — row 0: short sword, broad sword, cyan enchanted blade
+        "Rusty Sword"     => SpriteRef::new(Sheet::Items, 0, 1),
+        "Iron Sword"      => SpriteRef::new(Sheet::Items, 0, 3),
+        "Enchanted Blade" => SpriteRef::new(Sheet::Items, 0, 10),
+        // Armor — row 8: leather vest, chain tunic, plate armor
+        "Leather Armor" => SpriteRef::new(Sheet::Items, 8, 0),
+        "Chain Mail"    => SpriteRef::new(Sheet::Items, 8, 2),
+        "Dragon Scale"  => SpriteRef::new(Sheet::Items, 8, 3),
+        // Default fallback
+        _ => SpriteRef::new(Sheet::Items, 15, 2),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,5 +343,61 @@ mod tests {
         let s = player_sprite();
         assert!(s.row < 7, "player row {} >= 7", s.row);
         assert!(s.col < 7, "player col {} >= 7", s.col);
+    }
+
+    // --- Item sprites ---
+
+    #[test]
+    fn item_sprites_within_sheet_bounds() {
+        // items.png: 11 cols x 26 rows
+        let names = [
+            "Health Potion", "Greater Health Potion", "Superior Health Potion",
+            "Scroll of Fire", "Scroll of Lightning", "Scroll of Storm",
+            "Rusty Sword", "Iron Sword", "Enchanted Blade",
+            "Leather Armor", "Chain Mail", "Dragon Scale",
+            "unknown_fallback",
+        ];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+        }
+    }
+
+    #[test]
+    fn item_sprite_potions_on_row_15() {
+        assert_eq!(item_sprite("Health Potion").row, 15);
+        assert_eq!(item_sprite("Greater Health Potion").row, 15);
+        assert_eq!(item_sprite("Superior Health Potion").row, 15);
+    }
+
+    #[test]
+    fn item_sprite_scrolls_on_row_16() {
+        assert_eq!(item_sprite("Scroll of Fire").row, 16);
+        assert_eq!(item_sprite("Scroll of Lightning").row, 16);
+        assert_eq!(item_sprite("Scroll of Storm").row, 16);
+    }
+
+    #[test]
+    fn item_sprite_weapons_on_row_0() {
+        assert_eq!(item_sprite("Rusty Sword").row, 0);
+        assert_eq!(item_sprite("Iron Sword").row, 0);
+        assert_eq!(item_sprite("Enchanted Blade").row, 0);
+    }
+
+    #[test]
+    fn item_sprite_armor_on_row_8() {
+        assert_eq!(item_sprite("Leather Armor").row, 8);
+        assert_eq!(item_sprite("Chain Mail").row, 8);
+        assert_eq!(item_sprite("Dragon Scale").row, 8);
+    }
+
+    #[test]
+    fn item_sprite_tiers_differ() {
+        // Each tier should have a distinct sprite
+        assert_ne!(item_sprite("Health Potion").col, item_sprite("Greater Health Potion").col);
+        assert_ne!(item_sprite("Rusty Sword").col, item_sprite("Iron Sword").col);
+        assert_ne!(item_sprite("Leather Armor").col, item_sprite("Chain Mail").col);
     }
 }
