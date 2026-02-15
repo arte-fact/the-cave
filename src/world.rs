@@ -22,10 +22,17 @@ impl World {
     pub fn new(overworld: Map, dungeon_entrances: Vec<(i32, i32)>, seed: u64) -> Self {
         let mut dungeons = Vec::new();
         let mut rng = seed;
-        for &entrance in &dungeon_entrances {
+        // Exactly one dungeon gets a cave level (the dragon's lair)
+        let cave_index = if dungeon_entrances.is_empty() {
+            0
+        } else {
+            (seed % dungeon_entrances.len() as u64) as usize
+        };
+        for (i, &entrance) in dungeon_entrances.iter().enumerate() {
             rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
             let depth = 3;
-            dungeons.push(Dungeon::generate(entrance, depth, rng));
+            let has_cave = i == cave_index;
+            dungeons.push(Dungeon::generate(entrance, depth, rng, has_cave));
         }
         Self {
             overworld,
@@ -114,11 +121,13 @@ mod tests {
     }
 
     #[test]
-    fn each_dungeon_has_3_levels() {
+    fn exactly_one_dungeon_has_cave() {
         let w = test_world();
-        for d in &w.dungeons {
-            assert_eq!(d.levels.len(), 3);
-        }
+        let cave_count = w.dungeons.iter().filter(|d| d.levels.len() == 4).count();
+        let normal_count = w.dungeons.iter().filter(|d| d.levels.len() == 3).count();
+        assert_eq!(cave_count, 1, "exactly one dungeon should have a cave level");
+        assert_eq!(cave_count + normal_count, w.dungeons.len(),
+            "all dungeons should have 3 or 4 levels");
     }
 
     #[test]

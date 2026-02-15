@@ -127,10 +127,11 @@ impl Game {
 
     /// Spawn enemies appropriate for a dungeon level.
     /// Level 0: goblins + skeletons. Level 1: goblins + skeletons + orcs.
-    /// Level 2+: skeletons + orcs + trolls. Deepest level also gets a unique dragon boss.
+    /// Level 2: skeletons + orcs + trolls.
+    /// Cave level (level 3, only in the dragon's dungeon): troll minions + unique dragon boss.
     fn spawn_dungeon_enemies(&mut self, dungeon_index: usize, level: usize) {
         let total_levels = self.world.dungeons[dungeon_index].levels.len();
-        let is_deepest = level == total_levels - 1;
+        let is_cave = total_levels == 4 && level == 3;
 
         let map = self.world.current_map();
         let seed = (dungeon_index as u64)
@@ -151,34 +152,43 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // ~10% chance per walkable tile in dungeons
-                if rng % 100 < 10 {
+                let spawn_chance = if is_cave { 6 } else { 10 };
+                if rng % 100 < spawn_chance {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
-                    let enemy = match level {
-                        0 => {
-                            if roll < 70 {
-                                Enemy { x, y, hp: 5, attack: 2, glyph: 'g', name: "Goblin", facing_left: false }
-                            } else {
-                                Enemy { x, y, hp: 6, attack: 3, glyph: 's', name: "Skeleton", facing_left: false }
-                            }
+                    let enemy = if is_cave {
+                        // Cave level: troll minions guarding the dragon
+                        if roll < 50 {
+                            Enemy { x, y, hp: 15, attack: 5, glyph: 'T', name: "Troll", facing_left: false }
+                        } else {
+                            Enemy { x, y, hp: 12, attack: 5, glyph: 'o', name: "Orc", facing_left: false }
                         }
-                        1 => {
-                            if roll < 40 {
-                                Enemy { x, y, hp: 7, attack: 3, glyph: 'g', name: "Goblin", facing_left: false }
-                            } else if roll < 70 {
-                                Enemy { x, y, hp: 8, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
-                            } else {
-                                Enemy { x, y, hp: 10, attack: 4, glyph: 'o', name: "Orc", facing_left: false }
+                    } else {
+                        match level {
+                            0 => {
+                                if roll < 70 {
+                                    Enemy { x, y, hp: 5, attack: 2, glyph: 'g', name: "Goblin", facing_left: false }
+                                } else {
+                                    Enemy { x, y, hp: 6, attack: 3, glyph: 's', name: "Skeleton", facing_left: false }
+                                }
                             }
-                        }
-                        _ => {
-                            if roll < 30 {
-                                Enemy { x, y, hp: 9, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
-                            } else if roll < 60 {
-                                Enemy { x, y, hp: 12, attack: 5, glyph: 'o', name: "Orc", facing_left: false }
-                            } else {
-                                Enemy { x, y, hp: 15, attack: 5, glyph: 'T', name: "Troll", facing_left: false }
+                            1 => {
+                                if roll < 40 {
+                                    Enemy { x, y, hp: 7, attack: 3, glyph: 'g', name: "Goblin", facing_left: false }
+                                } else if roll < 70 {
+                                    Enemy { x, y, hp: 8, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
+                                } else {
+                                    Enemy { x, y, hp: 10, attack: 4, glyph: 'o', name: "Orc", facing_left: false }
+                                }
+                            }
+                            _ => {
+                                if roll < 30 {
+                                    Enemy { x, y, hp: 9, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
+                                } else if roll < 60 {
+                                    Enemy { x, y, hp: 12, attack: 5, glyph: 'o', name: "Orc", facing_left: false }
+                                } else {
+                                    Enemy { x, y, hp: 15, attack: 5, glyph: 'T', name: "Troll", facing_left: false }
+                                }
                             }
                         }
                     };
@@ -187,8 +197,8 @@ impl Game {
             }
         }
 
-        // Place unique dragon boss on deepest level
-        if is_deepest {
+        // Place unique dragon boss only in the cave level
+        if is_cave {
             let map = self.world.current_map();
             for y in (1..map.height - 1).rev() {
                 for x in (1..map.width - 1).rev() {
@@ -544,21 +554,41 @@ mod tests {
     }
 
     #[test]
-    fn deepest_dungeon_has_dragon_boss() {
+    fn cave_level_has_dragon_boss() {
         let mut g = overworld_game();
-        g.enter_dungeon(0);
-        let total_levels = g.world.dungeons[0].levels.len();
-        for level in 0..total_levels - 1 {
-            g.descend(0, level);
+        // Find the dungeon with 4 levels (the cave dungeon)
+        let cave_di = g.world.dungeons.iter()
+            .position(|d| d.levels.len() == 4)
+            .expect("one dungeon should have a cave level");
+        g.enter_dungeon(cave_di);
+        // Descend to the cave (level 3)
+        for level in 0..3 {
+            g.descend(cave_di, level);
         }
         assert!(
             g.enemies.iter().any(|e| e.glyph == 'D'),
-            "deepest level should have dragon boss"
+            "cave level should have dragon boss"
         );
-        // Dragon should be very strong
         let dragon = g.enemies.iter().find(|e| e.glyph == 'D').unwrap();
         assert!(dragon.hp >= 30, "dragon hp should be >= 30, got {}", dragon.hp);
         assert!(dragon.attack >= 8, "dragon attack should be >= 8, got {}", dragon.attack);
+    }
+
+    #[test]
+    fn non_cave_dungeon_has_no_dragon() {
+        let mut g = overworld_game();
+        // Find a dungeon without the cave (3 levels)
+        let normal_di = g.world.dungeons.iter()
+            .position(|d| d.levels.len() == 3)
+            .expect("should have normal dungeons");
+        g.enter_dungeon(normal_di);
+        // Descend to deepest level (level 2)
+        g.descend(normal_di, 0);
+        g.descend(normal_di, 1);
+        assert!(
+            !g.enemies.iter().any(|e| e.glyph == 'D'),
+            "non-cave dungeon should not have a dragon"
+        );
     }
 
     // === Combat ===
@@ -812,11 +842,17 @@ mod tests {
     #[test]
     fn no_dragon_on_shallow_levels() {
         let mut g = overworld_game();
+        // Check level 0 of the first dungeon — no dragon
         g.enter_dungeon(0);
-        // Level 0 should not have a dragon
         assert!(
             !g.enemies.iter().any(|e| e.glyph == 'D'),
-            "level 0 should not have a dragon boss"
+            "level 0 should not have a dragon"
+        );
+        // Check level 1 — no dragon
+        g.descend(0, 0);
+        assert!(
+            !g.enemies.iter().any(|e| e.glyph == 'D'),
+            "level 1 should not have a dragon"
         );
     }
 
