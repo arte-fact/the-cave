@@ -24,6 +24,14 @@ impl Renderer {
         }
     }
 
+    pub fn canvas_w(&self) -> f64 {
+        self.canvas_w
+    }
+
+    pub fn canvas_h(&self) -> f64 {
+        self.canvas_h
+    }
+
     pub fn resize(&mut self, width: f64, height: f64, game: &Game) {
         self.canvas_w = width;
         self.canvas_h = height;
@@ -63,19 +71,99 @@ impl Renderer {
             }
         }
 
+        let font_size = (self.cell_size * 0.8).round();
+        ctx.set_font(&format!("{font_size}px monospace"));
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+
+        // Draw enemies
+        for e in &game.enemies {
+            if e.hp <= 0 {
+                continue;
+            }
+            let ex = self.offset_x + e.x as f64 * self.cell_size;
+            let ey = self.offset_y + e.y as f64 * self.cell_size;
+            let color = if e.glyph == 'D' { "#f44" } else { "#4f4" };
+            ctx.set_fill_style_str(color);
+            let _ = ctx.fill_text(
+                &e.glyph.to_string(),
+                ex + self.cell_size / 2.0,
+                ey + self.cell_size / 2.0,
+            );
+        }
+
         // Draw player @
         let px = self.offset_x + game.player_x as f64 * self.cell_size;
         let py = self.offset_y + game.player_y as f64 * self.cell_size;
-
-        let font_size = (self.cell_size * 0.8).round();
-        ctx.set_font(&format!("{font_size}px monospace"));
         ctx.set_fill_style_str("#fff");
-        ctx.set_text_align("center");
-        ctx.set_text_baseline("middle");
         let _ = ctx.fill_text(
             "@",
             px + self.cell_size / 2.0,
             py + self.cell_size / 2.0,
         );
+
+        // HUD — HP bar at top
+        let hud_y = 4.0;
+        let bar_w = self.canvas_w * 0.3;
+        let bar_h = 14.0;
+        let bar_x = 8.0;
+        let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
+
+        ctx.set_fill_style_str("#400");
+        ctx.fill_rect(bar_x, hud_y, bar_w, bar_h);
+        let hp_color = if hp_frac > 0.5 { "#0c0" } else if hp_frac > 0.25 { "#cc0" } else { "#c00" };
+        ctx.set_fill_style_str(hp_color);
+        ctx.fill_rect(bar_x, hud_y, bar_w * hp_frac.max(0.0), bar_h);
+
+        ctx.set_font("12px monospace");
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text(
+            &format!("HP {}/{}", game.player_hp, game.player_max_hp),
+            bar_x + 4.0,
+            hud_y + 1.0,
+        );
+
+        // Messages — last 3 at bottom
+        let msg_count = game.messages.len();
+        let show = if msg_count > 3 { 3 } else { msg_count };
+        ctx.set_font("11px monospace");
+        ctx.set_fill_style_str("#aaa");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("bottom");
+        for i in 0..show {
+            let msg = &game.messages[msg_count - show + i];
+            let y = self.canvas_h - (show - i) as f64 * 14.0;
+            let _ = ctx.fill_text(msg, 8.0, y);
+        }
+
+        // Death / Victory overlay
+        if !game.alive || game.won {
+            ctx.set_fill_style_str("rgba(0,0,0,0.7)");
+            ctx.fill_rect(0.0, 0.0, self.canvas_w, self.canvas_h);
+
+            let big = (self.canvas_w * 0.06).min(48.0).round();
+            ctx.set_font(&format!("{big}px monospace"));
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+
+            if game.won {
+                ctx.set_fill_style_str("#ff0");
+                let _ = ctx.fill_text("YOU WON!", self.canvas_w / 2.0, self.canvas_h / 2.0 - big);
+            } else {
+                ctx.set_fill_style_str("#f44");
+                let _ = ctx.fill_text("YOU DIED", self.canvas_w / 2.0, self.canvas_h / 2.0 - big);
+            }
+
+            let small = (big * 0.4).round();
+            ctx.set_font(&format!("{small}px monospace"));
+            ctx.set_fill_style_str("#888");
+            let _ = ctx.fill_text(
+                "Tap or press any key to restart",
+                self.canvas_w / 2.0,
+                self.canvas_h / 2.0 + big * 0.5,
+            );
+        }
     }
 }

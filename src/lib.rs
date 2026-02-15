@@ -31,6 +31,14 @@ fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
     (px_w, px_h)
 }
 
+fn new_game() -> Game {
+    let seed = js_sys::Date::now() as u64 ^ 0xDEAD_BEEF;
+    let map = Map::generate(30, 20, seed);
+    let mut game = Game::new(map);
+    game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
+    game
+}
+
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let window = web_sys::window().unwrap();
@@ -46,9 +54,7 @@ pub fn start() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
-    let seed = (js_sys::Date::now() as u64) ^ 0xDEAD_BEEF;
-    let map = Map::generate(30, 20, seed);
-    let game = Rc::new(RefCell::new(Game::new(map)));
+    let game = Rc::new(RefCell::new(new_game()));
     let renderer = Rc::new(RefCell::new(Renderer::new(ctx)));
     let input = Rc::new(Input::new(&canvas));
     let canvas = Rc::new(canvas);
@@ -81,14 +87,25 @@ pub fn start() -> Result<(), JsValue> {
     let window2 = web_sys::window().unwrap();
     *g.borrow_mut() = Some(Closure::new(move || {
         // Process input
-        for dir in input.drain() {
-            let (dx, dy) = match dir {
-                input::Direction::Up => (0, -1),
-                input::Direction::Down => (0, 1),
-                input::Direction::Left => (-1, 0),
-                input::Direction::Right => (1, 0),
-            };
-            game.borrow_mut().move_player(dx, dy);
+        let dirs = input.drain();
+        if !dirs.is_empty() {
+            let mut gm = game.borrow_mut();
+            // Restart on any input if dead or won
+            if !gm.alive || gm.won {
+                *gm = new_game();
+                let (w, h) = (renderer.borrow().canvas_w(), renderer.borrow().canvas_h());
+                renderer.borrow_mut().resize(w, h, &gm);
+            } else {
+                for dir in dirs {
+                    let (dx, dy) = match dir {
+                        input::Direction::Up => (0, -1),
+                        input::Direction::Down => (0, 1),
+                        input::Direction::Left => (-1, 0),
+                        input::Direction::Right => (1, 0),
+                    };
+                    gm.move_player(dx, dy);
+                }
+            }
         }
 
         // Render
