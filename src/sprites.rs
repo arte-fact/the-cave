@@ -88,21 +88,22 @@ pub fn player_sprite() -> SpriteRef {
 }
 
 /// Enemy sprite based on glyph character.
+/// monsters.png: 12 cols × 13 rows, 32×32 cells.
 pub fn enemy_sprite(glyph: char) -> SpriteRef {
     match glyph {
         // Forest animals
-        'w' => SpriteRef::new(Sheet::Monsters, 7, 0),  // wolf (8.a)
-        'b' => SpriteRef::new(Sheet::Monsters, 5, 0),  // boar (6.a)
-        'B' => SpriteRef::new(Sheet::Monsters, 6, 0),  // bear (7.a)
+        'w' => SpriteRef::new(Sheet::Monsters, 3, 5),  // wolf — gray quadruped
+        'b' => SpriteRef::new(Sheet::Monsters, 0, 1),  // boar — pink pig creature
+        'B' => SpriteRef::new(Sheet::Monsters, 5, 4),  // bear — large brown beast
         // Dungeon enemies
-        'g' => SpriteRef::new(Sheet::Monsters, 0, 2),  // goblin (1.c)
-        's' => SpriteRef::new(Sheet::Monsters, 4, 0),  // skeleton (5.a)
-        'o' => SpriteRef::new(Sheet::Monsters, 0, 0),  // orc (1.a)
-        'T' => SpriteRef::new(Sheet::Monsters, 1, 2),  // troll (2.c)
-        'D' => SpriteRef::new(Sheet::Monsters, 8, 2),  // dragon boss (9.c)
+        'g' => SpriteRef::new(Sheet::Monsters, 0, 4),  // goblin — small green creature
+        's' => SpriteRef::new(Sheet::Monsters, 2, 0),  // skeleton — skeletal undead
+        'o' => SpriteRef::new(Sheet::Monsters, 0, 2),  // orc — green armed humanoid
+        'T' => SpriteRef::new(Sheet::Monsters, 1, 2),  // troll — large green humanoid
+        'D' => SpriteRef::new(Sheet::Monsters, 6, 0),  // dragon boss — green dragon
         // Unused but mapped
-        'S' => SpriteRef::new(Sheet::Monsters, 2, 0),  // slime (3.a)
-        _   => SpriteRef::new(Sheet::Monsters, 0, 2),  // default: goblin
+        'S' => SpriteRef::new(Sheet::Monsters, 1, 0),  // slime — green blob
+        _   => SpriteRef::new(Sheet::Monsters, 0, 4),  // default: goblin
     }
 }
 
@@ -243,38 +244,62 @@ mod tests {
         let s = enemy_sprite('g');
         assert_eq!(s.sheet, Sheet::Monsters);
         assert_eq!(s.row, 0);
+        assert_eq!(s.col, 4);
+    }
+
+    #[test]
+    fn enemy_sprite_orc() {
+        let s = enemy_sprite('o');
+        assert_eq!(s.sheet, Sheet::Monsters);
+        assert_eq!(s.row, 0);
         assert_eq!(s.col, 2);
+    }
+
+    #[test]
+    fn enemy_sprite_skeleton() {
+        let s = enemy_sprite('s');
+        assert_eq!(s.sheet, Sheet::Monsters);
+        assert_eq!(s.row, 2);
+        assert_eq!(s.col, 0);
     }
 
     #[test]
     fn enemy_sprite_dragon() {
         let s = enemy_sprite('D');
         assert_eq!(s.sheet, Sheet::Monsters);
-        assert_eq!(s.row, 8);
-        assert_eq!(s.col, 2);
+        assert_eq!(s.row, 6);
+        assert_eq!(s.col, 0);
     }
 
     #[test]
     fn enemy_sprite_wolf() {
         let s = enemy_sprite('w');
         assert_eq!(s.sheet, Sheet::Monsters);
-        assert_eq!(s.row, 7);
-        assert_eq!(s.col, 0);
+        assert_eq!(s.row, 3);
+        assert_eq!(s.col, 5);
     }
 
     #[test]
     fn enemy_sprite_boar() {
         let s = enemy_sprite('b');
         assert_eq!(s.sheet, Sheet::Monsters);
-        assert_eq!(s.row, 5);
-        assert_eq!(s.col, 0);
+        assert_eq!(s.row, 0);
+        assert_eq!(s.col, 1);
     }
 
     #[test]
     fn enemy_sprite_bear() {
         let s = enemy_sprite('B');
         assert_eq!(s.sheet, Sheet::Monsters);
-        assert_eq!(s.row, 6);
+        assert_eq!(s.row, 5);
+        assert_eq!(s.col, 4);
+    }
+
+    #[test]
+    fn enemy_sprite_slime() {
+        let s = enemy_sprite('S');
+        assert_eq!(s.sheet, Sheet::Monsters);
+        assert_eq!(s.row, 1);
         assert_eq!(s.col, 0);
     }
 
@@ -283,7 +308,7 @@ mod tests {
         let s = enemy_sprite('?');
         assert_eq!(s.sheet, Sheet::Monsters);
         assert_eq!(s.row, 0);
-        assert_eq!(s.col, 2);
+        assert_eq!(s.col, 4);
     }
 
     // --- Variation determinism ---
