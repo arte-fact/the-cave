@@ -1,3 +1,4 @@
+mod camera;
 mod game;
 mod input;
 mod map;
@@ -33,7 +34,7 @@ fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
 
 fn new_game() -> Game {
     let seed = js_sys::Date::now() as u64 ^ 0xDEAD_BEEF;
-    let map = Map::generate(30, 20, seed);
+    let map = Map::generate(80, 50, seed);
     let mut game = Game::new(map);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
     game
@@ -64,10 +65,13 @@ pub fn start() -> Result<(), JsValue> {
     // Preview path: computed during live swipe for rendering
     let preview_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
 
-    // Initial sizing
+    // Initial sizing + camera snap
     {
         let (w, h) = fit_canvas(&canvas);
-        renderer.borrow_mut().resize(w, h, &game.borrow());
+        let mut r = renderer.borrow_mut();
+        r.resize(w, h);
+        let gm = game.borrow();
+        r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
     }
 
     // Resize handler
@@ -78,8 +82,11 @@ pub fn start() -> Result<(), JsValue> {
         let preview_path = Rc::clone(&preview_path);
         let cb = Closure::<dyn FnMut()>::new(move || {
             let (w, h) = fit_canvas(&canvas);
-            renderer.borrow_mut().resize(w, h, &game.borrow());
-            renderer.borrow().draw(&game.borrow(), &preview_path.borrow());
+            let gm = game.borrow();
+            let mut r = renderer.borrow_mut();
+            r.resize(w, h);
+            r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
+            r.draw(&gm, &preview_path.borrow());
         });
         window
             .add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref())?;
@@ -94,14 +101,14 @@ pub fn start() -> Result<(), JsValue> {
     *g.borrow_mut() = Some(Closure::new(move || {
         let dpr = web_sys::window().unwrap().device_pixel_ratio();
 
-        // Process input actions (before preview clear, so ExecutePath can read it)
+        // Process input actions
         let actions = input.drain();
         if !actions.is_empty() {
             let mut gm = game.borrow_mut();
             if !gm.alive || gm.won {
                 *gm = new_game();
-                let (w, h) = (renderer.borrow().canvas_w(), renderer.borrow().canvas_h());
-                renderer.borrow_mut().resize(w, h, &gm);
+                let mut r = renderer.borrow_mut();
+                r.camera.snap(gm.player_x as f64, gm.player_y as f64, gm.map.width, gm.map.height);
                 auto_path.borrow_mut().clear();
             } else {
                 for action in actions {
@@ -117,10 +124,8 @@ pub fn start() -> Result<(), JsValue> {
                             gm.move_player(dx, dy);
                         }
                         InputAction::ExecutePath => {
-                            // Grab the preview path and queue it for auto-move
                             let pp = preview_path.borrow();
                             if pp.len() > 1 {
-                                // Skip first element (current position)
                                 *auto_path.borrow_mut() = pp[1..].to_vec();
                             }
                         }
@@ -138,7 +143,7 @@ pub fn start() -> Result<(), JsValue> {
                 if gm.alive && !gm.won {
                     let dx = swipe.current_x - swipe.start_x;
                     let dy = swipe.current_y - swipe.start_y;
-                    let (gdx, gdy) = renderer.borrow().css_delta_to_grid(dx, dy, dpr);
+                    let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
                     let dest = (gm.player_x + gdx, gm.player_y + gdy);
                     if gm.map.is_walkable(dest.0, dest.1) {
                         let path = gm.map.find_path((gm.player_x, gm.player_y), dest);
@@ -159,7 +164,6 @@ pub fn start() -> Result<(), JsValue> {
                     let dy = ny - gm.player_y;
                     gm.move_player(dx, dy);
                     ap.remove(0);
-                    // Stop if we got blocked (wall, enemy, etc.)
                     if gm.player_x != nx || gm.player_y != ny {
                         ap.clear();
                     }
@@ -167,6 +171,17 @@ pub fn start() -> Result<(), JsValue> {
                     ap.clear();
                 }
             }
+        }
+
+        // Update camera — follow the player
+        {
+            let gm = game.borrow();
+            renderer.borrow_mut().camera.follow(
+                gm.player_x as f64,
+                gm.player_y as f64,
+                gm.map.width,
+                gm.map.height,
+            );
         }
 
         // Render
