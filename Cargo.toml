@@ -21,6 +21,8 @@ features = [
     "Element",
     "HtmlCanvasElement",
     "HtmlImageElement",
+    "HtmlElement",
+    "HtmlDivElement",
     "CanvasRenderingContext2d",
     "EventTarget",
     "Event",
@@ -28,4 +30,5 @@ features = [
     "TouchList",
     "Touch",
     "KeyboardEvent",
+    "console",
 ]
