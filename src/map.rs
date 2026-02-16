@@ -482,16 +482,26 @@ impl Map {
         self.find_spawn()
     }
 
+    pub fn in_bounds(&self, x: i32, y: i32) -> bool {
+        x >= 0 && y >= 0 && x < self.width && y < self.height
+    }
+
     pub fn get(&self, x: i32, y: i32) -> Tile {
+        if !self.in_bounds(x, y) {
+            return Tile::Wall;
+        }
         self.tiles[(y * self.width + x) as usize]
     }
 
     pub fn set(&mut self, x: i32, y: i32, tile: Tile) {
+        if !self.in_bounds(x, y) {
+            return;
+        }
         self.tiles[(y * self.width + x) as usize] = tile;
     }
 
     pub fn is_walkable(&self, x: i32, y: i32) -> bool {
-        x >= 0 && y >= 0 && x < self.width && y < self.height && self.get(x, y).is_walkable()
+        self.in_bounds(x, y) && self.get(x, y).is_walkable()
     }
 
     /// Find the first tile of the given type, scanning top-to-bottom, left-to-right.
@@ -972,6 +982,54 @@ mod tests {
         assert!(!map.is_walkable(0, -1));
         assert!(!map.is_walkable(map.width, 0));
         assert!(!map.is_walkable(0, map.height));
+    }
+
+    #[test]
+    fn get_out_of_bounds_returns_wall() {
+        let map = Map::generate(30, 20, 42);
+        // Negative coordinates
+        assert_eq!(map.get(-1, 0), Tile::Wall);
+        assert_eq!(map.get(0, -1), Tile::Wall);
+        assert_eq!(map.get(-1, -1), Tile::Wall);
+        // Past width/height
+        assert_eq!(map.get(map.width, 0), Tile::Wall);
+        assert_eq!(map.get(0, map.height), Tile::Wall);
+        assert_eq!(map.get(map.width, map.height), Tile::Wall);
+        // Large values
+        assert_eq!(map.get(i32::MAX, 0), Tile::Wall);
+        assert_eq!(map.get(0, i32::MAX), Tile::Wall);
+        assert_eq!(map.get(i32::MIN, i32::MIN), Tile::Wall);
+    }
+
+    #[test]
+    fn set_out_of_bounds_is_noop() {
+        let mut map = Map::generate(30, 20, 42);
+        let original = map.get(0, 0);
+        // These should not panic
+        map.set(-1, 0, Tile::Floor);
+        map.set(0, -1, Tile::Floor);
+        map.set(map.width, 0, Tile::Floor);
+        map.set(0, map.height, Tile::Floor);
+        map.set(i32::MAX, 0, Tile::Floor);
+        map.set(0, i32::MAX, Tile::Floor);
+        map.set(i32::MIN, i32::MIN, Tile::Floor);
+        // Original map unchanged
+        assert_eq!(map.get(0, 0), original);
+    }
+
+    #[test]
+    fn in_bounds_edges() {
+        let map = Map::generate(30, 20, 42);
+        // Valid corners
+        assert!(map.in_bounds(0, 0));
+        assert!(map.in_bounds(29, 19));
+        assert!(map.in_bounds(0, 19));
+        assert!(map.in_bounds(29, 0));
+        // Just outside
+        assert!(!map.in_bounds(-1, 0));
+        assert!(!map.in_bounds(0, -1));
+        assert!(!map.in_bounds(30, 0));
+        assert!(!map.in_bounds(0, 20));
     }
 
     #[test]

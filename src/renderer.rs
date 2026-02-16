@@ -179,7 +179,9 @@ impl Renderer {
                 }
                 let (px, py) = cam.world_to_screen(x, y);
                 let tile = map.get(x, y);
-                let wall_face = tile == Tile::Wall && map.get(x, y + 1) != Tile::Wall;
+                let wall_face = tile == Tile::Wall
+                    && y + 1 < map.height
+                    && map.get(x, y + 1) != Tile::Wall;
                 let sprite = sprites::tile_sprite(tile, x, y, wall_face);
                 if !self.draw_sprite(sprite, px, py, cell, cell) {
                     self.draw_tile_fallback(tile, px, py, cell);
