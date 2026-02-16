@@ -123,11 +123,14 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         // Shields
         "Wooden Shield"  => ItemSprite::Buckler.sprite_ref(),
         "Iron Shield"    => ItemSprite::KiteShield.sprite_ref(),
+        "Tower Shield"   => ItemSprite::LargeShield.sprite_ref(),
         // Helmets
         "Leather Cap"    => ItemSprite::LeatherHelm.sprite_ref(),
         "Iron Helmet"    => ItemSprite::Helm.sprite_ref(),
         "Mithril Helm"   => ItemSprite::PlateHelm1.sprite_ref(),
         // Boots
+        "Leather Boots"  => ItemSprite::LeatherBoots.sprite_ref(),
+        "Chain Boots"    => ItemSprite::HighBlueBoots.sprite_ref(),
         "Plate Boots"    => ItemSprite::Greaves.sprite_ref(),
         // Rings
         "Copper Ring"   => ItemSprite::GoldBandRing.sprite_ref(),
@@ -491,6 +494,29 @@ mod tests {
             let s = item_sprite(name);
             assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
             assert!(s.row == 17 || s.row == 18, "{name} should be on ring row 17 or 18, got {}", s.row);
+        }
+    }
+
+    #[test]
+    fn item_sprite_new_boots() {
+        assert_eq!(item_sprite("Leather Boots"), ItemSprite::LeatherBoots.sprite_ref());
+        assert_eq!(item_sprite("Chain Boots"), ItemSprite::HighBlueBoots.sprite_ref());
+        assert_eq!(item_sprite("Plate Boots"), ItemSprite::Greaves.sprite_ref());
+    }
+
+    #[test]
+    fn item_sprite_tower_shield() {
+        assert_eq!(item_sprite("Tower Shield"), ItemSprite::LargeShield.sprite_ref());
+    }
+
+    #[test]
+    fn item_sprite_new_items_within_bounds() {
+        let names = ["Leather Boots", "Chain Boots", "Tower Shield"];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
         }
     }
 

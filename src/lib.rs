@@ -358,7 +358,8 @@ pub fn start() -> Result<(), JsValue> {
                                             ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
                                                 gm.use_item(idx);
                                             }
-                                            ItemKind::Weapon | ItemKind::Armor | ItemKind::Ring => {
+                                            ItemKind::Weapon | ItemKind::Armor | ItemKind::Helmet
+                                            | ItemKind::Shield | ItemKind::Boots | ItemKind::Ring => {
                                                 gm.equip_item(idx);
                                             }
                                         }
