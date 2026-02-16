@@ -25,13 +25,108 @@
             width: 100%;
             height: 100%;
         }
+        #error-overlay {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-height: 40vh;
+            overflow-y: auto;
+            background: rgba(20, 0, 0, 0.92);
+            border-top: 2px solid #f44;
+            color: #faa;
+            font: 12px/1.4 monospace;
+            padding: 8px 10px;
+            z-index: 9999;
+            -webkit-overflow-scrolling: touch;
+        }
+        #error-overlay .error-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #f44;
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+        #error-overlay .error-dismiss {
+            background: none;
+            border: 1px solid #f44;
+            color: #f44;
+            font: bold 12px monospace;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+        #error-overlay .error-entry {
+            border-bottom: 1px solid rgba(255,68,68,0.2);
+            padding: 4px 0;
+            word-break: break-all;
+        }
+        #error-overlay .error-entry:last-child { border-bottom: none; }
+        #error-overlay .error-time { color: #888; font-size: 11px; }
+        #error-overlay .error-msg { color: #fcc; margin-top: 2px; }
+        #error-overlay .error-src { color: #888; font-size: 11px; margin-top: 1px; }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
+    <div id="error-overlay">
+        <div class="error-header">
+            <span>ERRORS</span>
+            <button class="error-dismiss" onclick="document.getElementById('error-overlay').style.display='none'">X</button>
+        </div>
+        <div id="error-log"></div>
+    </div>
+    <script>
+        // Global error reporting — catches JS errors, WASM panics, and promise rejections.
+        // Errors display in a DOM overlay so they're visible on mobile without devtools.
+        (function() {
+            var MAX_ERRORS = 50;
+            var errorCount = 0;
+
+            window.__reportError = function(msg, source) {
+                if (errorCount >= MAX_ERRORS) return;
+                errorCount++;
+                var overlay = document.getElementById('error-overlay');
+                var log = document.getElementById('error-log');
+                if (!overlay || !log) return;
+                overlay.style.display = 'block';
+                var entry = document.createElement('div');
+                entry.className = 'error-entry';
+                var now = new Date();
+                var time = now.toLocaleTimeString();
+                entry.innerHTML =
+                    '<div class="error-time">' + time + (source ? ' [' + source + ']' : '') + '</div>' +
+                    '<div class="error-msg">' + String(msg).replace(/</g, '&lt;') + '</div>';
+                log.insertBefore(entry, log.firstChild);
+                overlay.scrollTop = 0;
+                // Also log to console for desktop debugging
+                console.error('[the-cave]', msg);
+            };
+
+            window.onerror = function(msg, url, line, col, err) {
+                var detail = msg;
+                if (url) detail += '\n  at ' + url + ':' + line + ':' + col;
+                if (err && err.stack) detail += '\n' + err.stack;
+                window.__reportError(detail, 'js');
+            };
+
+            window.addEventListener('unhandledrejection', function(e) {
+                var msg = e.reason;
+                if (msg && msg.stack) msg = msg.stack;
+                else if (msg && msg.message) msg = msg.message;
+                window.__reportError(String(msg), 'promise');
+            });
+        })();
+    </script>
     <script type="module">
         import init from './pkg/the_cave.js';
-        await init();
+        try {
+            await init();
+        } catch (e) {
+            window.__reportError(e.message || String(e), 'wasm-init');
+        }
     </script>
 </body>
 </html>

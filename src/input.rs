@@ -89,9 +89,9 @@ impl Input {
                     });
                 }
             });
-            canvas
-                .add_event_listener_with_callback("touchstart", cb.as_ref().unchecked_ref())
-                .unwrap();
+            if let Err(e) = canvas.add_event_listener_with_callback("touchstart", cb.as_ref().unchecked_ref()) {
+                crate::errors::report_error(&format!("touchstart listener failed: {:?}", e));
+            }
             cb.forget();
         }
 
@@ -112,9 +112,9 @@ impl Input {
                     }
                 }
             });
-            canvas
-                .add_event_listener_with_callback("touchmove", cb.as_ref().unchecked_ref())
-                .unwrap();
+            if let Err(e) = canvas.add_event_listener_with_callback("touchmove", cb.as_ref().unchecked_ref()) {
+                crate::errors::report_error(&format!("touchmove listener failed: {:?}", e));
+            }
             cb.forget();
         }
 
@@ -156,15 +156,15 @@ impl Input {
                     }
                 }
             });
-            canvas
-                .add_event_listener_with_callback("touchend", cb.as_ref().unchecked_ref())
-                .unwrap();
+            if let Err(e) = canvas.add_event_listener_with_callback("touchend", cb.as_ref().unchecked_ref()) {
+                crate::errors::report_error(&format!("touchend listener failed: {:?}", e));
+            }
             cb.forget();
         }
     }
 
     fn bind_keyboard(queue: Rc<RefCell<Vec<InputAction>>>) {
-        let window = web_sys::window().unwrap();
+        let window = web_sys::window().expect("no global window");
         let cb = Closure::<dyn FnMut(KeyboardEvent)>::new(move |e: KeyboardEvent| {
             match e.key().as_str() {
                 "ArrowUp" | "k" => {
@@ -198,9 +198,9 @@ impl Input {
                 _ => {}
             }
         });
-        window
-            .add_event_listener_with_callback("keydown", cb.as_ref().unchecked_ref())
-            .unwrap();
+        if let Err(e) = window.add_event_listener_with_callback("keydown", cb.as_ref().unchecked_ref()) {
+            crate::errors::report_error(&format!("keydown listener failed: {:?}", e));
+        }
         cb.forget();
     }
 }

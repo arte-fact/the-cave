@@ -90,8 +90,8 @@ impl Renderer {
             if flip {
                 let ctx = &self.ctx;
                 ctx.save();
-                ctx.translate(dx + dw, dy).unwrap();
-                ctx.scale(-1.0, 1.0).unwrap();
+                let _ = ctx.translate(dx + dw, dy);
+                let _ = ctx.scale(-1.0, 1.0);
                 let _ = ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                     img,
                     sprite.src_x(), sprite.src_y(), 32.0, 32.0,
@@ -117,13 +117,13 @@ impl Renderer {
         ctx.begin_path();
         ctx.move_to(x + r, y);
         ctx.line_to(x + w - r, y);
-        ctx.arc_to(x + w, y, x + w, y + r, r).unwrap();
+        let _ = ctx.arc_to(x + w, y, x + w, y + r, r);
         ctx.line_to(x + w, y + h - r);
-        ctx.arc_to(x + w, y + h, x + w - r, y + h, r).unwrap();
+        let _ = ctx.arc_to(x + w, y + h, x + w - r, y + h, r);
         ctx.line_to(x + r, y + h);
-        ctx.arc_to(x, y + h, x, y + h - r, r).unwrap();
+        let _ = ctx.arc_to(x, y + h, x, y + h - r, r);
         ctx.line_to(x, y + r);
-        ctx.arc_to(x, y, x + r, y, r).unwrap();
+        let _ = ctx.arc_to(x, y, x + r, y, r);
         ctx.close_path();
         ctx.fill();
     }

@@ -1,4 +1,5 @@
 mod camera;
+mod errors;
 mod game;
 mod input;
 mod map;
@@ -101,16 +102,23 @@ fn hit_test_drawer(
 }
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
-    window
-        .request_animation_frame(f.as_ref().unchecked_ref())
-        .unwrap();
+    if let Err(e) = window.request_animation_frame(f.as_ref().unchecked_ref()) {
+        errors::report_error(&format!("requestAnimationFrame failed: {:?}", e));
+    }
+}
+
+/// Get window CSS dimensions, returning fallback (320, 480) on failure.
+fn window_css_size() -> (f64, f64) {
+    let w = web_sys::window().expect("no global window");
+    let css_w = w.inner_width().ok().and_then(|v| v.as_f64()).unwrap_or(320.0);
+    let css_h = w.inner_height().ok().and_then(|v| v.as_f64()).unwrap_or(480.0);
+    (css_w, css_h)
 }
 
 fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
-    let window = web_sys::window().unwrap();
+    let window = web_sys::window().expect("no global window");
     let dpr = window.device_pixel_ratio();
-    let css_w = window.inner_width().unwrap().as_f64().unwrap();
-    let css_h = window.inner_height().unwrap().as_f64().unwrap();
+    let (css_w, css_h) = window_css_size();
     let px_w = (css_w * dpr).round();
     let px_h = (css_h * dpr).round();
     canvas.set_width(px_w as u32);
@@ -133,28 +141,38 @@ fn new_game() -> Game {
 }
 
 /// Load an image from a URL and call `on_load` when ready.
+/// Reports load failures to the error overlay.
 fn load_image(src: &str, on_load: impl FnMut() + 'static) -> HtmlImageElement {
-    let img = HtmlImageElement::new().unwrap();
+    let img = HtmlImageElement::new().expect("failed to create HtmlImageElement");
     let cb = Closure::<dyn FnMut()>::new(on_load);
     img.set_onload(Some(cb.as_ref().unchecked_ref()));
     cb.forget();
+    // Report image load errors to the DOM overlay
+    let src_owned = src.to_string();
+    let err_cb = Closure::<dyn FnMut()>::new(move || {
+        errors::report_error(&format!("failed to load sprite sheet: {}", src_owned));
+    });
+    img.set_onerror(Some(err_cb.as_ref().unchecked_ref()));
+    err_cb.forget();
     img.set_src(src);
     img
 }
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    let window = web_sys::window().unwrap();
-    let document = window.document().unwrap();
+    errors::install_panic_hook();
+
+    let window = web_sys::window().expect("no global window");
+    let document = window.document().expect("window has no document");
 
     let canvas = document
         .get_element_by_id("canvas")
-        .unwrap()
+        .ok_or_else(|| JsValue::from_str("canvas element not found"))?
         .dyn_into::<HtmlCanvasElement>()?;
 
     let ctx = canvas
         .get_context("2d")?
-        .unwrap()
+        .ok_or_else(|| JsValue::from_str("failed to get 2d context"))?
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
     let game = Rc::new(RefCell::new(new_game()));
@@ -191,13 +209,11 @@ pub fn start() -> Result<(), JsValue> {
                 let mut count = loaded.borrow_mut();
                 *count += 1;
                 if *count == 4 {
-                    let sheets = SpriteSheets {
-                        tiles: t.borrow_mut().take().unwrap(),
-                        monsters: m.borrow_mut().take().unwrap(),
-                        rogues: r.borrow_mut().take().unwrap(),
-                        items: i.borrow_mut().take().unwrap(),
-                    };
-                    rend.borrow_mut().set_sheets(sheets);
+                    let tiles = t.borrow_mut().take().expect("tiles sprite sheet missing");
+                    let monsters = m.borrow_mut().take().expect("monsters sprite sheet missing");
+                    let rogues = r.borrow_mut().take().expect("rogues sprite sheet missing");
+                    let items = i.borrow_mut().take().expect("items sprite sheet missing");
+                    rend.borrow_mut().set_sheets(SpriteSheets { tiles, monsters, rogues, items });
                 }
             }
         };
@@ -257,7 +273,7 @@ pub fn start() -> Result<(), JsValue> {
         let renderer = Rc::clone(&renderer);
         let preview_path = Rc::clone(&preview_path);
         let cb = Closure::<dyn FnMut()>::new(move || {
-            let dpr = web_sys::window().unwrap().device_pixel_ratio();
+            let dpr = web_sys::window().expect("no global window").device_pixel_ratio();
             let (w, h) = fit_canvas(&canvas);
             let gm = game.borrow();
             let mut r = renderer.borrow_mut();
@@ -275,9 +291,9 @@ pub fn start() -> Result<(), JsValue> {
     let f: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
     let g = Rc::clone(&f);
 
-    let window2 = web_sys::window().unwrap();
+    let window2 = web_sys::window().expect("no global window");
     *g.borrow_mut() = Some(Closure::new(move || {
-        let dpr = web_sys::window().unwrap().device_pixel_ratio();
+        let dpr = web_sys::window().expect("no global window").device_pixel_ratio();
 
         // Process input actions
         let actions = input.drain();
@@ -314,8 +330,7 @@ pub fn start() -> Result<(), JsValue> {
                             }
                         }
                         InputAction::Tap(css_x, css_y) => {
-                            let css_w = web_sys::window().unwrap().inner_width().unwrap().as_f64().unwrap();
-                            let css_h = web_sys::window().unwrap().inner_height().unwrap().as_f64().unwrap();
+                            let (css_w, css_h) = window_css_size();
                             let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
 
                             // Bottom bar hit test first
@@ -444,11 +459,11 @@ pub fn start() -> Result<(), JsValue> {
         renderer.borrow().draw(&game.borrow(), &preview_path.borrow());
 
         // Schedule next frame
-        request_animation_frame(&window2, f.borrow().as_ref().unwrap());
+        request_animation_frame(&window2, f.borrow().as_ref().expect("game loop closure missing"));
     }));
 
-    let window3 = web_sys::window().unwrap();
-    request_animation_frame(&window3, g.borrow().as_ref().unwrap());
+    let window3 = web_sys::window().expect("no global window");
+    request_animation_frame(&window3, g.borrow().as_ref().expect("game loop closure missing"));
 
     Ok(())
 }
