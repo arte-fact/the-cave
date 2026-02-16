@@ -120,27 +120,69 @@ fn tile_desc(tile: Tile) -> &'static str {
 
 fn enemy_desc(name: &str) -> &'static str {
     match name {
-        "Wolf" => "A cunning forest predator. Fast but fragile.",
-        "Boar" => "A wild pig with sharp tusks. Sturdy.",
-        "Bear" => "A massive beast. Hits hard, takes punishment.",
-        "Goblin" => "A sneaky green creature. Weak alone.",
-        "Skeleton" => "Animated bones. Relentless and tireless.",
-        "Orc" => "A fierce warrior. Strong and armored.",
-        "Troll" => "A hulking brute. Devastating attacks.",
-        "Dragon" => "The cave's ancient guardian. Legendary power.",
+        // Forest beasts
+        "Giant Rat"       => "A disease-carrying rodent the size of a dog.",
+        "Giant Bat"       => "A bat with a wingspan wider than a man.",
+        "Wolf"            => "A cunning pack hunter. Fast and relentless.",
+        "Giant Spider"    => "A venomous arachnid that lurks in the shadows.",
+        "Boar"            => "A ferocious wild pig with razor-sharp tusks.",
+        "Bear"            => "A massive predator. Top of the forest chain.",
+        "Lycanthrope"     => "A cursed shapeshifter. Savage in beast form.",
+        // Dungeon — shallow
+        "Kobold"          => "A small reptilian scavenger. Cowardly but cunning.",
+        "Small Slime"     => "A translucent ooze. Dissolves what it touches.",
+        "Goblin"          => "A sneaky green creature. Dangerous in numbers.",
+        "Skeleton"        => "Animated bones bound by dark magic.",
+        // Dungeon — mid
+        "Goblin Archer"   => "A goblin with a crude bow. Deadly at range.",
+        "Zombie"          => "A shambling corpse. Slow but relentless.",
+        "Skeleton Archer" => "Dead bones with unerring aim.",
+        "Big Slime"       => "A massive ooze. Absorbs blows like nothing.",
+        "Orc"             => "A fierce tribal warrior. Bred for battle.",
+        // Dungeon — deep
+        "Ghoul"           => "A ravenous undead. Paralyzes with its claws.",
+        "Orc Blademaster" => "An elite orc warrior. Master of the blade.",
+        "Wraith"          => "A hateful spirit. Drains the life from victims.",
+        "Naga"            => "A serpentine spellcaster. Ancient and cunning.",
+        "Troll"           => "A towering brute. Regenerates from any wound.",
+        // Cave — boss floor
+        "Death Knight"    => "A fallen paladin. Commands undead legions.",
+        "Lich"            => "An undead sorcerer of immense power.",
+        "Dragon"          => "The cave's ancient guardian. Legendary power.",
         _ => "A mysterious creature.",
     }
 }
 
 fn xp_for_enemy(name: &str) -> u32 {
     match name {
+        // Forest
+        "Giant Rat" => 3,
+        "Giant Bat" => 4,
         "Wolf" => 5,
+        "Giant Spider" => 6,
         "Boar" => 7,
         "Bear" => 12,
+        "Lycanthrope" => 18,
+        // Dungeon — shallow
+        "Kobold" => 3,
+        "Small Slime" => 3,
         "Goblin" => 4,
         "Skeleton" => 6,
+        // Dungeon — mid
+        "Goblin Archer" => 5,
+        "Zombie" => 6,
+        "Skeleton Archer" => 7,
+        "Big Slime" => 7,
         "Orc" => 10,
+        // Dungeon — deep
+        "Ghoul" => 11,
+        "Orc Blademaster" => 14,
+        "Wraith" => 13,
+        "Naga" => 16,
         "Troll" => 15,
+        // Cave
+        "Death Knight" => 22,
+        "Lich" => 25,
         "Dragon" => 100,
         _ => 3,
     }
@@ -696,23 +738,32 @@ impl Game {
                 if rng % 100 < 3 {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
-                    let enemy = if roll < 60 {
-                        Enemy { x, y, hp: 4, attack: 2, glyph: 'w', name: "Wolf", facing_left: false }
-                    } else if roll < 85 {
-                        Enemy { x, y, hp: 6, attack: 2, glyph: 'b', name: "Boar", facing_left: false }
+                    let (hp, attack, glyph, name) = if roll < 20 {
+                        (3, 1, 'r', "Giant Rat")
+                    } else if roll < 35 {
+                        (4, 2, 'a', "Giant Bat")
+                    } else if roll < 60 {
+                        (5, 2, 'w', "Wolf")
+                    } else if roll < 75 {
+                        (6, 3, 'i', "Giant Spider")
+                    } else if roll < 87 {
+                        (8, 2, 'b', "Boar")
+                    } else if roll < 95 {
+                        (12, 4, 'B', "Bear")
                     } else {
-                        Enemy { x, y, hp: 10, attack: 3, glyph: 'B', name: "Bear", facing_left: false }
+                        (14, 5, 'L', "Lycanthrope")
                     };
-                    self.enemies.push(enemy);
+                    self.enemies.push(Enemy { x, y, hp, attack, glyph, name, facing_left: false });
                 }
             }
         }
     }
 
     /// Spawn enemies appropriate for a dungeon level.
-    /// Level 0: goblins + skeletons. Level 1: goblins + skeletons + orcs.
-    /// Level 2: skeletons + orcs + trolls.
-    /// Cave level (level 3, only in the dragon's dungeon): troll minions + unique dragon boss.
+    /// L0: rats, kobolds, slimes, goblins, skeletons.
+    /// L1: goblin archers, zombies, skeleton archers, big slimes, orcs.
+    /// L2+: ghouls, orc blademasters, wraiths, nagas, trolls.
+    /// Cave (L3, dragon dungeon only): death knights, trolls, liches + dragon boss.
     fn spawn_dungeon_enemies(&mut self, dungeon_index: usize, level: usize) {
         let total_levels = self.world.dungeons[dungeon_index].levels.len();
         let is_cave = total_levels == 4 && level == 3;
@@ -740,43 +791,58 @@ impl Game {
                 if rng % 100 < spawn_chance {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
-                    let enemy = if is_cave {
-                        // Cave level: troll minions guarding the dragon
-                        if roll < 50 {
-                            Enemy { x, y, hp: 15, attack: 5, glyph: 'T', name: "Troll", facing_left: false }
+                    let (hp, attack, glyph, name) = if is_cave {
+                        if roll < 40 {
+                            (20, 7, 'K', "Death Knight")
+                        } else if roll < 70 {
+                            (16, 5, 'T', "Troll")
                         } else {
-                            Enemy { x, y, hp: 12, attack: 5, glyph: 'o', name: "Orc", facing_left: false }
+                            (15, 8, 'l', "Lich")
                         }
                     } else {
                         match level {
                             0 => {
-                                if roll < 70 {
-                                    Enemy { x, y, hp: 5, attack: 2, glyph: 'g', name: "Goblin", facing_left: false }
+                                if roll < 25 {
+                                    (3, 1, 'r', "Giant Rat")
+                                } else if roll < 40 {
+                                    (4, 2, 'c', "Kobold")
+                                } else if roll < 55 {
+                                    (4, 1, 'S', "Small Slime")
+                                } else if roll < 80 {
+                                    (5, 2, 'g', "Goblin")
                                 } else {
-                                    Enemy { x, y, hp: 6, attack: 3, glyph: 's', name: "Skeleton", facing_left: false }
+                                    (6, 3, 's', "Skeleton")
                                 }
                             }
                             1 => {
-                                if roll < 40 {
-                                    Enemy { x, y, hp: 7, attack: 3, glyph: 'g', name: "Goblin", facing_left: false }
+                                if roll < 20 {
+                                    (6, 3, 'G', "Goblin Archer")
+                                } else if roll < 40 {
+                                    (10, 2, 'z', "Zombie")
+                                } else if roll < 55 {
+                                    (7, 4, 'k', "Skeleton Archer")
                                 } else if roll < 70 {
-                                    Enemy { x, y, hp: 8, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
+                                    (10, 2, 'm', "Big Slime")
                                 } else {
-                                    Enemy { x, y, hp: 10, attack: 4, glyph: 'o', name: "Orc", facing_left: false }
+                                    (10, 4, 'o', "Orc")
                                 }
                             }
                             _ => {
-                                if roll < 30 {
-                                    Enemy { x, y, hp: 9, attack: 4, glyph: 's', name: "Skeleton", facing_left: false }
-                                } else if roll < 60 {
-                                    Enemy { x, y, hp: 12, attack: 5, glyph: 'o', name: "Orc", facing_left: false }
+                                if roll < 20 {
+                                    (10, 5, 'u', "Ghoul")
+                                } else if roll < 40 {
+                                    (14, 5, 'O', "Orc Blademaster")
+                                } else if roll < 55 {
+                                    (8, 6, 'W', "Wraith")
+                                } else if roll < 70 {
+                                    (12, 6, 'N', "Naga")
                                 } else {
-                                    Enemy { x, y, hp: 15, attack: 5, glyph: 'T', name: "Troll", facing_left: false }
+                                    (16, 5, 'T', "Troll")
                                 }
                             }
                         }
                     };
-                    self.enemies.push(enemy);
+                    self.enemies.push(Enemy { x, y, hp, attack, glyph, name, facing_left: false });
                 }
             }
         }
@@ -1258,16 +1324,15 @@ mod tests {
     #[test]
     fn overworld_has_forest_animals() {
         let g = test_game();
-        assert!(
-            g.enemies.iter().any(|e| e.glyph == 'w'),
-            "overworld should have wolves"
-        );
+        let forest_glyphs = ['r', 'a', 'w', 'i', 'b', 'B', 'L'];
         for e in &g.enemies {
             assert!(
-                e.glyph == 'w' || e.glyph == 'b' || e.glyph == 'B',
-                "unexpected overworld enemy: {} ({})", e.name, e.glyph
+                forest_glyphs.contains(&e.glyph),
+                "unexpected overworld enemy: {} ('{}')", e.name, e.glyph
             );
         }
+        // Should have at least some enemies
+        assert!(!g.enemies.is_empty(), "overworld should have enemies");
     }
 
     #[test]
@@ -1547,11 +1612,12 @@ mod tests {
     fn dungeon_has_classic_enemies() {
         let mut g = overworld_game();
         g.enter_dungeon(0);
-        // Level 0 should have goblins and/or skeletons, not forest animals
+        // Level 0: rats, kobolds, slimes, goblins, skeletons
+        let l0_glyphs = ['r', 'c', 'S', 'g', 's'];
         for e in &g.enemies {
             assert!(
-                e.glyph == 'g' || e.glyph == 's' || e.glyph == 'o' || e.glyph == 'T' || e.glyph == 'D',
-                "unexpected dungeon enemy: {} ({})", e.name, e.glyph
+                l0_glyphs.contains(&e.glyph),
+                "unexpected dungeon L0 enemy: {} ('{}')", e.name, e.glyph
             );
         }
     }
@@ -2021,7 +2087,7 @@ mod tests {
         assert_eq!(enemy.name, "Goblin");
         assert_eq!(enemy.hp, 10);
         assert_eq!(enemy.attack, 3);
-        assert_eq!(enemy.desc, "A sneaky green creature. Weak alone.");
+        assert_eq!(enemy.desc, "A sneaky green creature. Dangerous in numbers.");
     }
 
     #[test]
@@ -2059,7 +2125,14 @@ mod tests {
 
     #[test]
     fn every_enemy_has_desc() {
-        for name in ["Wolf", "Boar", "Bear", "Goblin", "Skeleton", "Orc", "Troll", "Dragon"] {
+        let all_enemies = [
+            "Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear", "Lycanthrope",
+            "Kobold", "Small Slime", "Goblin", "Skeleton",
+            "Goblin Archer", "Zombie", "Skeleton Archer", "Big Slime", "Orc",
+            "Ghoul", "Orc Blademaster", "Wraith", "Naga", "Troll",
+            "Death Knight", "Lich", "Dragon",
+        ];
+        for name in all_enemies {
             let desc = enemy_desc(name);
             assert!(!desc.is_empty(), "{name} has no desc");
             assert_ne!(desc, "A mysterious creature.", "{name} should have a unique desc");
@@ -2146,13 +2219,34 @@ mod tests {
 
     #[test]
     fn xp_for_each_enemy_type() {
+        // Forest
+        assert_eq!(xp_for_enemy("Giant Rat"), 3);
+        assert_eq!(xp_for_enemy("Giant Bat"), 4);
         assert_eq!(xp_for_enemy("Wolf"), 5);
+        assert_eq!(xp_for_enemy("Giant Spider"), 6);
         assert_eq!(xp_for_enemy("Boar"), 7);
         assert_eq!(xp_for_enemy("Bear"), 12);
+        assert_eq!(xp_for_enemy("Lycanthrope"), 18);
+        // Dungeon shallow
+        assert_eq!(xp_for_enemy("Kobold"), 3);
+        assert_eq!(xp_for_enemy("Small Slime"), 3);
         assert_eq!(xp_for_enemy("Goblin"), 4);
         assert_eq!(xp_for_enemy("Skeleton"), 6);
+        // Dungeon mid
+        assert_eq!(xp_for_enemy("Goblin Archer"), 5);
+        assert_eq!(xp_for_enemy("Zombie"), 6);
+        assert_eq!(xp_for_enemy("Skeleton Archer"), 7);
+        assert_eq!(xp_for_enemy("Big Slime"), 7);
         assert_eq!(xp_for_enemy("Orc"), 10);
+        // Dungeon deep
+        assert_eq!(xp_for_enemy("Ghoul"), 11);
+        assert_eq!(xp_for_enemy("Orc Blademaster"), 14);
+        assert_eq!(xp_for_enemy("Wraith"), 13);
+        assert_eq!(xp_for_enemy("Naga"), 16);
         assert_eq!(xp_for_enemy("Troll"), 15);
+        // Cave boss
+        assert_eq!(xp_for_enemy("Death Knight"), 22);
+        assert_eq!(xp_for_enemy("Lich"), 25);
         assert_eq!(xp_for_enemy("Dragon"), 100);
     }
 

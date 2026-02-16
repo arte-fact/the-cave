@@ -62,17 +62,35 @@ pub fn player_sprite() -> SpriteRef {
 /// Enemy sprite based on glyph character.
 pub fn enemy_sprite(glyph: char) -> SpriteRef {
     match glyph {
-        // Forest animals
+        // Forest beasts
+        'r' => MonsterSprite::GiantRat.sprite_ref(),
+        'a' => MonsterSprite::GiantBat.sprite_ref(),
         'w' => MonsterSprite::WargDireWolf.sprite_ref(),
-        'b' => MonsterSprite::GiantRat.sprite_ref(),
+        'i' => MonsterSprite::GiantSpider.sprite_ref(),
+        'b' => MonsterSprite::Manticore.sprite_ref(),
         'B' => MonsterSprite::Wendigo.sprite_ref(),
-        // Dungeon enemies
+        'L' => MonsterSprite::Lycanthrope.sprite_ref(),
+        // Dungeon — shallow
+        'c' => MonsterSprite::SmallKoboldCanine.sprite_ref(),
+        'S' => MonsterSprite::SmallSlime.sprite_ref(),
         'g' => MonsterSprite::Goblin.sprite_ref(),
         's' => MonsterSprite::Skeleton.sprite_ref(),
+        // Dungeon — mid
+        'G' => MonsterSprite::GoblinArcher.sprite_ref(),
+        'z' => MonsterSprite::Zombie.sprite_ref(),
+        'k' => MonsterSprite::SkeletonArcher.sprite_ref(),
+        'm' => MonsterSprite::BigSlime.sprite_ref(),
         'o' => MonsterSprite::Orc.sprite_ref(),
+        // Dungeon — deep
+        'u' => MonsterSprite::Ghoul.sprite_ref(),
+        'O' => MonsterSprite::OrcBlademaster.sprite_ref(),
+        'W' => MonsterSprite::Wraith.sprite_ref(),
+        'N' => MonsterSprite::Naga.sprite_ref(),
         'T' => MonsterSprite::Troll.sprite_ref(),
+        // Cave — boss floor
+        'K' => MonsterSprite::DeathKnight.sprite_ref(),
+        'l' => MonsterSprite::Lich.sprite_ref(),
         'D' => MonsterSprite::Dragon.sprite_ref(),
-        'S' => MonsterSprite::SmallSlime.sprite_ref(),
         _   => MonsterSprite::Goblin.sprite_ref(),
     }
 }
@@ -260,7 +278,7 @@ mod tests {
 
     #[test]
     fn enemy_sprite_boar() {
-        assert_eq!(enemy_sprite('b'), MonsterSprite::GiantRat.sprite_ref());
+        assert_eq!(enemy_sprite('b'), MonsterSprite::Manticore.sprite_ref());
     }
 
     #[test]
@@ -318,7 +336,21 @@ mod tests {
 
     #[test]
     fn monster_sprites_within_sheet_bounds() {
-        for glyph in ['g', 'D', 'o', 's', 'S', 'T', 'w', 'b', 'B', '?'] {
+        let all_glyphs = [
+            // Forest
+            'r', 'a', 'w', 'i', 'b', 'B', 'L',
+            // Dungeon shallow
+            'c', 'S', 'g', 's',
+            // Dungeon mid
+            'G', 'z', 'k', 'm', 'o',
+            // Dungeon deep
+            'u', 'O', 'W', 'N', 'T',
+            // Cave boss
+            'K', 'l', 'D',
+            // Unknown fallback
+            '?',
+        ];
+        for glyph in all_glyphs {
             let s = enemy_sprite(glyph);
             assert!(s.row < 13, "glyph '{}' row {} >= 13", glyph, s.row);
             assert!(s.col < 12, "glyph '{}' col {} >= 12", glyph, s.col);
