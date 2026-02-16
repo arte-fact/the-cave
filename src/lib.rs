@@ -11,7 +11,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
-use game::{Drawer, Game, TurnResult};
+use game::{Drawer, Game, ItemKind, TurnResult};
 use input::{Input, InputAction};
 use map::Map;
 use renderer::{Renderer, SpriteSheets};
@@ -42,6 +42,62 @@ fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css
         3 => Some(BarTap::OpenDrawer(Drawer::None)), // Menu (closes drawers)
         _ => None,
     }
+}
+
+/// Result of tapping inside a drawer.
+enum DrawerTap {
+    /// Tapped an inventory item at the given index.
+    InventoryItem(usize),
+    /// Tapped inside the drawer but not on an actionable element.
+    Consumed,
+}
+
+/// Drawer hit test: returns `Some` if the tap landed inside the drawer area.
+/// All coordinates are in CSS pixels (pre-DPR).
+/// Layout constants here mirror `renderer::draw_inventory_drawer` / `draw_stats_drawer`
+/// (which use `base * dpr` in canvas pixels — dividing by dpr gives CSS points).
+fn hit_test_drawer(
+    _css_x: f64,
+    css_y: f64,
+    _css_w: f64,
+    css_h: f64,
+    bar_h_css: f64,
+    drawer: Drawer,
+    item_count: usize,
+) -> Option<DrawerTap> {
+    let drawer_frac = match drawer {
+        Drawer::None => return None,
+        Drawer::Inventory => 0.55,
+        Drawer::Stats => 0.45,
+    };
+    let drawer_h = css_h * drawer_frac;
+    let drawer_y = css_h - bar_h_css - drawer_h;
+
+    // Not inside the drawer area
+    if css_y < drawer_y || css_y >= css_h - bar_h_css {
+        return None;
+    }
+
+    // Stats drawer has no interactive elements
+    if drawer == Drawer::Stats {
+        return Some(DrawerTap::Consumed);
+    }
+
+    // Inventory drawer: match layout from renderer::draw_inventory_drawer
+    // eq_y = drawer_y + 32, eq_h = 36, list_y = eq_y + eq_h + 8, slot_h = 34
+    let eq_y = drawer_y + 32.0;
+    let eq_h = 36.0;
+    let list_y = eq_y + eq_h + 8.0;
+    let slot_h = 34.0;
+
+    if css_y >= list_y && item_count > 0 {
+        let idx = ((css_y - list_y) / slot_h).floor() as usize;
+        if idx < item_count {
+            return Some(DrawerTap::InventoryItem(idx));
+        }
+    }
+
+    Some(DrawerTap::Consumed)
 }
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
@@ -274,6 +330,24 @@ pub fn start() -> Result<(), JsValue> {
                                     BarTap::Sprint => {
                                         gm.toggle_sprint();
                                     }
+                                }
+                            } else if let Some(dtap) = hit_test_drawer(
+                                css_x, css_y, css_w, css_h, bar_h_css,
+                                gm.drawer, gm.inventory.len(),
+                            ) {
+                                // Tap landed inside an open drawer
+                                match dtap {
+                                    DrawerTap::InventoryItem(idx) => {
+                                        match &gm.inventory[idx].kind {
+                                            ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
+                                                gm.use_item(idx);
+                                            }
+                                            ItemKind::Weapon | ItemKind::Armor | ItemKind::Ring => {
+                                                gm.equip_item(idx);
+                                            }
+                                        }
+                                    }
+                                    DrawerTap::Consumed => {}
                                 }
                             } else if css_y < css_h - bar_h_css {
                                 // Tap in game area — inspect the tapped tile
