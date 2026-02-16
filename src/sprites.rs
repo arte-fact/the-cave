@@ -138,13 +138,25 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Ruby Ring"     => ItemSprite::RubyRing.sprite_ref(),
         "Gold Ring"     => ItemSprite::TwistedGoldRing.sprite_ref(),
         "Diamond Ring"  => ItemSprite::SapphireRing.sprite_ref(),
-        // Food
+        // Food — forageables
         "Wild Berries"  => ItemSprite::Apple.sprite_ref(),
         "Mushrooms"     => ItemSprite::Cheese.sprite_ref(),
+        "Fresh Herbs"   => ItemSprite::Apple.sprite_ref(),
+        "Clean Water"   => ItemSprite::BottleOfWater.sprite_ref(),
+        // Food — meats
+        "Rat Meat"      => ItemSprite::Cheese.sprite_ref(),
+        "Bat Wing"      => ItemSprite::Cheese.sprite_ref(),
         "Wolf Meat"     => ItemSprite::Bread.sprite_ref(),
+        "Spider Leg"    => ItemSprite::Cheese.sprite_ref(),
         "Boar Meat"     => ItemSprite::Bread.sprite_ref(),
-        "Bear Meat"     => ItemSprite::Cheese.sprite_ref(),
-        "Dried Rations" => ItemSprite::Bread.sprite_ref(),
+        "Bear Meat"     => ItemSprite::Bread.sprite_ref(),
+        // Food — dungeon provisions
+        "Stale Bread"    => ItemSprite::Bread.sprite_ref(),
+        "Waterskin"      => ItemSprite::BottleOfWater.sprite_ref(),
+        "Dried Rations"  => ItemSprite::Bread.sprite_ref(),
+        "Dwarven Ale"    => ItemSprite::BottleOfBeer.sprite_ref(),
+        "Elven Waybread" => ItemSprite::Bread.sprite_ref(),
+        "Honey Mead"     => ItemSprite::BottleOfBeer.sprite_ref(),
         // Default fallback
         _ => ItemSprite::RedPotion.sprite_ref(),
     }
@@ -446,17 +458,37 @@ mod tests {
 
     #[test]
     fn item_sprite_food_uses_food_sprites() {
-        let food_names = ["Wild Berries", "Mushrooms", "Wolf Meat", "Boar Meat", "Bear Meat", "Dried Rations"];
-        for name in food_names {
+        // Solid foods on row 25
+        let solid_foods = [
+            "Wild Berries", "Mushrooms", "Fresh Herbs",
+            "Rat Meat", "Bat Wing", "Wolf Meat", "Spider Leg", "Boar Meat", "Bear Meat",
+            "Stale Bread", "Dried Rations", "Elven Waybread",
+        ];
+        for name in solid_foods {
             let s = item_sprite(name);
             assert_eq!(s.sheet, Sheet::Items);
             assert_eq!(s.row, 25, "{name} should be on food row 25");
+        }
+        // Drinks on row 24-25 (BottleOfBeer=25, BottleOfWater=24)
+        let drinks = ["Clean Water", "Waterskin", "Dwarven Ale", "Honey Mead"];
+        for name in drinks {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items);
+            assert!(s.row == 24 || s.row == 25, "{name} row {} not in 24-25", s.row);
         }
     }
 
     #[test]
     fn food_sprites_within_sheet_bounds() {
-        let names = ["Wild Berries", "Mushrooms", "Wolf Meat", "Boar Meat", "Bear Meat", "Dried Rations"];
+        let names = [
+            // Forageables
+            "Wild Berries", "Mushrooms", "Fresh Herbs", "Clean Water",
+            // Meats
+            "Rat Meat", "Bat Wing", "Wolf Meat", "Spider Leg", "Boar Meat", "Bear Meat",
+            // Dungeon provisions
+            "Stale Bread", "Waterskin", "Dried Rations", "Dwarven Ale",
+            "Elven Waybread", "Honey Mead",
+        ];
         for name in names {
             let s = item_sprite(name);
             assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");

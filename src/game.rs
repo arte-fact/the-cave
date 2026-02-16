@@ -568,7 +568,7 @@ impl Game {
         }
     }
 
-    /// Spawn food on the overworld: berries and mushrooms on grass tiles.
+    /// Spawn food on the overworld: berries, mushrooms, herbs, water on grass tiles.
     pub fn spawn_overworld_food(&mut self, seed: u64) {
         let map = self.world.current_map();
         let mut rng = seed;
@@ -584,10 +584,15 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                let food = if rng % 3 == 0 {
-                    Item { kind: ItemKind::Food, name: "Mushrooms", glyph: '%', effect: ItemEffect::Feed(12) }
+                let roll = rng % 100;
+                let food = if roll < 35 {
+                    Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(8) }
+                } else if roll < 60 {
+                    Item { kind: ItemKind::Food, name: "Mushrooms", glyph: '%', effect: ItemEffect::Feed(10) }
+                } else if roll < 80 {
+                    Item { kind: ItemKind::Food, name: "Fresh Herbs", glyph: '%', effect: ItemEffect::Feed(6) }
                 } else {
-                    Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(10) }
+                    Item { kind: ItemKind::Food, name: "Clean Water", glyph: '~', effect: ItemEffect::Feed(5) }
                 };
                 self.ground_items.push(GroundItem { x, y, item: food });
             }
@@ -1140,7 +1145,11 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
             } else if roll < 82 {
                 Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1) }
             } else {
-                Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(10) }
+                match sub {
+                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(8) },
+                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(6) },
+                    _ => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(8) },
+                }
             }
         }
         1 => {
@@ -1168,7 +1177,10 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                     _ => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3) },
                 }
             } else {
-                Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20) }
+                match sub {
+                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(15) },
+                    _ => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(12) },
+                }
             }
         }
         _ => {
@@ -1196,18 +1208,33 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                     _ => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4) },
                 }
             } else {
-                Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20) }
+                match sub {
+                    0 => Item { kind: ItemKind::Food, name: "Elven Waybread", glyph: '%', effect: ItemEffect::Feed(25) },
+                    _ => Item { kind: ItemKind::Food, name: "Honey Mead", glyph: '~', effect: ItemEffect::Feed(18) },
+                }
             }
         }
     }
 }
 
-/// Returns a meat item if the killed enemy is an animal.
+/// Returns a meat/food item if the killed enemy is a beast.
 fn meat_drop(enemy_name: &str) -> Option<Item> {
     match enemy_name {
+        "Giant Rat" => Some(Item {
+            kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
+            effect: ItemEffect::Feed(5),
+        }),
+        "Giant Bat" => Some(Item {
+            kind: ItemKind::Food, name: "Bat Wing", glyph: '%',
+            effect: ItemEffect::Feed(4),
+        }),
         "Wolf" => Some(Item {
             kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
             effect: ItemEffect::Feed(15),
+        }),
+        "Giant Spider" => Some(Item {
+            kind: ItemKind::Food, name: "Spider Leg", glyph: '%',
+            effect: ItemEffect::Feed(8),
         }),
         "Boar" => Some(Item {
             kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
@@ -2561,6 +2588,42 @@ mod tests {
     }
 
     #[test]
+    fn killing_rat_drops_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Rat Meat"),
+            "giant rat should drop rat meat");
+    }
+
+    #[test]
+    fn killing_bat_drops_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'a', name: "Giant Bat", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Bat Wing"),
+            "giant bat should drop bat wing");
+    }
+
+    #[test]
+    fn killing_spider_drops_meat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'i', name: "Giant Spider", facing_left: false });
+        g.move_player(1, 0);
+        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Spider Leg"),
+            "giant spider should drop spider leg");
+    }
+
+    #[test]
     fn killing_goblin_drops_no_meat() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
@@ -2603,6 +2666,65 @@ mod tests {
             assert_eq!(map.get(gi.x, gi.y), Tile::Grass,
                 "food should only spawn on grass, found at ({},{})", gi.x, gi.y);
         }
+    }
+
+    #[test]
+    fn overworld_food_has_variety() {
+        let mut g = overworld_game();
+        g.spawn_overworld_food(42);
+        let food_names: std::collections::HashSet<&str> = g.ground_items.iter()
+            .filter(|gi| gi.item.kind == ItemKind::Food)
+            .map(|gi| gi.item.name)
+            .collect();
+        assert!(food_names.len() >= 2, "overworld should have at least 2 food types, got: {:?}", food_names);
+    }
+
+    #[test]
+    fn all_beasts_drop_food() {
+        let beasts = ["Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear"];
+        for name in beasts {
+            assert!(meat_drop(name).is_some(), "{name} should drop food");
+        }
+    }
+
+    #[test]
+    fn meat_feed_values_scale_with_beast() {
+        let drops: Vec<_> = ["Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear"]
+            .iter()
+            .map(|n| {
+                let item = meat_drop(n).unwrap();
+                match item.effect { ItemEffect::Feed(v) => v, _ => 0 }
+            })
+            .collect();
+        // Bear meat should be the most filling
+        assert!(*drops.last().unwrap() > *drops.first().unwrap(),
+            "larger beasts should drop more filling food");
+    }
+
+    #[test]
+    fn dungeon_food_includes_drinks() {
+        let mut rng = 42u64;
+        let items: Vec<_> = (0..500).map(|_| random_item(1, &mut rng)).collect();
+        let drink_names = ["Dwarven Ale"];
+        assert!(items.iter().any(|i| drink_names.contains(&i.name)),
+            "dungeon tier 1 should produce drinks");
+    }
+
+    #[test]
+    fn deep_dungeon_food_better_than_shallow() {
+        let mut rng = 42u64;
+        let t0_food: Vec<_> = (0..500)
+            .map(|_| random_item(0, &mut rng))
+            .filter(|i| i.kind == ItemKind::Food)
+            .collect();
+        rng = 42;
+        let t2_food: Vec<_> = (0..500)
+            .map(|_| random_item(2, &mut rng))
+            .filter(|i| i.kind == ItemKind::Food)
+            .collect();
+        let avg_t0: f64 = t0_food.iter().map(|i| match i.effect { ItemEffect::Feed(v) => v as f64, _ => 0.0 }).sum::<f64>() / t0_food.len() as f64;
+        let avg_t2: f64 = t2_food.iter().map(|i| match i.effect { ItemEffect::Feed(v) => v as f64, _ => 0.0 }).sum::<f64>() / t2_food.len() as f64;
+        assert!(avg_t2 > avg_t0, "deep dungeon food should be more filling: t0_avg={avg_t0}, t2_avg={avg_t2}");
     }
 
     #[test]
