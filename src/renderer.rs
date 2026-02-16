@@ -1,7 +1,7 @@
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::camera::Camera;
-use crate::game::{Drawer, Game, ItemKind};
+use crate::game::{Drawer, Game, Item, ItemKind};
 use crate::map::{Tile, Visibility};
 use crate::sprites::{self, Sheet, SpriteRef};
 
@@ -547,47 +547,44 @@ impl Renderer {
         ctx.set_text_baseline("top");
         let _ = ctx.fill_text("INVENTORY", canvas_w / 2.0, drawer_y + 10.0 * d);
 
-        // Equipment slots
+        // Equipment slots (3 rows x 2 columns)
         let eq_y = drawer_y + 32.0 * d;
-        let eq_h = 36.0 * d;
-        let eq_icon = 28.0 * d;
+        let eq_h = 30.0 * d;
+        let eq_gap = 4.0 * d;
+        let eq_icon = 24.0 * d;
+        let half_w = canvas_w / 2.0 - pad * 1.5;
+        let right_x = canvas_w / 2.0 + pad * 0.5;
         ctx.set_text_align("left");
         ctx.set_text_baseline("top");
 
-        // Weapon slot
-        ctx.set_fill_style_str("rgba(255,255,255,0.06)");
-        self.fill_rounded_rect(pad, eq_y, canvas_w / 2.0 - pad * 1.5, eq_h, 4.0 * d);
-        let wep_icon_x = pad + 4.0 * d;
-        if let Some(ref w) = game.equipped_weapon {
-            let sprite = sprites::item_sprite(w.name);
-            self.draw_sprite(sprite, wep_icon_x, eq_y + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#8af");
-            let _ = ctx.fill_text(w.name, wep_icon_x + eq_icon + 4.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
-        } else {
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#555");
-            let _ = ctx.fill_text("No weapon", wep_icon_x + 4.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
-        }
-
-        // Armor slot
-        let armor_x = canvas_w / 2.0 + pad * 0.5;
-        ctx.set_fill_style_str("rgba(255,255,255,0.06)");
-        self.fill_rounded_rect(armor_x, eq_y, canvas_w / 2.0 - pad * 1.5, eq_h, 4.0 * d);
-        if let Some(ref a) = game.equipped_armor {
-            let sprite = sprites::item_sprite(a.name);
-            self.draw_sprite(sprite, armor_x + 4.0 * d, eq_y + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#afa");
-            let _ = ctx.fill_text(a.name, armor_x + eq_icon + 8.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
-        } else {
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#555");
-            let _ = ctx.fill_text("No armor", armor_x + 4.0 * d, eq_y + eq_h / 2.0 - 6.0 * d);
+        // Helper: draw one equipment slot
+        let slot_pairs: [(&Option<Item>, f64, f64, &str, &str); 6] = [
+            (&game.equipped_weapon,  pad,     eq_y,                        "#8af", "No weapon"),
+            (&game.equipped_armor,   right_x, eq_y,                        "#afa", "No armor"),
+            (&game.equipped_helmet,  pad,     eq_y + eq_h + eq_gap,        "#fc8", "No helmet"),
+            (&game.equipped_shield,  right_x, eq_y + eq_h + eq_gap,        "#adf", "No shield"),
+            (&game.equipped_boots,   pad,     eq_y + (eq_h + eq_gap) * 2.0, "#da8", "No boots"),
+            (&game.equipped_ring,    right_x, eq_y + (eq_h + eq_gap) * 2.0, "#ff8", "No ring"),
+        ];
+        for &(slot, sx, sy, color, empty_label) in &slot_pairs {
+            ctx.set_fill_style_str("rgba(255,255,255,0.06)");
+            self.fill_rounded_rect(sx, sy, half_w, eq_h, 4.0 * d);
+            let icon_x = sx + 4.0 * d;
+            if let Some(ref item) = slot {
+                let sprite = sprites::item_sprite(item.name);
+                self.draw_sprite(sprite, icon_x, sy + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
+                ctx.set_font(&self.font(10.0, ""));
+                ctx.set_fill_style_str(color);
+                let _ = ctx.fill_text(item.name, icon_x + eq_icon + 4.0 * d, sy + eq_h / 2.0 - 5.0 * d);
+            } else {
+                ctx.set_font(&self.font(10.0, ""));
+                ctx.set_fill_style_str("#555");
+                let _ = ctx.fill_text(empty_label, icon_x + 4.0 * d, sy + eq_h / 2.0 - 5.0 * d);
+            }
         }
 
         // Item list
-        let list_y = eq_y + eq_h + 8.0 * d;
+        let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0 * d;
         let slot_h = 34.0 * d;
         let icon_size = 28.0 * d;
 
@@ -614,6 +611,9 @@ impl Renderer {
                     ItemKind::Scroll => "#88f",
                     ItemKind::Weapon => "#aaf",
                     ItemKind::Armor => "#afa",
+                    ItemKind::Helmet => "#fc8",
+                    ItemKind::Shield => "#adf",
+                    ItemKind::Boots => "#da8",
                     ItemKind::Food => "#fa8",
                     ItemKind::Ring => "#ff8",
                 };
@@ -729,48 +729,29 @@ impl Renderer {
         y += 20.0 * d;
 
         let eq_icon = 24.0 * d;
-        if let Some(ref w) = game.equipped_weapon {
-            let sprite = sprites::item_sprite(w.name);
-            self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#8af");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text(w.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
-        } else {
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#444");
-            ctx.set_text_baseline("top");
-            let _ = ctx.fill_text("- No weapon", pad, y);
-        }
-        y += eq_icon + 6.0 * d;
-
-        if let Some(ref a) = game.equipped_armor {
-            let sprite = sprites::item_sprite(a.name);
-            self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#afa");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text(a.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
-        } else {
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#444");
-            ctx.set_text_baseline("top");
-            let _ = ctx.fill_text("- No armor", pad, y);
-        }
-        y += eq_icon + 6.0 * d;
-
-        if let Some(ref r) = game.equipped_ring {
-            let sprite = sprites::item_sprite(r.name);
-            self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#ff8");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text(r.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
-        } else {
-            ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#444");
-            ctx.set_text_baseline("top");
-            let _ = ctx.fill_text("- No ring", pad, y);
+        let eq_slots: [(&Option<Item>, &str, &str); 6] = [
+            (&game.equipped_weapon,  "#8af", "- No weapon"),
+            (&game.equipped_armor,   "#afa", "- No armor"),
+            (&game.equipped_helmet,  "#fc8", "- No helmet"),
+            (&game.equipped_shield,  "#adf", "- No shield"),
+            (&game.equipped_boots,   "#da8", "- No boots"),
+            (&game.equipped_ring,    "#ff8", "- No ring"),
+        ];
+        for &(slot, color, empty_label) in &eq_slots {
+            if let Some(ref item) = slot {
+                let sprite = sprites::item_sprite(item.name);
+                self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
+                ctx.set_font(&self.font(11.0, ""));
+                ctx.set_fill_style_str(color);
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(item.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
+            } else {
+                ctx.set_font(&self.font(11.0, ""));
+                ctx.set_fill_style_str("#444");
+                ctx.set_text_baseline("top");
+                let _ = ctx.fill_text(empty_label, pad, y);
+            }
+            y += eq_icon + 6.0 * d;
         }
     }
 
