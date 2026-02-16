@@ -4,6 +4,7 @@ mod game;
 mod input;
 mod map;
 mod renderer;
+mod sprite_atlas;
 mod sprites;
 mod world;
 
