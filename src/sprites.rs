@@ -1,38 +1,11 @@
-/// Sprite atlas — maps game entities to (sheet, row, col) in the 32×32 sprite sheets.
+/// Game-specific sprite mappings — maps game entities to sprite sheet positions.
 /// Pure logic, no web_sys dependency.
+///
+/// The canonical sprite catalog lives in `crate::sprite_atlas`. This module
+/// re-exports `Sheet` and `SpriteRef` for convenience, and provides the
+/// game-specific mapping functions (`tile_sprite`, `player_sprite`, etc.).
 
-/// Which sprite sheet PNG to source from.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Sheet {
-    Tiles,
-    Monsters,
-    Rogues,
-    Items,
-}
-
-/// A reference to a single 32×32 sprite in a sheet.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SpriteRef {
-    pub sheet: Sheet,
-    pub row: u16,
-    pub col: u16,
-}
-
-impl SpriteRef {
-    pub const fn new(sheet: Sheet, row: u16, col: u16) -> Self {
-        Self { sheet, row, col }
-    }
-
-    /// Source x pixel in the sprite sheet (for drawImage).
-    pub fn src_x(self) -> f64 {
-        self.col as f64 * 32.0
-    }
-
-    /// Source y pixel in the sprite sheet (for drawImage).
-    pub fn src_y(self) -> f64 {
-        self.row as f64 * 32.0
-    }
-}
+pub use crate::sprite_atlas::{Sheet, SpriteRef};
 
 use crate::map::Tile;
 

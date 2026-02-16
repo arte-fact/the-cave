@@ -20,6 +20,8 @@ impl SpriteSheets {
             Sheet::Monsters => &self.monsters,
             Sheet::Rogues => &self.rogues,
             Sheet::Items => &self.items,
+            // Animals and AnimatedTiles sheets not yet loaded
+            _ => &self.tiles,
         }
     }
 }
