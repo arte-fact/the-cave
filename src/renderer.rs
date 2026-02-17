@@ -32,12 +32,19 @@ const DETAIL_STRIP_BASE: f64 = 52.0;
 const BOTTOM_BAR_BASE: f64 = 48.0;
 const MSG_AREA_BASE: f64 = 42.0;
 
+/// Speed of drawer slide animation (fraction per frame at 60fps).
+const DRAWER_ANIM_SPEED: f64 = 0.15;
+
 pub struct Renderer {
     ctx: CanvasRenderingContext2d,
     pub camera: Camera,
     sheets: Option<SpriteSheets>,
     /// Device pixel ratio — used to scale HUD elements.
     dpr: f64,
+    /// Drawer slide animation progress: 0.0 = fully closed, 1.0 = fully open.
+    drawer_anim: f64,
+    /// Which drawer was last opened (kept during close animation).
+    last_drawer: Drawer,
 }
 
 impl Renderer {
@@ -47,6 +54,8 @@ impl Renderer {
             camera: Camera::new(),
             sheets: None,
             dpr: 1.0,
+            drawer_anim: 0.0,
+            last_drawer: Drawer::None,
         }
     }
 
@@ -72,6 +81,18 @@ impl Renderer {
     pub fn bottom_bar_height(&self) -> f64 {
         self.bottom_bar_h()
     }
+
+    /// Advance drawer animation toward the current drawer state.
+    /// Call once per frame before `draw()`.
+    pub fn tick_drawer_anim(&mut self, current_drawer: Drawer) {
+        if current_drawer != Drawer::None {
+            self.last_drawer = current_drawer;
+            self.drawer_anim = (self.drawer_anim + DRAWER_ANIM_SPEED).min(1.0);
+        } else {
+            self.drawer_anim = (self.drawer_anim - DRAWER_ANIM_SPEED).max(0.0);
+        }
+    }
+
 
     /// Format a font string scaled by DPR.
     fn font(&self, base_px: f64, weight: &str) -> String {
@@ -524,19 +545,48 @@ impl Renderer {
     // ---- Drawer: slide-up panel ----
 
     fn draw_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
-        match game.drawer {
-            Drawer::None => return,
-            Drawer::Inventory => self.draw_inventory_drawer(game, canvas_w, canvas_h, bottom_h),
-            Drawer::Stats => self.draw_stats_drawer(game, canvas_w, canvas_h, bottom_h),
+        let t = self.drawer_anim;
+        if t <= 0.0 {
+            return; // fully closed, nothing to draw
+        }
+
+        // Use current drawer if open, or last_drawer during close animation
+        let which = if game.drawer != Drawer::None {
+            game.drawer
+        } else {
+            self.last_drawer
+        };
+        if which == Drawer::None {
+            return;
+        }
+
+        // Backdrop — dims the game world behind the drawer
+        let backdrop_alpha = 0.5 * t;
+        self.ctx.set_fill_style_str(&format!("rgba(0,0,0,{:.2})", backdrop_alpha));
+        self.ctx.fill_rect(0.0, 0.0, canvas_w, canvas_h - bottom_h);
+
+        match which {
+            Drawer::Inventory => self.draw_inventory_drawer(game, canvas_w, canvas_h, bottom_h, t),
+            Drawer::Stats => self.draw_stats_drawer(game, canvas_w, canvas_h, bottom_h, t),
+            Drawer::None => {}
         }
     }
 
-    fn draw_inventory_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
+    fn draw_inventory_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64, anim_t: f64) {
         let ctx = &self.ctx;
         let d = self.dpr;
         let drawer_h = canvas_h * 0.55;
-        let drawer_y = canvas_h - bottom_h - drawer_h;
+        let base_y = canvas_h - bottom_h - drawer_h;
+        // Slide up from bottom: at t=0 the drawer is fully below the bar, at t=1 it's in place.
+        let slide_offset = drawer_h * (1.0 - anim_t);
+        let drawer_y = base_y + slide_offset;
         let pad = 12.0 * d;
+
+        // Clip to avoid drawing above the destination or below the bar
+        ctx.save();
+        ctx.begin_path();
+        ctx.rect(0.0, base_y, canvas_w, drawer_h);
+        ctx.clip();
 
         ctx.set_fill_style_str("rgba(8,8,16,0.94)");
         self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
@@ -560,7 +610,6 @@ impl Renderer {
         ctx.set_text_align("left");
         ctx.set_text_baseline("top");
 
-        // Helper: draw one equipment slot
         let slot_pairs: [(&Option<Item>, f64, f64, &str, &str); 6] = [
             (&game.equipped_weapon,  pad,     eq_y,                        "#8af", "No weapon"),
             (&game.equipped_armor,   right_x, eq_y,                        "#afa", "No armor"),
@@ -586,15 +635,18 @@ impl Renderer {
             }
         }
 
-        // Item list
+        // Item list — reserve right margin for scrollbar
+        let scrollbar_w = 12.0 * d;
         let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0 * d;
         let slot_h = 34.0 * d;
         let icon_size = 28.0 * d;
 
-        // Reserve space at bottom for slot count
         let footer_h = 20.0 * d;
         let avail_h = (drawer_y + drawer_h - footer_h) - list_y;
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
+
+        // Right edge for item text (before scrollbar)
+        let text_right = canvas_w - pad - scrollbar_w - 4.0 * d;
 
         if game.inventory.is_empty() {
             ctx.set_fill_style_str("#555");
@@ -612,7 +664,7 @@ impl Renderer {
 
                 if vi % 2 == 0 {
                     ctx.set_fill_style_str("rgba(255,255,255,0.03)");
-                    ctx.fill_rect(pad, iy, canvas_w - pad * 2.0, slot_h);
+                    ctx.fill_rect(pad, iy, canvas_w - pad * 2.0 - scrollbar_w, slot_h);
                 }
 
                 let sprite = sprites::item_sprite(item.name);
@@ -644,39 +696,30 @@ impl Renderer {
                 ctx.set_text_align("right");
                 ctx.set_fill_style_str("#999");
                 ctx.set_font(&self.font(10.0, ""));
-                let _ = ctx.fill_text(&hint, canvas_w - pad - 4.0 * d, iy + slot_h / 2.0);
+                let _ = ctx.fill_text(&hint, text_right, iy + slot_h / 2.0);
                 ctx.set_text_align("left");
             }
 
-            // Scroll-up arrow
-            if scroll > 0 {
-                let arrow_size = 24.0 * d;
-                let ax = canvas_w - pad - arrow_size;
-                let ay = list_y;
-                ctx.set_fill_style_str("rgba(255,255,255,0.12)");
-                self.fill_rounded_rect(ax, ay, arrow_size, arrow_size, 4.0 * d);
-                ctx.set_font(&self.font(12.0, "bold"));
-                ctx.set_fill_style_str("#aaa");
-                ctx.set_text_align("center");
-                ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text("\u{25B2}", ax + arrow_size / 2.0, ay + arrow_size / 2.0);
-                ctx.set_text_align("left");
-            }
+            // Scrollbar (only when items exceed visible area)
+            if total > max_visible {
+                let track_x = canvas_w - pad - scrollbar_w + 2.0 * d;
+                let track_w = scrollbar_w - 4.0 * d;
+                let track_h = max_visible as f64 * slot_h;
 
-            // Scroll-down arrow
-            if end < total {
-                let arrow_size = 24.0 * d;
-                let ax = canvas_w - pad - arrow_size;
-                let last_slot_bottom = list_y + (end - scroll) as f64 * slot_h;
-                let ay = last_slot_bottom - arrow_size;
-                ctx.set_fill_style_str("rgba(255,255,255,0.12)");
-                self.fill_rounded_rect(ax, ay, arrow_size, arrow_size, 4.0 * d);
-                ctx.set_font(&self.font(12.0, "bold"));
-                ctx.set_fill_style_str("#aaa");
-                ctx.set_text_align("center");
-                ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text("\u{25BC}", ax + arrow_size / 2.0, ay + arrow_size / 2.0);
-                ctx.set_text_align("left");
+                // Track background
+                ctx.set_fill_style_str("rgba(255,255,255,0.06)");
+                self.fill_rounded_rect(track_x, list_y, track_w, track_h, track_w / 2.0);
+
+                // Thumb
+                let scroll_range = total - max_visible;
+                let thumb_frac = max_visible as f64 / total as f64;
+                let min_thumb_h = 20.0 * d;
+                let thumb_h = (track_h * thumb_frac).max(min_thumb_h);
+                let scroll_frac = scroll as f64 / scroll_range as f64;
+                let thumb_y = list_y + scroll_frac * (track_h - thumb_h);
+
+                ctx.set_fill_style_str("rgba(255,255,255,0.25)");
+                self.fill_rounded_rect(track_x, thumb_y, track_w, thumb_h, track_w / 2.0);
             }
         }
 
@@ -689,14 +732,23 @@ impl Renderer {
             &format!("{}/10", game.inventory.len()),
             canvas_w - pad, drawer_y + drawer_h - 6.0 * d,
         );
+
+        ctx.restore(); // pop clip
     }
 
-    fn draw_stats_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64) {
+    fn draw_stats_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64, anim_t: f64) {
         let ctx = &self.ctx;
         let d = self.dpr;
         let drawer_h = canvas_h * 0.45;
-        let drawer_y = canvas_h - bottom_h - drawer_h;
+        let base_y = canvas_h - bottom_h - drawer_h;
+        let slide_offset = drawer_h * (1.0 - anim_t);
+        let drawer_y = base_y + slide_offset;
         let pad = 12.0 * d;
+
+        ctx.save();
+        ctx.begin_path();
+        ctx.rect(0.0, base_y, canvas_w, drawer_h);
+        ctx.clip();
 
         ctx.set_fill_style_str("rgba(8,8,16,0.94)");
         self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
@@ -796,6 +848,8 @@ impl Renderer {
             }
             y += eq_icon + 6.0 * d;
         }
+
+        ctx.restore(); // pop clip
     }
 
     // ---- Death / Victory ----
