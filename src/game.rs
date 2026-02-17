@@ -1,19 +1,6 @@
+use crate::config::GameConfig;
 use crate::map::{Map, Tile};
 use crate::world::{Location, World};
-
-pub const MAX_INVENTORY: usize = 10;
-
-// Survival constants
-const SPRINT_COST: i32 = 15;
-const STAMINA_REGEN: i32 = 5;
-const HUNGER_DRAIN: i32 = 1;
-/// Hunger drains once every this many turns (5x slower than 1/turn).
-const HUNGER_INTERVAL: u32 = 5;
-const STARVATION_DAMAGE: i32 = 1;
-/// Hunger must be above this to trigger passive HP regen.
-const REGEN_HUNGER_THRESHOLD: i32 = 50;
-/// Hunger cost per HP regenerated.
-const REGEN_HUNGER_COST: i32 = 2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ItemKind {
@@ -300,6 +287,7 @@ pub enum SkillKind {
 }
 
 pub struct Game {
+    pub config: GameConfig,
     pub player_x: i32,
     pub player_y: i32,
     pub player_hp: i32,
@@ -367,14 +355,20 @@ pub struct Game {
 
 impl Game {
     pub fn new(map: Map) -> Self {
+        Self::new_with_config(map, GameConfig::normal())
+    }
+
+    pub fn new_with_config(map: Map, config: GameConfig) -> Self {
         let (px, py) = map.find_spawn();
+        let p = &config.player;
+        let sprint_cost = config.survival.sprint_cost;
         Self {
             player_x: px,
             player_y: py,
-            player_hp: 20,
-            player_max_hp: 20,
-            player_attack: 5,
-            player_dexterity: 3,
+            player_hp: p.starting_hp,
+            player_max_hp: p.starting_hp,
+            player_attack: p.starting_attack,
+            player_dexterity: p.starting_dexterity,
             player_facing_left: false,
             world: World::from_single_map(map),
             enemies: Vec::new(),
@@ -401,29 +395,36 @@ impl Game {
             strength: 0,
             vitality: 0,
             stats_scroll: 0.0,
-            stamina: 100,
-            max_stamina: 100,
+            stamina: p.starting_stamina,
+            max_stamina: p.starting_stamina,
             sprinting: false,
-            hunger: 100,
-            max_hunger: 100,
+            hunger: p.starting_hunger,
+            max_hunger: p.starting_hunger,
             turn: 0,
             overworld_kills: 0,
-            sprint_cost: SPRINT_COST,
+            sprint_cost,
             floating_texts: Vec::new(),
             bump_anims: Vec::new(),
             visual_effects: Vec::new(),
+            config,
         }
     }
 
     pub fn new_overworld(world: World) -> Self {
+        Self::new_overworld_with_config(world, GameConfig::normal())
+    }
+
+    pub fn new_overworld_with_config(world: World, config: GameConfig) -> Self {
         let (px, py) = world.overworld.find_road_spawn();
+        let p = &config.player;
+        let sprint_cost = config.survival.sprint_cost;
         Self {
             player_x: px,
             player_y: py,
-            player_hp: 20,
-            player_max_hp: 20,
-            player_attack: 5,
-            player_dexterity: 3,
+            player_hp: p.starting_hp,
+            player_max_hp: p.starting_hp,
+            player_attack: p.starting_attack,
+            player_dexterity: p.starting_dexterity,
             player_facing_left: false,
             world,
             enemies: Vec::new(),
@@ -450,17 +451,18 @@ impl Game {
             strength: 0,
             vitality: 0,
             stats_scroll: 0.0,
-            stamina: 100,
-            max_stamina: 100,
+            stamina: p.starting_stamina,
+            max_stamina: p.starting_stamina,
             sprinting: false,
-            hunger: 100,
-            max_hunger: 100,
+            hunger: p.starting_hunger,
+            max_hunger: p.starting_hunger,
             turn: 0,
             overworld_kills: 0,
-            sprint_cost: SPRINT_COST,
+            sprint_cost,
             floating_texts: Vec::new(),
             bump_anims: Vec::new(),
             visual_effects: Vec::new(),
+            config,
         }
     }
 
@@ -469,11 +471,11 @@ impl Game {
         self.world.current_map()
     }
 
-    /// FOV radius: 8 on overworld, 6 in dungeons.
+    /// FOV radius: configurable per overworld vs dungeon.
     fn fov_radius(&self) -> i32 {
         match self.world.location {
-            Location::Overworld => 8,
-            Location::Dungeon { .. } => 6,
+            Location::Overworld => self.config.fov.overworld_radius,
+            Location::Dungeon { .. } => self.config.fov.dungeon_radius,
         }
     }
 
@@ -696,8 +698,12 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // ~0.3% chance on roads, ~0.1% on grass
-                let threshold = if tile == Tile::Road { 3 } else { 1 };
+                // Configurable chance on roads vs grass
+                let threshold = if tile == Tile::Road {
+                    self.config.spawn.overworld_item_road_pct
+                } else {
+                    self.config.spawn.overworld_item_grass_pct
+                };
                 if rng % 1000 >= threshold {
                     continue;
                 }
@@ -719,8 +725,8 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // ~0.8% chance per grass tile
-                if rng % 1000 >= 8 {
+                // Configurable chance per grass tile
+                if rng % 1000 >= self.config.spawn.overworld_food_pct {
                     continue;
                 }
                 rng = xorshift64(rng);
@@ -784,8 +790,12 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // ~2% chance per floor tile in dungeons, ~1% in cave
-                let threshold = if is_cave { 1 } else { 2 };
+                // Configurable chance per floor tile in dungeons vs cave
+                let threshold = if is_cave {
+                    self.config.spawn.cave_item_pct
+                } else {
+                    self.config.spawn.dungeon_item_pct
+                };
                 if rng % 100 >= threshold {
                     continue;
                 }
@@ -819,14 +829,18 @@ impl Game {
         }
     }
 
-    /// Hunger drain interval: 5 turns on overworld, 3 in dungeons, 2 in cave.
+    /// Hunger drain interval: configurable per location type.
     fn hunger_interval(&self) -> u32 {
         match &self.world.location {
-            Location::Overworld => 5,
+            Location::Overworld => self.config.survival.hunger_interval_overworld,
             Location::Dungeon { index, level } => {
                 let total = self.world.dungeons[*index].levels.len();
                 let is_cave = total == 4 && *level == 3;
-                if is_cave { 2 } else { 3 }
+                if is_cave {
+                    self.config.survival.hunger_interval_cave
+                } else {
+                    self.config.survival.hunger_interval_dungeon
+                }
             }
         }
     }
@@ -834,6 +848,7 @@ impl Game {
     /// Called each turn the player moves. Handles stamina drain/regen and hunger.
     fn tick_survival(&mut self) {
         self.turn += 1;
+        let surv = &self.config.survival;
 
         // Stamina: sprint drains, walking regenerates
         if self.sprinting {
@@ -844,29 +859,29 @@ impl Game {
                 self.messages.push("Exhausted! Sprint disabled.".into());
             }
         } else {
-            self.stamina = (self.stamina + STAMINA_REGEN).min(self.max_stamina);
+            self.stamina = (self.stamina + surv.stamina_regen).min(self.max_stamina);
         }
 
         // Hunger: drain rate scales with depth
         let interval = self.hunger_interval();
         if self.turn % interval == 0 {
-            self.hunger -= HUNGER_DRAIN;
+            self.hunger -= surv.hunger_drain;
             if self.hunger < 0 { self.hunger = 0; }
         }
 
         // Health regen: when well-fed and injured, heal 1 HP per interval, costs food
         if self.turn % interval == 0
-            && self.hunger > REGEN_HUNGER_THRESHOLD
+            && self.hunger > surv.regen_hunger_threshold
             && self.player_hp < self.player_max_hp
         {
             self.player_hp += 1;
-            self.hunger -= REGEN_HUNGER_COST;
+            self.hunger -= surv.regen_hunger_cost;
             if self.hunger < 0 { self.hunger = 0; }
         }
 
         // Starvation damage
         if self.hunger == 0 {
-            self.player_hp -= STARVATION_DAMAGE;
+            self.player_hp -= surv.starvation_damage;
             if self.turn % 5 == 0 {
                 self.messages.push("You are starving!".into());
             }
@@ -995,40 +1010,43 @@ impl Game {
         self.selected_inventory_item = None;
     }
 
-    /// Apply diminishing XP returns for overworld kills.
-    /// After 50 kills: halved. After 100: quartered. Dungeon kills unaffected.
+    /// Apply diminishing XP returns for overworld kills. Dungeon kills unaffected.
     fn xp_with_diminishing(&self, enemy_name: &str) -> u32 {
         let base = xp_for_enemy(enemy_name);
         if self.world.location != Location::Overworld {
             return base;
         }
-        if self.overworld_kills >= 100 {
+        let combat = &self.config.combat;
+        if self.overworld_kills >= combat.xp_diminish_quarter {
             (base / 4).max(1)
-        } else if self.overworld_kills >= 50 {
+        } else if self.overworld_kills >= combat.xp_diminish_half {
             (base / 2).max(1)
         } else {
             base
         }
     }
 
-    /// XP required to reach next level: 20 * current_level^1.5 (rounded).
+    /// XP required to reach next level: xp_base * current_level^xp_exponent (rounded).
     pub fn xp_to_next_level(&self) -> u32 {
-        (20.0 * (self.player_level as f64).powf(1.5)).round() as u32
+        let prog = &self.config.progression;
+        (prog.xp_base * (self.player_level as f64).powf(prog.xp_exponent)).round() as u32
     }
 
     fn check_level_up(&mut self) {
+        let sp = self.config.progression.skill_points_per_level;
+        let hp_per = self.config.progression.hp_per_level;
         while self.player_xp >= self.xp_to_next_level() {
             self.player_xp -= self.xp_to_next_level();
             self.player_level += 1;
-            self.skill_points += 3;
+            self.skill_points += sp;
             // Small base HP bump on level up + partial heal (50% of missing HP)
-            self.player_max_hp += 2;
+            self.player_max_hp += hp_per;
             let missing = self.player_max_hp - self.player_hp;
             self.player_hp += missing / 2 + 1; // +1 so you always heal at least 1
             self.player_hp = self.player_hp.min(self.player_max_hp);
             self.messages.push(format!(
-                "Level up! You are now level {}. +3 skill points!",
-                self.player_level
+                "Level up! You are now level {}. +{} skill points!",
+                self.player_level, sp,
             ));
         }
     }
@@ -1079,8 +1097,8 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // ~3% chance per walkable tile (forest is sparse)
-                if rng % 100 < 3 {
+                // Configurable chance per walkable tile (forest is sparse)
+                if rng % 100 < self.config.spawn.overworld_enemy_pct {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
                     let (hp, attack, def, glyph, name) = if roll < 20 {
@@ -1132,7 +1150,11 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                let spawn_chance = if is_cave { 6 } else { 10 };
+                let spawn_chance = if is_cave {
+                    self.config.spawn.cave_enemy_pct
+                } else {
+                    self.config.spawn.dungeon_enemy_pct
+                };
                 if rng % 100 < spawn_chance {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
@@ -1822,7 +1844,7 @@ impl Game {
         let mut i = 0;
         while i < self.ground_items.len() {
             if self.ground_items[i].x == px && self.ground_items[i].y == py {
-                if self.inventory.len() >= MAX_INVENTORY {
+                if self.inventory.len() >= self.config.player.max_inventory {
                     self.messages.push("Inventory full!".into());
                     break;
                 }
@@ -2545,7 +2567,8 @@ mod tests {
     fn inventory_full_stops_pickup() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        for _ in 0..MAX_INVENTORY {
+        let max_inv = g.config.player.max_inventory;
+        for _ in 0..max_inv {
             g.inventory.push(health_potion());
         }
         let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -2554,7 +2577,7 @@ mod tests {
             if g.current_map().is_walkable(nx, ny) {
                 g.ground_items.push(GroundItem { x: nx, y: ny, item: rusty_sword() });
                 g.move_player(dx, dy);
-                assert_eq!(g.inventory.len(), MAX_INVENTORY);
+                assert_eq!(g.inventory.len(), max_inv);
                 assert_eq!(g.ground_items.len(), 1, "item should stay on ground");
                 return;
             }
@@ -4403,5 +4426,63 @@ mod tests {
         g.player_xp = 20;
         g.check_level_up();
         assert!(g.messages.iter().any(|m| m.contains("skill points")));
+    }
+
+    // === Config integration tests ===
+
+    #[test]
+    fn new_with_config_applies_player_stats() {
+        let mut config = GameConfig::normal();
+        config.player.starting_hp = 50;
+        config.player.starting_attack = 10;
+        config.player.starting_dexterity = 7;
+        config.player.starting_stamina = 200;
+        config.player.starting_hunger = 80;
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new_with_config(map, config);
+        assert_eq!(g.player_hp, 50);
+        assert_eq!(g.player_max_hp, 50);
+        assert_eq!(g.player_attack, 10);
+        assert_eq!(g.player_dexterity, 7);
+        assert_eq!(g.stamina, 200);
+        assert_eq!(g.max_stamina, 200);
+        assert_eq!(g.hunger, 80);
+        assert_eq!(g.max_hunger, 80);
+    }
+
+    #[test]
+    fn easy_config_gives_more_hp() {
+        let easy = Game::new_with_config(Map::generate(30, 20, 42), GameConfig::easy());
+        let normal = Game::new_with_config(Map::generate(30, 20, 42), GameConfig::normal());
+        assert!(easy.player_hp > normal.player_hp);
+    }
+
+    #[test]
+    fn hard_config_gives_less_hp() {
+        let hard = Game::new_with_config(Map::generate(30, 20, 42), GameConfig::hard());
+        let normal = Game::new_with_config(Map::generate(30, 20, 42), GameConfig::normal());
+        assert!(hard.player_hp < normal.player_hp);
+    }
+
+    #[test]
+    fn config_fov_radius_used() {
+        let mut config = GameConfig::normal();
+        config.fov.overworld_radius = 12;
+        config.fov.dungeon_radius = 4;
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new_with_config(map, config);
+        // from_single_map uses Location::Overworld
+        assert_eq!(g.fov_radius(), 12);
+    }
+
+    #[test]
+    fn config_xp_formula_used() {
+        let mut config = GameConfig::normal();
+        config.progression.xp_base = 10.0;
+        config.progression.xp_exponent = 1.0;
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new_with_config(map, config);
+        // xp_to_next = 10.0 * 1^1.0 = 10
+        assert_eq!(g.xp_to_next_level(), 10);
     }
 }

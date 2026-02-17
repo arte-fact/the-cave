@@ -1,4 +1,5 @@
 mod camera;
+mod config;
 mod errors;
 mod game;
 mod input;
@@ -13,11 +14,31 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
+use config::{Difficulty, GameConfig};
 use game::{Drawer, Game, ItemKind, SkillKind, TurnResult};
 use input::{Input, InputAction};
 use map::{bresenham_line, Map};
 use renderer::{Renderer, SpriteSheets};
 use world::World;
+
+/// Application state machine: menus vs playing.
+#[derive(Clone, Debug)]
+enum AppState {
+    MainMenu,
+    NewGame {
+        selected_difficulty: usize, // 0=Easy, 1=Normal, 2=Hard
+        seed: u64,
+    },
+    Settings,
+    Playing,
+}
+
+/// Menu state held in an Rc<RefCell<>> alongside the game.
+#[derive(Clone, Debug)]
+struct MenuState {
+    app_state: AppState,
+    has_save: bool,
+}
 
 /// Result of tapping the bottom bar.
 enum BarTap {
@@ -66,6 +87,8 @@ enum DrawerTap {
     StatsAllocate(SkillKind),
     /// Toggle glyph rendering mode.
     ToggleGlyphMode,
+    /// Return to main menu from in-game settings.
+    MainMenu,
     /// Tapped inside the drawer but not on an actionable element.
     Consumed,
 }
@@ -92,7 +115,7 @@ fn hit_test_drawer(
         Drawer::None => return None,
         Drawer::Inventory => 0.55,
         Drawer::Stats => 0.55,
-        Drawer::Settings => 0.35,
+        Drawer::Settings => 0.45,
     };
     let drawer_h = css_h * drawer_frac;
     let drawer_y = css_h - bar_h_css - drawer_h;
@@ -102,7 +125,7 @@ fn hit_test_drawer(
         return None;
     }
 
-    // Settings drawer: glyph mode toggle
+    // Settings drawer: glyph mode toggle + main menu button
     if drawer == Drawer::Settings {
         // Toggle button layout mirrors renderer::draw_settings_drawer (CSS space)
         let pad = 12.0;
@@ -116,6 +139,17 @@ fn hit_test_drawer(
             && css_y >= toggle_y && css_y <= toggle_y + toggle_h
         {
             return Some(DrawerTap::ToggleGlyphMode);
+        }
+        // Main Menu button (centered, below difficulty info)
+        let diff_y = row_y + row_h + 24.0;
+        let menu_btn_w = (css_w * 0.5).min(180.0);
+        let menu_btn_h = 34.0;
+        let menu_btn_x = (css_w - menu_btn_w) / 2.0;
+        let menu_btn_y = diff_y + 32.0;
+        if css_x >= menu_btn_x && css_x <= menu_btn_x + menu_btn_w
+            && css_y >= menu_btn_y && css_y <= menu_btn_y + menu_btn_h
+        {
+            return Some(DrawerTap::MainMenu);
         }
         return Some(DrawerTap::Consumed);
     }
@@ -270,6 +304,184 @@ fn save_glyph_mode(enabled: bool) {
     }
 }
 
+/// Load last-used difficulty from localStorage. Defaults to Normal (1).
+fn load_difficulty() -> usize {
+    web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|s| s.get_item("difficulty").ok().flatten())
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1)
+}
+
+/// Save difficulty selection to localStorage.
+fn save_difficulty(idx: usize) {
+    if let Some(storage) = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+    {
+        let _ = storage.set_item("difficulty", &idx.to_string());
+    }
+}
+
+/// Handle a tap event within menu screens. Modifies menu state and
+/// may transition to Playing state (creating a new game).
+fn handle_menu_tap(
+    ms: &mut MenuState,
+    game: &Rc<RefCell<Game>>,
+    renderer: &Rc<RefCell<Renderer>>,
+    auto_path: &Rc<RefCell<Vec<(i32, i32)>>>,
+    css_x: f64,
+    css_y: f64,
+    css_w: f64,
+    css_h: f64,
+    dpr: f64,
+) {
+    // Convert to canvas-pixel coords for hit testing
+    let cx = css_x * dpr;
+    let cy = css_y * dpr;
+    let cw = css_w * dpr;
+    let ch = css_h * dpr;
+
+    match &ms.app_state {
+        AppState::MainMenu => {
+            // Button layout matches draw_main_menu
+            let btn_w = (cw * 0.5).min(280.0 * dpr);
+            let btn_h = 44.0 * dpr;
+            let gap = 16.0 * dpr;
+            let start_y = ch * 0.45;
+            let btn_x = (cw - btn_w) / 2.0;
+
+            // New Game
+            if cx >= btn_x && cx <= btn_x + btn_w
+                && cy >= start_y && cy <= start_y + btn_h
+            {
+                ms.app_state = AppState::NewGame {
+                    selected_difficulty: load_difficulty(),
+                    seed: js_sys::Date::now() as u64 ^ 0xDEAD_BEEF,
+                };
+                return;
+            }
+
+            // Continue
+            let continue_y = start_y + btn_h + gap;
+            if ms.has_save
+                && cx >= btn_x && cx <= btn_x + btn_w
+                && cy >= continue_y && cy <= continue_y + btn_h
+            {
+                ms.app_state = AppState::Playing;
+                return;
+            }
+
+            // Settings
+            let settings_y = continue_y + btn_h + gap;
+            if cx >= btn_x && cx <= btn_x + btn_w
+                && cy >= settings_y && cy <= settings_y + btn_h
+            {
+                ms.app_state = AppState::Settings;
+                return;
+            }
+        }
+        AppState::NewGame { selected_difficulty, seed } => {
+            let selected_difficulty = *selected_difficulty;
+            let seed = *seed;
+
+            // Back button (top-left area)
+            if cx < 100.0 * dpr && cy < 40.0 * dpr {
+                ms.app_state = AppState::MainMenu;
+                return;
+            }
+
+            // Difficulty buttons
+            let btn_w = (cw * 0.7).min(300.0 * dpr);
+            let btn_h = 52.0 * dpr;
+            let gap = 10.0 * dpr;
+            let btn_x = (cw - btn_w) / 2.0;
+            let section_y = ch * 0.22;
+            let list_y = section_y + 24.0 * dpr;
+
+            for i in 0..3 {
+                let y = list_y + (btn_h + gap) * i as f64;
+                if cx >= btn_x && cx <= btn_x + btn_w
+                    && cy >= y && cy <= y + btn_h
+                {
+                    ms.app_state = AppState::NewGame {
+                        selected_difficulty: i,
+                        seed,
+                    };
+                    return;
+                }
+            }
+
+            // Seed area tap — randomize seed
+            let seed_y = list_y + (btn_h + gap) * 3.0 + 10.0 * dpr;
+            if cy >= seed_y - 20.0 * dpr && cy <= seed_y + 30.0 * dpr
+                && cx >= cw * 0.2 && cx <= cw * 0.8
+            {
+                ms.app_state = AppState::NewGame {
+                    selected_difficulty,
+                    seed: js_sys::Date::now() as u64 ^ 0xBEEF_CAFE,
+                };
+                return;
+            }
+
+            // Start button
+            let start_y_btn = seed_y + 44.0 * dpr;
+            let start_w = (cw * 0.5).min(220.0 * dpr);
+            let start_h = 48.0 * dpr;
+            let start_x = (cw - start_w) / 2.0;
+            if cx >= start_x && cx <= start_x + start_w
+                && cy >= start_y_btn && cy <= start_y_btn + start_h
+            {
+                // Create game with selected difficulty
+                let difficulties = [Difficulty::Easy, Difficulty::Normal, Difficulty::Hard];
+                let diff = difficulties[selected_difficulty];
+                save_difficulty(selected_difficulty);
+                let config = GameConfig::from_difficulty(diff);
+                let new = new_game_with_config(seed, config);
+                *game.borrow_mut() = new;
+                {
+                    let gm = game.borrow();
+                    let mut r = renderer.borrow_mut();
+                    let map = gm.current_map();
+                    r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
+                }
+                auto_path.borrow_mut().clear();
+                ms.app_state = AppState::Playing;
+                ms.has_save = true;
+                return;
+            }
+        }
+        AppState::Settings => {
+            // Back button
+            if cx < 100.0 * dpr && cy < 40.0 * dpr {
+                ms.app_state = AppState::MainMenu;
+                return;
+            }
+
+            // Glyph Mode toggle — same layout as draw_settings_menu
+            let row_w = (cw * 0.8).min(340.0 * dpr);
+            let row_h = 44.0 * dpr;
+            let row_x = (cw - row_w) / 2.0;
+            let pad = 14.0 * dpr;
+            let row_y = ch * 0.25;
+
+            let toggle_w = 60.0 * dpr;
+            let toggle_h = 28.0 * dpr;
+            let toggle_x = row_x + row_w - pad - toggle_w;
+            let toggle_y = row_y + (row_h - toggle_h) / 2.0;
+
+            if cx >= toggle_x && cx <= toggle_x + toggle_w
+                && cy >= toggle_y && cy <= toggle_y + toggle_h
+            {
+                let mut r = renderer.borrow_mut();
+                r.glyph_mode = !r.glyph_mode;
+                save_glyph_mode(r.glyph_mode);
+                return;
+            }
+        }
+        AppState::Playing => {} // shouldn't be called
+    }
+}
+
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     if let Err(e) = window.request_animation_frame(f.as_ref().unchecked_ref()) {
         errors::report_error(&format!("requestAnimationFrame failed: {:?}", e));
@@ -295,18 +507,22 @@ fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
     (px_w, px_h)
 }
 
-fn new_game() -> Game {
-    let seed = js_sys::Date::now() as u64 ^ 0xDEAD_BEEF;
+fn new_game_with_config(seed: u64, config: GameConfig) -> Game {
     let mut map = Map::generate_forest(200, 200, seed);
     let entrances = map.place_dungeons(seed.wrapping_add(1));
     map.build_roads(&entrances);
     let world = World::new(map, entrances, seed.wrapping_add(2));
-    let mut game = Game::new_overworld(world);
+    let mut game = Game::new_overworld_with_config(world, config);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
     game.spawn_overworld_items(seed.wrapping_add(3));
     game.spawn_overworld_food(seed.wrapping_add(4));
     game.update_fov();
     game
+}
+
+fn new_game() -> Game {
+    let seed = js_sys::Date::now() as u64 ^ 0xDEAD_BEEF;
+    new_game_with_config(seed, GameConfig::normal())
 }
 
 /// Load an image from a URL and call `on_load` when ready.
@@ -365,6 +581,10 @@ pub fn start() -> Result<(), JsValue> {
     let renderer = Rc::new(RefCell::new(rend));
     let input = Rc::new(Input::new(&canvas));
     let canvas = Rc::new(canvas);
+    let menu_state = Rc::new(RefCell::new(MenuState {
+        app_state: AppState::MainMenu,
+        has_save: false,
+    }));
 
     // Auto-move queue: steps remaining from a pathfind swipe
     let auto_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
@@ -469,15 +689,26 @@ pub fn start() -> Result<(), JsValue> {
         let game = Rc::clone(&game);
         let renderer = Rc::clone(&renderer);
         let preview_path = Rc::clone(&preview_path);
+        let menu_state = Rc::clone(&menu_state);
         let cb = Closure::<dyn FnMut()>::new(move || {
             let dpr = web_sys::window().expect("no global window").device_pixel_ratio();
             let (w, h) = fit_canvas(&canvas);
-            let gm = game.borrow();
             let mut r = renderer.borrow_mut();
             r.resize(w, h, dpr);
-            let map = gm.current_map();
-            r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
-            r.draw(&gm, &preview_path.borrow());
+            let ms = menu_state.borrow();
+            match &ms.app_state {
+                AppState::Playing => {
+                    let gm = game.borrow();
+                    let map = gm.current_map();
+                    r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
+                    r.draw(&gm, &preview_path.borrow());
+                }
+                AppState::MainMenu => r.draw_main_menu(ms.has_save),
+                AppState::NewGame { selected_difficulty, seed } => {
+                    r.draw_new_game_menu(*selected_difficulty, *seed);
+                }
+                AppState::Settings => r.draw_settings_menu(),
+            }
         });
         window
             .add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref())?;
@@ -489,21 +720,61 @@ pub fn start() -> Result<(), JsValue> {
     let g = Rc::clone(&f);
 
     let window2 = web_sys::window().expect("no global window");
+    let menu_state_loop = Rc::clone(&menu_state);
     *g.borrow_mut() = Some(Closure::new(move || {
         let dpr = web_sys::window().expect("no global window").device_pixel_ratio();
+
+        // === Menu state routing ===
+        {
+            let app_state = menu_state_loop.borrow().app_state.clone();
+            match app_state {
+                AppState::MainMenu | AppState::NewGame { .. } | AppState::Settings => {
+                    // Handle menu input
+                    let actions = input.drain();
+                    let (css_w, css_h) = window_css_size();
+                    for action in &actions {
+                        if let InputAction::Tap(cx, cy) = action {
+                            let mut ms = menu_state_loop.borrow_mut();
+                            handle_menu_tap(&mut ms, &game, &renderer, &auto_path, *cx, *cy, css_w, css_h, dpr);
+                        }
+                    }
+                    // Render menu
+                    {
+                        let (w, h) = fit_canvas(&canvas);
+                        let ms = menu_state_loop.borrow();
+                        let mut r = renderer.borrow_mut();
+                        r.resize(w, h, dpr);
+                        match &ms.app_state {
+                            AppState::MainMenu => r.draw_main_menu(ms.has_save),
+                            AppState::NewGame { selected_difficulty, seed } => {
+                                r.draw_new_game_menu(*selected_difficulty, *seed);
+                            }
+                            AppState::Settings => r.draw_settings_menu(),
+                            AppState::Playing => {} // handled below
+                        }
+                    }
+                    request_animation_frame(&window2, f.borrow().as_ref().expect("game loop closure missing"));
+                    return;
+                }
+                AppState::Playing => {} // fall through to game loop
+            }
+        }
 
         // Process input actions
         let actions = input.drain();
         if !actions.is_empty() {
             let mut gm = game.borrow_mut();
             if !gm.alive || gm.won {
-                *gm = new_game();
-                let mut r = renderer.borrow_mut();
-                let map = gm.current_map();
-                r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
+                // Return to main menu on death/win
+                let mut ms = menu_state_loop.borrow_mut();
+                ms.app_state = AppState::MainMenu;
+                ms.has_save = false;
+                drop(ms);
+                drop(gm);
                 auto_path.borrow_mut().clear();
             } else {
                 let mut map_changed = false;
+                let mut go_to_menu = false;
                 for action in actions {
                     match action {
                         InputAction::Step(dir) => {
@@ -621,6 +892,10 @@ pub fn start() -> Result<(), JsValue> {
                                         r.glyph_mode = !r.glyph_mode;
                                         save_glyph_mode(r.glyph_mode);
                                     }
+                                    DrawerTap::MainMenu => {
+                                        gm.drawer = Drawer::None;
+                                        go_to_menu = true;
+                                    }
                                     DrawerTap::Consumed => {}
                                 }
                             } else if css_y < css_h - bar_h_css {
@@ -691,6 +966,13 @@ pub fn start() -> Result<(), JsValue> {
                     let map = gm.current_map();
                     r.camera.snap(gm.player_x as f64, gm.player_y as f64, map.width, map.height);
                     auto_path.borrow_mut().clear();
+                }
+                // Return to main menu (from in-game settings)
+                if go_to_menu {
+                    drop(gm);
+                    let mut ms = menu_state_loop.borrow_mut();
+                    ms.app_state = AppState::MainMenu;
+                    ms.has_save = true;
                 }
             }
         }
