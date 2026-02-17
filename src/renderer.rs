@@ -11,19 +11,19 @@ pub struct SpriteSheets {
     pub monsters: HtmlImageElement,
     pub rogues: HtmlImageElement,
     pub items: HtmlImageElement,
-    pub animals: HtmlImageElement,
+    pub animals: Option<HtmlImageElement>,
 }
 
 impl SpriteSheets {
-    fn get(&self, sheet: Sheet) -> &HtmlImageElement {
+    fn get(&self, sheet: Sheet) -> Option<&HtmlImageElement> {
         match sheet {
-            Sheet::Tiles => &self.tiles,
-            Sheet::Monsters => &self.monsters,
-            Sheet::Rogues => &self.rogues,
-            Sheet::Items => &self.items,
-            Sheet::Animals => &self.animals,
+            Sheet::Tiles => Some(&self.tiles),
+            Sheet::Monsters => Some(&self.monsters),
+            Sheet::Rogues => Some(&self.rogues),
+            Sheet::Items => Some(&self.items),
+            Sheet::Animals => self.animals.as_ref(),
             // AnimatedTiles sheet not yet loaded
-            _ => &self.tiles,
+            _ => Some(&self.tiles),
         }
     }
 }
@@ -63,6 +63,13 @@ impl Renderer {
 
     pub fn set_sheets(&mut self, sheets: SpriteSheets) {
         self.sheets = Some(sheets);
+    }
+
+    /// Set the optional animals sprite sheet after initial load.
+    pub fn set_animals_sheet(&mut self, img: HtmlImageElement) {
+        if let Some(sheets) = &mut self.sheets {
+            sheets.animals = Some(img);
+        }
     }
 
     pub fn resize(&mut self, width: f64, height: f64, dpr: f64) {
@@ -114,29 +121,29 @@ impl Renderer {
     /// Draw a sprite, optionally mirrored horizontally. Returns true if drawn.
     fn draw_sprite_ex(&self, sprite: SpriteRef, dx: f64, dy: f64, dw: f64, dh: f64, flip: bool) -> bool {
         if let Some(sheets) = &self.sheets {
-            let img = sheets.get(sprite.sheet);
-            if flip {
-                let ctx = &self.ctx;
-                ctx.save();
-                let _ = ctx.translate(dx + dw, dy);
-                let _ = ctx.scale(-1.0, 1.0);
-                let _ = ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                    img,
-                    sprite.src_x(), sprite.src_y(), 32.0, 32.0,
-                    0.0, 0.0, dw, dh,
-                );
-                ctx.restore();
-            } else {
-                let _ = self.ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                    img,
-                    sprite.src_x(), sprite.src_y(), 32.0, 32.0,
-                    dx, dy, dw, dh,
-                );
+            if let Some(img) = sheets.get(sprite.sheet) {
+                if flip {
+                    let ctx = &self.ctx;
+                    ctx.save();
+                    let _ = ctx.translate(dx + dw, dy);
+                    let _ = ctx.scale(-1.0, 1.0);
+                    let _ = ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        img,
+                        sprite.src_x(), sprite.src_y(), 32.0, 32.0,
+                        0.0, 0.0, dw, dh,
+                    );
+                    ctx.restore();
+                } else {
+                    let _ = self.ctx.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        img,
+                        sprite.src_x(), sprite.src_y(), 32.0, 32.0,
+                        dx, dy, dw, dh,
+                    );
+                }
+                return true;
             }
-            true
-        } else {
-            false
         }
+        false
     }
 
     /// Helper: draw a rounded-rect filled region.
