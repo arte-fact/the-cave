@@ -47,6 +47,8 @@ pub struct Renderer {
     drawer_anim: f64,
     /// Which drawer was last opened (kept during close animation).
     last_drawer: Drawer,
+    /// When true, render ASCII glyphs instead of sprite sheets.
+    pub glyph_mode: bool,
 }
 
 impl Renderer {
@@ -58,6 +60,7 @@ impl Renderer {
             dpr: 1.0,
             drawer_anim: 0.0,
             last_drawer: Drawer::None,
+            glyph_mode: false,
         }
     }
 
@@ -214,12 +217,16 @@ impl Renderer {
                 }
                 let (px, py) = cam.world_to_screen(x, y);
                 let tile = map.get(x, y);
-                let wall_face = tile == Tile::Wall
-                    && y + 1 < map.height
-                    && map.get(x, y + 1) != Tile::Wall;
-                let sprite = sprites::tile_sprite(tile, x, y, wall_face);
-                if !self.draw_sprite(sprite, px, py, cell, cell) {
-                    self.draw_tile_fallback(tile, px, py, cell);
+                if self.glyph_mode {
+                    self.draw_tile_glyph(tile, px, py, cell);
+                } else {
+                    let wall_face = tile == Tile::Wall
+                        && y + 1 < map.height
+                        && map.get(x, y + 1) != Tile::Wall;
+                    let sprite = sprites::tile_sprite(tile, x, y, wall_face);
+                    if !self.draw_sprite(sprite, px, py, cell, cell) {
+                        self.draw_tile_fallback(tile, px, py, cell);
+                    }
                 }
                 if vis == Visibility::Seen {
                     ctx.set_fill_style_str("rgba(0,0,0,0.5)");
@@ -302,21 +309,14 @@ impl Renderer {
             let (bx, by) = bump_offset(&game.bump_anims, false, ei, cell);
             let rx = ex + bx;
             let ry = ey + by;
-            // Color flash when taking damage (bump active)
             let has_bump = game.bump_anims.iter().any(|b| !b.is_player && b.enemy_idx == ei);
-            let sprite = sprites::enemy_sprite(e.glyph);
-            if !self.draw_sprite_ex(sprite, rx, ry, cell, cell, !e.facing_left) {
-                let font_size = (cell * 0.8).round();
-                ctx.set_font(&format!("{font_size}px monospace"));
-                ctx.set_text_align("center");
-                ctx.set_text_baseline("middle");
-                let color = match e.glyph {
-                    'D' => "#f44",
-                    'w' | 'b' | 'B' => "#a84",
-                    _ => "#4f4",
-                };
-                ctx.set_fill_style_str(color);
-                let _ = ctx.fill_text(&e.glyph.to_string(), rx + cell / 2.0, ry + cell / 2.0);
+            if self.glyph_mode {
+                self.draw_enemy_glyph(e.glyph, e.is_ranged, rx, ry, cell);
+            } else {
+                let sprite = sprites::enemy_sprite(e.glyph);
+                if !self.draw_sprite_ex(sprite, rx, ry, cell, cell, !e.facing_left) {
+                    self.draw_enemy_glyph(e.glyph, e.is_ranged, rx, ry, cell);
+                }
             }
             // Red flash overlay when hit
             if has_bump {
@@ -330,14 +330,13 @@ impl Renderer {
             if gi.x < min_x || gi.x >= max_x || gi.y < min_y || gi.y >= max_y { continue; }
             if map.get_visibility(gi.x, gi.y) != Visibility::Visible { continue; }
             let (ix, iy) = cam.world_to_screen(gi.x, gi.y);
-            let sprite = sprites::item_sprite(gi.item.name);
-            if !self.draw_sprite(sprite, ix, iy, cell, cell) {
-                let font_size = (cell * 0.6).round();
-                ctx.set_font(&format!("{font_size}px monospace"));
-                ctx.set_text_align("center");
-                ctx.set_text_baseline("middle");
-                ctx.set_fill_style_str("#ff0");
-                let _ = ctx.fill_text(&gi.item.glyph.to_string(), ix + cell / 2.0, iy + cell / 2.0);
+            if self.glyph_mode {
+                self.draw_item_glyph(gi.item.glyph, &gi.item.kind, ix, iy, cell);
+            } else {
+                let sprite = sprites::item_sprite(gi.item.name);
+                if !self.draw_sprite(sprite, ix, iy, cell, cell) {
+                    self.draw_item_glyph(gi.item.glyph, &gi.item.kind, ix, iy, cell);
+                }
             }
         }
 
@@ -346,14 +345,23 @@ impl Renderer {
         let (pbx, pby) = bump_offset(&game.bump_anims, true, 0, cell);
         let prx = px + pbx;
         let pry = py + pby;
-        let player_sprite = sprites::player_sprite();
-        if !self.draw_sprite_ex(player_sprite, prx, pry, cell, cell, !game.player_facing_left) {
+        if self.glyph_mode {
             let font_size = (cell * 0.8).round();
             ctx.set_font(&format!("{font_size}px monospace"));
             ctx.set_text_align("center");
             ctx.set_text_baseline("middle");
             ctx.set_fill_style_str("#fff");
             let _ = ctx.fill_text("@", prx + cell / 2.0, pry + cell / 2.0);
+        } else {
+            let player_sprite = sprites::player_sprite();
+            if !self.draw_sprite_ex(player_sprite, prx, pry, cell, cell, !game.player_facing_left) {
+                let font_size = (cell * 0.8).round();
+                ctx.set_font(&format!("{font_size}px monospace"));
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                ctx.set_fill_style_str("#fff");
+                let _ = ctx.fill_text("@", prx + cell / 2.0, pry + cell / 2.0);
+            }
         }
         // Red flash on player when taking damage
         let player_taking_damage = game.bump_anims.iter().any(|b| b.is_player && (b.dx * b.dx + b.dy * b.dy) > 0.001);
@@ -710,7 +718,7 @@ impl Renderer {
             ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
             ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
             (sprint_label, sprint_color, game.sprinting),
-            ("Menu", "#888", false),
+            ("Settings", if game.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.drawer == Drawer::Settings),
         ];
 
         for (i, (label, color, active)) in buttons.iter().enumerate() {
@@ -756,6 +764,7 @@ impl Renderer {
         match which {
             Drawer::Inventory => self.draw_inventory_drawer(game, canvas_w, canvas_h, bottom_h, t),
             Drawer::Stats => self.draw_stats_drawer(game, canvas_w, canvas_h, bottom_h, t),
+            Drawer::Settings => self.draw_settings_drawer(canvas_w, canvas_h, bottom_h, t),
             Drawer::None => {}
         }
     }
@@ -1200,6 +1209,81 @@ impl Renderer {
         ctx.restore(); // pop clip
     }
 
+    // ---- Settings drawer ----
+
+    fn draw_settings_drawer(&self, canvas_w: f64, canvas_h: f64, bottom_h: f64, anim_t: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let drawer_h = canvas_h * 0.35;
+        let base_y = canvas_h - bottom_h - drawer_h;
+        let slide_offset = drawer_h * (1.0 - anim_t);
+        let drawer_y = base_y + slide_offset;
+        let pad = 12.0 * d;
+
+        ctx.save();
+        ctx.begin_path();
+        ctx.rect(0.0, base_y, canvas_w, drawer_h);
+        ctx.clip();
+
+        // Background
+        ctx.set_fill_style_str("rgba(8,8,16,0.94)");
+        self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
+        ctx.set_fill_style_str("rgba(120,120,120,0.3)");
+        self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
+
+        // Title
+        ctx.set_font(&self.font(14.0, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("SETTINGS", canvas_w / 2.0, drawer_y + 10.0 * d);
+
+        // Glyph Mode toggle row
+        let row_y = drawer_y + 40.0 * d;
+        let row_h = 40.0 * d;
+
+        // Label
+        ctx.set_font(&self.font(13.0, ""));
+        ctx.set_fill_style_str("#ccc");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("middle");
+        let _ = ctx.fill_text("Glyph Mode", pad, row_y + row_h / 2.0);
+
+        // Toggle button
+        let toggle_w = 70.0 * d;
+        let toggle_h = 30.0 * d;
+        let toggle_x = canvas_w - pad - toggle_w;
+        let toggle_y = row_y + (row_h - toggle_h) / 2.0;
+        let toggle_r = toggle_h / 2.0;
+
+        if self.glyph_mode {
+            ctx.set_fill_style_str("rgba(80,200,120,0.35)");
+            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
+            ctx.set_font(&self.font(12.0, "bold"));
+            ctx.set_fill_style_str("#8f8");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text("ON", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
+        } else {
+            ctx.set_fill_style_str("rgba(100,100,100,0.25)");
+            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
+            ctx.set_font(&self.font(12.0, "bold"));
+            ctx.set_fill_style_str("#888");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text("OFF", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
+        }
+
+        // Description text
+        ctx.set_font(&self.font(10.0, ""));
+        ctx.set_fill_style_str("#666");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("Classic ASCII rendering. Keyboard: G to toggle.", pad, row_y + row_h + 4.0 * d);
+
+        ctx.restore();
+    }
+
     // ---- Death / Victory ----
 
     fn draw_end_overlay(&self, game: &Game, canvas_w: f64, canvas_h: f64) {
@@ -1228,6 +1312,73 @@ impl Renderer {
             canvas_w / 2.0,
             canvas_h / 2.0 + big * 0.5,
         );
+    }
+
+    /// Glyph-mode tile rendering: colored background + ASCII character.
+    fn draw_tile_glyph(&self, tile: Tile, px: f64, py: f64, cell: f64) {
+        let ctx = &self.ctx;
+        // Background fill
+        ctx.set_fill_style_str(tile.color());
+        ctx.fill_rect(px, py, cell, cell);
+        // Foreground glyph (skip for wall/floor/grass — background is enough)
+        let ch = tile.glyph();
+        let fg = match tile {
+            Tile::Wall => return, // solid block, no glyph needed
+            Tile::Floor => { ctx.set_fill_style_str("#333"); "." }
+            Tile::Tree => { ctx.set_fill_style_str("#0a0"); "T" }
+            Tile::Grass => { ctx.set_fill_style_str("#2a2"); "." }
+            Tile::Road => { ctx.set_fill_style_str("#a86"); "=" }
+            Tile::DungeonEntrance => { ctx.set_fill_style_str("#fa0"); ">" }
+            Tile::StairsDown => { ctx.set_fill_style_str("#aaf"); ">" }
+            Tile::StairsUp => { ctx.set_fill_style_str("#aaf"); "<" }
+        };
+        let _ = ch; // glyph already matched above
+        let font_size = (cell * 0.7).round();
+        ctx.set_font(&format!("{font_size}px monospace"));
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        let _ = ctx.fill_text(fg, px + cell / 2.0, py + cell / 2.0);
+    }
+
+    /// Glyph-mode enemy rendering.
+    fn draw_enemy_glyph(&self, glyph: char, is_ranged: bool, ex: f64, ey: f64, cell: f64) {
+        let ctx = &self.ctx;
+        let font_size = (cell * 0.8).round();
+        ctx.set_font(&format!("{font_size}px monospace"));
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        let color = if is_ranged {
+            "#ff0"
+        } else {
+            match glyph {
+                'D' => "#f44",
+                'w' | 'b' | 'B' => "#a84",
+                'K' | 'l' => "#c4f",
+                'T' => "#4a4",
+                _ => "#4f4",
+            }
+        };
+        ctx.set_fill_style_str(color);
+        let _ = ctx.fill_text(&glyph.to_string(), ex + cell / 2.0, ey + cell / 2.0);
+    }
+
+    /// Glyph-mode item rendering.
+    fn draw_item_glyph(&self, glyph: char, kind: &ItemKind, ix: f64, iy: f64, cell: f64) {
+        let ctx = &self.ctx;
+        let font_size = (cell * 0.6).round();
+        ctx.set_font(&format!("{font_size}px monospace"));
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        let color = match kind {
+            ItemKind::Potion => "#f88",
+            ItemKind::Scroll => "#88f",
+            ItemKind::Weapon | ItemKind::RangedWeapon => "#aaf",
+            ItemKind::Armor | ItemKind::Helmet | ItemKind::Shield | ItemKind::Boots => "#afa",
+            ItemKind::Food => "#fa8",
+            ItemKind::Ring => "#ff8",
+        };
+        ctx.set_fill_style_str(color);
+        let _ = ctx.fill_text(&glyph.to_string(), ix + cell / 2.0, iy + cell / 2.0);
     }
 
     /// Fallback rendering when sprite sheets aren't loaded yet.

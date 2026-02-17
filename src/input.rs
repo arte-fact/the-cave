@@ -36,6 +36,8 @@ pub enum InputAction {
     ToggleStats,
     /// Toggle sprint mode.
     ToggleSprint,
+    /// Toggle glyph rendering mode.
+    ToggleGlyphMode,
     /// Interact: attack adjacent enemy (facing direction) or pick up items at feet.
     Interact,
 }
@@ -196,6 +198,10 @@ impl Input {
                 "s" => {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::ToggleSprint);
+                }
+                "g" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::ToggleGlyphMode);
                 }
                 "f" | " " => {
                     e.prevent_default();

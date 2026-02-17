@@ -287,6 +287,7 @@ pub enum Drawer {
     None,
     Inventory,
     Stats,
+    Settings,
 }
 
 /// Allocatable skill attributes.

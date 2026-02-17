@@ -41,7 +41,7 @@ fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css
         0 => Some(BarTap::OpenDrawer(Drawer::Inventory)),
         1 => Some(BarTap::OpenDrawer(Drawer::Stats)),
         2 => Some(BarTap::Sprint),
-        3 => Some(BarTap::OpenDrawer(Drawer::None)), // Menu (closes drawers)
+        3 => Some(BarTap::OpenDrawer(Drawer::Settings)),
         _ => None,
     }
 }
@@ -64,6 +64,8 @@ enum DrawerTap {
     InlineDrop(usize),
     /// Allocate a skill point to the given attribute.
     StatsAllocate(SkillKind),
+    /// Toggle glyph rendering mode.
+    ToggleGlyphMode,
     /// Tapped inside the drawer but not on an actionable element.
     Consumed,
 }
@@ -90,6 +92,7 @@ fn hit_test_drawer(
         Drawer::None => return None,
         Drawer::Inventory => 0.55,
         Drawer::Stats => 0.55,
+        Drawer::Settings => 0.35,
     };
     let drawer_h = css_h * drawer_frac;
     let drawer_y = css_h - bar_h_css - drawer_h;
@@ -97,6 +100,24 @@ fn hit_test_drawer(
     // Not inside the drawer area
     if css_y < drawer_y || css_y >= css_h - bar_h_css {
         return None;
+    }
+
+    // Settings drawer: glyph mode toggle
+    if drawer == Drawer::Settings {
+        // Toggle button layout mirrors renderer::draw_settings_drawer (CSS space)
+        let pad = 12.0;
+        let row_y = drawer_y + 40.0;
+        let row_h = 40.0;
+        let toggle_w = 70.0;
+        let toggle_h = 30.0;
+        let toggle_x = css_w - pad - toggle_w;
+        let toggle_y = row_y + (row_h - toggle_h) / 2.0;
+        if css_x >= toggle_x && css_x <= toggle_x + toggle_w
+            && css_y >= toggle_y && css_y <= toggle_y + toggle_h
+        {
+            return Some(DrawerTap::ToggleGlyphMode);
+        }
+        return Some(DrawerTap::Consumed);
     }
 
     // Stats drawer: check for skill point allocation buttons
@@ -231,6 +252,24 @@ fn hit_test_drawer(
 }
 
 
+/// Load glyph_mode setting from localStorage.
+fn load_glyph_mode() -> bool {
+    web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|s| s.get_item("glyph_mode").ok().flatten())
+        .map(|v| v == "true")
+        .unwrap_or(false)
+}
+
+/// Save glyph_mode setting to localStorage.
+fn save_glyph_mode(enabled: bool) {
+    if let Some(storage) = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+    {
+        let _ = storage.set_item("glyph_mode", if enabled { "true" } else { "false" });
+    }
+}
+
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     if let Err(e) = window.request_animation_frame(f.as_ref().unchecked_ref()) {
         errors::report_error(&format!("requestAnimationFrame failed: {:?}", e));
@@ -321,7 +360,9 @@ pub fn start() -> Result<(), JsValue> {
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
     let game = Rc::new(RefCell::new(new_game()));
-    let renderer = Rc::new(RefCell::new(Renderer::new(ctx)));
+    let mut rend = Renderer::new(ctx);
+    rend.glyph_mode = load_glyph_mode();
+    let renderer = Rc::new(RefCell::new(rend));
     let input = Rc::new(Input::new(&canvas));
     let canvas = Rc::new(canvas);
 
@@ -522,9 +563,6 @@ pub fn start() -> Result<(), JsValue> {
                             // Bottom bar hit test first
                             if let Some(tap) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
                                 match tap {
-                                    BarTap::OpenDrawer(Drawer::None) => {
-                                        gm.drawer = Drawer::None;
-                                    }
                                     BarTap::OpenDrawer(drawer) => {
                                         gm.toggle_drawer(drawer);
                                     }
@@ -578,6 +616,11 @@ pub fn start() -> Result<(), JsValue> {
                                     DrawerTap::StatsAllocate(skill) => {
                                         gm.allocate_skill_point(skill);
                                     }
+                                    DrawerTap::ToggleGlyphMode => {
+                                        let mut r = renderer.borrow_mut();
+                                        r.glyph_mode = !r.glyph_mode;
+                                        save_glyph_mode(r.glyph_mode);
+                                    }
                                     DrawerTap::Consumed => {}
                                 }
                             } else if css_y < css_h - bar_h_css {
@@ -605,6 +648,11 @@ pub fn start() -> Result<(), JsValue> {
                         }
                         InputAction::ToggleSprint => {
                             gm.toggle_sprint();
+                        }
+                        InputAction::ToggleGlyphMode => {
+                            let mut r = renderer.borrow_mut();
+                            r.glyph_mode = !r.glyph_mode;
+                            save_glyph_mode(r.glyph_mode);
                         }
                         InputAction::Interact => {
                             if gm.drawer != Drawer::None {
