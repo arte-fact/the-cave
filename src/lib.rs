@@ -79,6 +79,8 @@ fn hit_test_drawer(
     inventory_scroll: usize,
     selected_item: Option<usize>,
     skill_points: u32,
+    stats_scroll: f64,
+    has_ranged_weapon: bool,
 ) -> Option<DrawerTap> {
     let drawer_frac = match drawer {
         Drawer::None => return None,
@@ -96,9 +98,18 @@ fn hit_test_drawer(
     // Stats drawer: check for skill point allocation buttons
     if drawer == Drawer::Stats {
         if skill_points > 0 {
-            // Compute where the skill section starts (CSS space)
-            // header(32) + sprite(42) + xp_bar(22) + stat_rows(6*24=144) + section_header(28) = 268
-            let skill_section_y = drawer_y + 268.0;
+            // Compute where the skill section starts in CSS space, matching renderer layout.
+            // All renderer values are in `val * dpr` canvas pixels; dividing by dpr gives CSS px.
+            // content_top = drawer_y + 32 (header)
+            // sprite area: icon(36) + gap(6) = 42
+            // xp bar area: bar(10) + gap(12) = 22
+            // stat rows: (4 base + 1 if ranged + 1 location) * 24
+            let stat_row_count = if has_ranged_weapon { 6.0 } else { 5.0 };
+            // skill section gap(8) + "Skill Points" header(20) = 28
+            let skill_section_offset = 32.0 + 42.0 + 22.0 + stat_row_count * 24.0 + 8.0 + 20.0;
+            // Apply scroll offset — renderer shifts content up by stats_scroll
+            let skill_section_y = drawer_y + skill_section_offset - stats_scroll;
+
             let skill_row_h = 30.0;
             let btn_sz = 24.0;
             let pad = 12.0;
@@ -463,6 +474,7 @@ pub fn start() -> Result<(), JsValue> {
                                 css_x, css_y, css_w, css_h, bar_h_css,
                                 gm.drawer, gm.inventory.len(), gm.inventory_scroll,
                                 gm.selected_inventory_item, gm.skill_points,
+                                gm.stats_scroll, gm.has_ranged_weapon(),
                             ) {
                                 // Tap landed inside an open drawer
                                 match dtap {
