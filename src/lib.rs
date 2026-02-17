@@ -288,6 +288,21 @@ fn load_image(src: &str, on_load: impl FnMut() + 'static) -> HtmlImageElement {
     img
 }
 
+/// Load an optional image — calls `on_load` with the element if it succeeds,
+/// silently ignores failures (no error overlay).
+fn load_image_optional(src: &str, mut on_load: impl FnMut(HtmlImageElement) + 'static) -> HtmlImageElement {
+    let img = HtmlImageElement::new().expect("failed to create HtmlImageElement");
+    let img_clone = img.clone();
+    let cb = Closure::<dyn FnMut()>::new(move || {
+        on_load(img_clone.clone());
+    });
+    img.set_onload(Some(cb.as_ref().unchecked_ref()));
+    cb.forget();
+    // Silently ignore load errors for optional sheets
+    img.set_src(src);
+    img
+}
+
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     errors::install_panic_hook();
@@ -319,7 +334,7 @@ pub fn start() -> Result<(), JsValue> {
     // Drawer swipe-scroll base: (base_scroll, start_y) when swipe began
     let drawer_swipe_base: Rc<RefCell<Option<(usize, f64)>>> = Rc::new(RefCell::new(None));
 
-    // Load sprite sheets asynchronously (5 sheets: tiles, monsters, rogues, items, animals)
+    // Load sprite sheets asynchronously (4 core + optional animals)
     {
         let loaded_count: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
         let renderer_for_load = Rc::clone(&renderer);
@@ -328,7 +343,6 @@ pub fn start() -> Result<(), JsValue> {
         let monsters_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
         let rogues_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
         let items_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
-        let animals_img: Rc<RefCell<Option<HtmlImageElement>>> = Rc::new(RefCell::new(None));
 
         let make_on_load = |slot: Rc<RefCell<Option<HtmlImageElement>>>,
                             loaded: Rc<RefCell<u32>>,
@@ -336,19 +350,17 @@ pub fn start() -> Result<(), JsValue> {
                             t: Rc<RefCell<Option<HtmlImageElement>>>,
                             m: Rc<RefCell<Option<HtmlImageElement>>>,
                             r: Rc<RefCell<Option<HtmlImageElement>>>,
-                            i: Rc<RefCell<Option<HtmlImageElement>>>,
-                            a: Rc<RefCell<Option<HtmlImageElement>>>| {
+                            i: Rc<RefCell<Option<HtmlImageElement>>>| {
             move || {
                 let _ = slot.borrow();
                 let mut count = loaded.borrow_mut();
                 *count += 1;
-                if *count == 5 {
+                if *count == 4 {
                     let tiles = t.borrow_mut().take().expect("tiles sprite sheet missing");
                     let monsters = m.borrow_mut().take().expect("monsters sprite sheet missing");
                     let rogues = r.borrow_mut().take().expect("rogues sprite sheet missing");
                     let items = i.borrow_mut().take().expect("items sprite sheet missing");
-                    let animals = a.borrow_mut().take().expect("animals sprite sheet missing");
-                    rend.borrow_mut().set_sheets(SpriteSheets { tiles, monsters, rogues, items, animals });
+                    rend.borrow_mut().set_sheets(SpriteSheets { tiles, monsters, rogues, items, animals: None });
                 }
             }
         };
@@ -357,7 +369,7 @@ pub fn start() -> Result<(), JsValue> {
             "assets/tiles.png",
             make_on_load(
                 Rc::clone(&tiles_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img), Rc::clone(&animals_img),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *tiles_img.borrow_mut() = Some(img);
@@ -366,7 +378,7 @@ pub fn start() -> Result<(), JsValue> {
             "assets/monsters.png",
             make_on_load(
                 Rc::clone(&monsters_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img), Rc::clone(&animals_img),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *monsters_img.borrow_mut() = Some(img);
@@ -375,7 +387,7 @@ pub fn start() -> Result<(), JsValue> {
             "assets/rogues.png",
             make_on_load(
                 Rc::clone(&rogues_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img), Rc::clone(&animals_img),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *rogues_img.borrow_mut() = Some(img);
@@ -384,19 +396,19 @@ pub fn start() -> Result<(), JsValue> {
             "assets/items.png",
             make_on_load(
                 Rc::clone(&items_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img), Rc::clone(&animals_img),
+                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img),
             ),
         );
         *items_img.borrow_mut() = Some(img);
 
-        let img = load_image(
-            "assets/animals.png",
-            make_on_load(
-                Rc::clone(&animals_img), Rc::clone(&loaded_count), Rc::clone(&renderer_for_load),
-                Rc::clone(&tiles_img), Rc::clone(&monsters_img), Rc::clone(&rogues_img), Rc::clone(&items_img), Rc::clone(&animals_img),
-            ),
-        );
-        *animals_img.borrow_mut() = Some(img);
+        // Load animals.png optionally — if it fails, animal sprites use glyph fallback
+        {
+            let rend = Rc::clone(&renderer_for_load);
+            let img = load_image_optional("assets/animals.png", move |animals_el| {
+                rend.borrow_mut().set_animals_sheet(animals_el);
+            });
+            std::mem::drop(img);
+        }
     }
 
     // Initial sizing + camera snap
