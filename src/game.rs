@@ -3072,4 +3072,22 @@ mod tests {
         g.equip_item(2); // removes item, pushes nothing back (slot empty)
         assert_eq!(g.inventory_scroll, 1);
     }
+
+    #[test]
+    fn scroll_inventory_page_jump() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..10 {
+            g.inventory.push(health_potion());
+        }
+        // Page-down by 5
+        g.scroll_inventory(5);
+        assert_eq!(g.inventory_scroll, 5);
+        // Page-up by 3
+        g.scroll_inventory(-3);
+        assert_eq!(g.inventory_scroll, 2);
+        // Large page-down clamps to max
+        g.scroll_inventory(100);
+        assert_eq!(g.inventory_scroll, 9);
+    }
 }

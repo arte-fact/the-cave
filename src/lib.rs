@@ -102,31 +102,34 @@ fn hit_test_drawer(
     let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
     let end = (inventory_scroll + max_visible).min(item_count);
     let pad = 12.0;
-    let arrow_size = 24.0;
+    let scrollbar_w = 12.0;
 
     if css_y >= list_y && item_count > 0 {
-        let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
+        // Check if tap is in scrollbar track (right edge of list area)
+        let scrollbar_x = css_w - pad - scrollbar_w;
+        if css_x >= scrollbar_x && item_count > max_visible {
+            let track_h = max_visible as f64 * slot_h;
+            let scroll_range = item_count - max_visible;
+            let thumb_frac = max_visible as f64 / item_count as f64;
+            let min_thumb_h = 20.0;
+            let thumb_h = (track_h * thumb_frac).max(min_thumb_h);
+            let scroll_frac = if scroll_range > 0 {
+                inventory_scroll as f64 / scroll_range as f64
+            } else {
+                0.0
+            };
+            let thumb_y = list_y + scroll_frac * (track_h - thumb_h);
 
-        // Check scroll-up arrow zone (top-right of first visible slot)
-        if inventory_scroll > 0 && vis_idx == 0 {
-            let ax = css_w - pad - arrow_size;
-            if css_x >= ax {
+            if css_y < thumb_y {
                 return Some(DrawerTap::ScrollUp);
+            } else if css_y > thumb_y + thumb_h {
+                return Some(DrawerTap::ScrollDown);
             }
-        }
-
-        // Check scroll-down arrow zone (bottom-right of last visible slot)
-        if end < item_count {
-            let visible_count = end - inventory_scroll;
-            if visible_count > 0 && vis_idx == visible_count - 1 {
-                let ax = css_w - pad - arrow_size;
-                if css_x >= ax {
-                    return Some(DrawerTap::ScrollDown);
-                }
-            }
+            return Some(DrawerTap::Consumed); // tap on thumb itself
         }
 
         // Regular item tap
+        let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
         let abs_idx = inventory_scroll + vis_idx;
         if abs_idx < end {
             return Some(DrawerTap::InventoryItem(abs_idx));
@@ -346,7 +349,10 @@ pub fn start() -> Result<(), JsValue> {
                 for action in actions {
                     match action {
                         InputAction::Step(dir) => {
-                            gm.drawer = Drawer::None;
+                            if gm.drawer != Drawer::None {
+                                // Swipe/movement disabled while drawer is open
+                                continue;
+                            }
                             gm.inspected = None;
                             auto_path.borrow_mut().clear();
                             let (dx, dy) = match dir {
@@ -360,6 +366,9 @@ pub fn start() -> Result<(), JsValue> {
                             }
                         }
                         InputAction::ExecutePath => {
+                            if gm.drawer != Drawer::None {
+                                continue;
+                            }
                             let pp = preview_path.borrow();
                             if pp.len() > 1 {
                                 *auto_path.borrow_mut() = pp[1..].to_vec();
@@ -441,7 +450,7 @@ pub fn start() -> Result<(), JsValue> {
             pp.clear();
             if let Some(swipe) = input.swipe_state() {
                 let mut gm = game.borrow_mut();
-                if gm.alive && !gm.won {
+                if gm.alive && !gm.won && gm.drawer == Drawer::None {
                     let dx = (swipe.current_x - swipe.start_x) * 0.7;
                     let dy = (swipe.current_y - swipe.start_y) * 0.7;
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
@@ -498,8 +507,13 @@ pub fn start() -> Result<(), JsValue> {
             );
         }
 
-        // Render
-        renderer.borrow().draw(&game.borrow(), &preview_path.borrow());
+        // Advance drawer animation + render
+        {
+            let gm = game.borrow();
+            let mut r = renderer.borrow_mut();
+            r.tick_drawer_anim(gm.drawer);
+            r.draw(&gm, &preview_path.borrow());
+        }
 
         // Schedule next frame
         request_animation_frame(&window2, f.borrow().as_ref().expect("game loop closure missing"));
