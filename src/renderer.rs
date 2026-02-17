@@ -219,16 +219,65 @@ impl Renderer {
             }
         }
 
-        // Path preview
+        // Path preview / Aim line
         if preview_path.len() > 1 {
-            for (i, &(tx, ty)) in preview_path.iter().enumerate() {
-                let (px, py) = cam.world_to_screen(tx, ty);
-                if i == preview_path.len() - 1 {
-                    ctx.set_fill_style_str("rgba(0,180,255,0.4)");
-                } else {
-                    ctx.set_fill_style_str("rgba(0,180,255,0.2)");
+            let is_aiming = game.has_ranged_weapon();
+            if is_aiming {
+                // Aim mode: draw line with color based on range/hit chance
+                let max_range = game.ranged_max_range();
+                for (i, &(tx, ty)) in preview_path.iter().enumerate() {
+                    if i == 0 { continue; } // skip player tile
+                    let (px, py) = cam.world_to_screen(tx, ty);
+                    let dist = ((tx - game.player_x).abs()).max((ty - game.player_y).abs());
+                    let is_last = i == preview_path.len() - 1;
+
+                    if dist > max_range {
+                        // Out of range: red
+                        ctx.set_fill_style_str("rgba(255,50,50,0.35)");
+                    } else {
+                        let hit_chance = game.ranged_hit_chance(dist);
+                        if is_last {
+                            // Target tile: brighter based on hit chance
+                            if hit_chance >= 70 {
+                                ctx.set_fill_style_str("rgba(50,255,50,0.5)");
+                            } else if hit_chance >= 40 {
+                                ctx.set_fill_style_str("rgba(255,200,50,0.5)");
+                            } else {
+                                ctx.set_fill_style_str("rgba(255,100,50,0.5)");
+                            }
+                        } else {
+                            // Line body: amber
+                            ctx.set_fill_style_str("rgba(255,180,50,0.25)");
+                        }
+                    }
+                    ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+
+                    // Draw hit chance on target tile
+                    if is_last && dist <= max_range && dist > 0 {
+                        let hit_chance = game.ranged_hit_chance(dist);
+                        let font_size = (cell * 0.35).round().max(8.0);
+                        ctx.set_font(&format!("{font_size}px monospace"));
+                        ctx.set_text_align("center");
+                        ctx.set_text_baseline("middle");
+                        ctx.set_fill_style_str("#fff");
+                        let _ = ctx.fill_text(
+                            &format!("{hit_chance}%"),
+                            px + cell / 2.0,
+                            py + cell / 2.0,
+                        );
+                    }
                 }
-                ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+            } else {
+                // Normal movement preview: blue
+                for (i, &(tx, ty)) in preview_path.iter().enumerate() {
+                    let (px, py) = cam.world_to_screen(tx, ty);
+                    if i == preview_path.len() - 1 {
+                        ctx.set_fill_style_str("rgba(0,180,255,0.4)");
+                    } else {
+                        ctx.set_fill_style_str("rgba(0,180,255,0.2)");
+                    }
+                    ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+                }
             }
         }
 
@@ -680,6 +729,7 @@ impl Renderer {
                     ItemKind::Potion => "#f88",
                     ItemKind::Scroll => "#88f",
                     ItemKind::Weapon => "#aaf",
+                    ItemKind::RangedWeapon => "#8df",
                     ItemKind::Armor => "#afa",
                     ItemKind::Helmet => "#fc8",
                     ItemKind::Shield => "#adf",
@@ -864,12 +914,16 @@ impl Renderer {
         y += xp_bar_h + 12.0 * d;
 
         // Stat rows
-        let stats: [(&str, String, &str); 4] = [
+        let mut stats: Vec<(&str, String, &str)> = vec![
             ("HP", format!("{} / {}", game.player_hp, game.player_max_hp), "#4c4"),
             ("Attack", format!("{}", game.effective_attack()), "#8cf"),
             ("Defense", format!("{}", game.effective_defense()), "#fc8"),
-            ("Location", game.location_name(), "#ccc"),
+            ("Dexterity", format!("{}", game.player_dexterity), "#adf"),
         ];
+        if game.has_ranged_weapon() {
+            stats.push(("Range", format!("{}", game.ranged_max_range()), "#fa8"));
+        }
+        stats.push(("Location", game.location_name(), "#ccc"));
 
         for (label, value, color) in &stats {
             ctx.set_font(&self.font(12.0, ""));

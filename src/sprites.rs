@@ -116,6 +116,12 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Wooden Club"     => ItemSprite::Club.sprite_ref(),
         "Crystal Staff"   => ItemSprite::CrystalStaff.sprite_ref(),
         "Flame Sword"     => ItemSprite::FlameSword.sprite_ref(),
+        // Ranged weapons
+        "Short Bow"       => ItemSprite::ShortBow.sprite_ref(),
+        "Crossbow"        => ItemSprite::Crossbow.sprite_ref(),
+        "Long Bow"        => ItemSprite::LongBow.sprite_ref(),
+        "Heavy Crossbow"  => ItemSprite::LargeCrossbow.sprite_ref(),
+        "Elven Bow"       => ItemSprite::LongBow2.sprite_ref(),
         // Body armor
         "Leather Armor"  => ItemSprite::LeatherArmor.sprite_ref(),
         "Chain Mail"     => ItemSprite::ChainMail.sprite_ref(),
@@ -557,5 +563,34 @@ mod tests {
         assert_ne!(item_sprite("Health Potion"), item_sprite("Greater Health Potion"));
         assert_ne!(item_sprite("Rusty Sword"), item_sprite("Iron Sword"));
         assert_ne!(item_sprite("Leather Armor"), item_sprite("Chain Mail"));
+    }
+
+    // --- Ranged weapon sprites ---
+
+    #[test]
+    fn item_sprite_ranged_weapons() {
+        assert_eq!(item_sprite("Short Bow"), ItemSprite::ShortBow.sprite_ref());
+        assert_eq!(item_sprite("Crossbow"), ItemSprite::Crossbow.sprite_ref());
+        assert_eq!(item_sprite("Long Bow"), ItemSprite::LongBow.sprite_ref());
+        assert_eq!(item_sprite("Heavy Crossbow"), ItemSprite::LargeCrossbow.sprite_ref());
+        assert_eq!(item_sprite("Elven Bow"), ItemSprite::LongBow2.sprite_ref());
+    }
+
+    #[test]
+    fn item_sprite_ranged_weapons_within_bounds() {
+        let names = ["Short Bow", "Crossbow", "Long Bow", "Heavy Crossbow", "Elven Bow"];
+        for name in names {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
+            assert!(s.row < 26, "{name} row {} >= 26", s.row);
+            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+        }
+    }
+
+    #[test]
+    fn item_sprite_ranged_tiers_differ() {
+        assert_ne!(item_sprite("Short Bow"), item_sprite("Long Bow"));
+        assert_ne!(item_sprite("Long Bow"), item_sprite("Elven Bow"));
+        assert_ne!(item_sprite("Crossbow"), item_sprite("Heavy Crossbow"));
     }
 }

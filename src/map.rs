@@ -712,6 +712,56 @@ impl Map {
         }
         (cx, cy)
     }
+
+    /// Check whether there is a clear line of sight from (x0,y0) to (x1,y1).
+    /// Uses Bresenham's line to walk intermediate tiles. Opaque tiles block LOS,
+    /// but the endpoint itself does not block (you can "see" a wall).
+    pub fn has_line_of_sight(&self, x0: i32, y0: i32, x1: i32, y1: i32) -> bool {
+        let line = bresenham_line(x0, y0, x1, y1);
+        // Skip the start and end — only intermediate tiles block
+        for &(x, y) in line.iter().skip(1) {
+            if x == x1 && y == y1 {
+                break; // endpoint reached, don't check it
+            }
+            if x < 0 || y < 0 || x >= self.width || y >= self.height {
+                return false;
+            }
+            if self.tiles[(y * self.width + x) as usize].is_opaque() {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+/// Compute a Bresenham line from (x0,y0) to (x1,y1).
+/// Returns all tiles along the line, including start and end.
+pub fn bresenham_line(x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<(i32, i32)> {
+    let mut points = Vec::new();
+    let dx = (x1 - x0).abs();
+    let dy = -(y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+    let mut x = x0;
+    let mut y = y0;
+
+    loop {
+        points.push((x, y));
+        if x == x1 && y == y1 {
+            break;
+        }
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y += sy;
+        }
+    }
+    points
 }
 
 fn xorshift64(mut state: u64) -> u64 {
@@ -1639,5 +1689,92 @@ mod tests {
         // Tile behind the tree line should be hidden
         assert_eq!(map.get_visibility(14, 10), Visibility::Hidden,
             "tile behind tree line should be hidden");
+    }
+
+    // --- Bresenham line ---
+
+    #[test]
+    fn bresenham_horizontal() {
+        let line = bresenham_line(0, 0, 5, 0);
+        assert_eq!(line, vec![(0,0), (1,0), (2,0), (3,0), (4,0), (5,0)]);
+    }
+
+    #[test]
+    fn bresenham_vertical() {
+        let line = bresenham_line(3, 1, 3, 5);
+        assert_eq!(line, vec![(3,1), (3,2), (3,3), (3,4), (3,5)]);
+    }
+
+    #[test]
+    fn bresenham_diagonal() {
+        let line = bresenham_line(0, 0, 3, 3);
+        assert_eq!(line.len(), 4);
+        assert_eq!(line[0], (0, 0));
+        assert_eq!(line[3], (3, 3));
+    }
+
+    #[test]
+    fn bresenham_single_point() {
+        let line = bresenham_line(5, 5, 5, 5);
+        assert_eq!(line, vec![(5, 5)]);
+    }
+
+    #[test]
+    fn bresenham_negative_direction() {
+        let line = bresenham_line(5, 0, 0, 0);
+        assert_eq!(line.len(), 6);
+        assert_eq!(line[0], (5, 0));
+        assert_eq!(line[5], (0, 0));
+    }
+
+    #[test]
+    fn bresenham_includes_start_and_end() {
+        let line = bresenham_line(2, 3, 8, 6);
+        assert_eq!(line[0], (2, 3));
+        assert_eq!(*line.last().unwrap(), (8, 6));
+    }
+
+    // --- Line of sight ---
+
+    #[test]
+    fn los_open_room() {
+        let map = Map::new_filled(20, 20, Tile::Floor);
+        assert!(map.has_line_of_sight(5, 5, 15, 15));
+    }
+
+    #[test]
+    fn los_blocked_by_wall() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        map.set(10, 5, Tile::Wall);
+        // LOS from (5,5) to (15,5) should be blocked by wall at (10,5)
+        assert!(!map.has_line_of_sight(5, 5, 15, 5));
+    }
+
+    #[test]
+    fn los_blocked_by_tree() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        map.set(8, 5, Tile::Tree);
+        assert!(!map.has_line_of_sight(5, 5, 12, 5));
+    }
+
+    #[test]
+    fn los_can_see_adjacent() {
+        let map = Map::new_filled(10, 10, Tile::Floor);
+        assert!(map.has_line_of_sight(5, 5, 6, 5));
+        assert!(map.has_line_of_sight(5, 5, 5, 6));
+    }
+
+    #[test]
+    fn los_endpoint_wall_not_blocking() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        map.set(10, 5, Tile::Wall);
+        // Can "see" the wall itself
+        assert!(map.has_line_of_sight(5, 5, 10, 5));
+    }
+
+    #[test]
+    fn los_same_tile() {
+        let map = Map::new_filled(10, 10, Tile::Floor);
+        assert!(map.has_line_of_sight(5, 5, 5, 5));
     }
 }

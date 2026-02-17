@@ -15,7 +15,7 @@ use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 use game::{Drawer, Game, ItemKind, TurnResult};
 use input::{Input, InputAction};
-use map::Map;
+use map::{bresenham_line, Map};
 use renderer::{Renderer, SpriteSheets};
 use world::World;
 
@@ -402,9 +402,22 @@ pub fn start() -> Result<(), JsValue> {
                             if gm.drawer != Drawer::None {
                                 continue;
                             }
-                            let pp = preview_path.borrow();
-                            if pp.len() > 1 {
-                                *auto_path.borrow_mut() = pp[1..].to_vec();
+                            if gm.has_ranged_weapon() {
+                                // Ranged mode: fire at the aim target
+                                let pp = preview_path.borrow();
+                                if pp.len() > 1 {
+                                    let target = pp[pp.len() - 1];
+                                    drop(pp);
+                                    let result = gm.ranged_attack(target.0, target.1);
+                                    if matches!(result, TurnResult::MapChanged) {
+                                        map_changed = true;
+                                    }
+                                }
+                            } else {
+                                let pp = preview_path.borrow();
+                                if pp.len() > 1 {
+                                    *auto_path.borrow_mut() = pp[1..].to_vec();
+                                }
                             }
                         }
                         InputAction::Tap(css_x, css_y) => {
@@ -445,7 +458,8 @@ pub fn start() -> Result<(), JsValue> {
                                                 ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
                                                     gm.use_item(idx);
                                                 }
-                                                ItemKind::Weapon | ItemKind::Armor | ItemKind::Helmet
+                                                ItemKind::Weapon | ItemKind::RangedWeapon
+                                                | ItemKind::Armor | ItemKind::Helmet
                                                 | ItemKind::Shield | ItemKind::Boots | ItemKind::Ring => {
                                                     gm.equip_item(idx);
                                                 }
@@ -506,7 +520,11 @@ pub fn start() -> Result<(), JsValue> {
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
                     let dest = (gm.player_x + gdx, gm.player_y + gdy);
                     let map = gm.current_map();
-                    if map.is_walkable(dest.0, dest.1) {
+                    if gm.has_ranged_weapon() {
+                        // Aim mode: show Bresenham line to target
+                        let line = bresenham_line(gm.player_x, gm.player_y, dest.0, dest.1);
+                        *pp = line;
+                    } else if map.is_walkable(dest.0, dest.1) {
                         let path = map.find_path((gm.player_x, gm.player_y), dest);
                         *pp = path;
                     }

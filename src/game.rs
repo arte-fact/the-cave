@@ -14,6 +14,8 @@ pub enum ItemKind {
     Potion,
     Scroll,
     Weapon,
+    /// Bows and crossbows — equips in weapon slot but uses ranged attack via swipe aiming.
+    RangedWeapon,
     Armor,
     Helmet,
     Shield,
@@ -216,6 +218,8 @@ pub struct Game {
     pub player_hp: i32,
     pub player_max_hp: i32,
     pub player_attack: i32,
+    /// Dexterity: affects ranged weapon max range and hit chance.
+    pub player_dexterity: i32,
     /// true when player sprite should face left (mirrored).
     pub player_facing_left: bool,
     pub world: World,
@@ -265,6 +269,7 @@ impl Game {
             player_hp: 20,
             player_max_hp: 20,
             player_attack: 5,
+            player_dexterity: 3,
             player_facing_left: false,
             world: World::from_single_map(map),
             enemies: Vec::new(),
@@ -304,6 +309,7 @@ impl Game {
             player_hp: 20,
             player_max_hp: 20,
             player_attack: 5,
+            player_dexterity: 3,
             player_facing_left: false,
             world,
             enemies: Vec::new(),
@@ -489,7 +495,7 @@ impl Game {
                 false
             }
             ItemKind::Food => self.eat_food(index),
-            _ => false, // Weapons/Armor should be equipped, not used
+            _ => false, // Weapons/Armor/RangedWeapons should be equipped, not used
         }
     }
 
@@ -500,7 +506,7 @@ impl Game {
             return false;
         }
         let slot = match self.inventory[index].kind {
-            ItemKind::Weapon  => &mut self.equipped_weapon,
+            ItemKind::Weapon | ItemKind::RangedWeapon => &mut self.equipped_weapon,
             ItemKind::Armor   => &mut self.equipped_armor,
             ItemKind::Helmet  => &mut self.equipped_helmet,
             ItemKind::Shield  => &mut self.equipped_shield,
@@ -763,10 +769,18 @@ impl Game {
             self.player_max_hp += 3;
             self.player_hp = self.player_max_hp;
             self.player_attack += 1;
-            self.messages.push(format!(
-                "Level up! You are now level {}. HP+3, ATK+1.",
-                self.player_level
-            ));
+            if self.player_level % 2 == 0 {
+                self.player_dexterity += 1;
+                self.messages.push(format!(
+                    "Level up! You are now level {}. HP+3, ATK+1, DEX+1.",
+                    self.player_level
+                ));
+            } else {
+                self.messages.push(format!(
+                    "Level up! You are now level {}. HP+3, ATK+1.",
+                    self.player_level
+                ));
+            }
         }
     }
 
@@ -1160,6 +1174,134 @@ impl Game {
             }
         }
     }
+
+    // === Ranged weapon system ===
+
+    /// Returns true if the player has a ranged weapon (bow/crossbow) equipped.
+    pub fn has_ranged_weapon(&self) -> bool {
+        matches!(
+            self.equipped_weapon,
+            Some(Item { kind: ItemKind::RangedWeapon, .. })
+        )
+    }
+
+    /// Base range for the equipped ranged weapon (before dexterity bonus).
+    fn ranged_weapon_base_range(&self) -> i32 {
+        match self.equipped_weapon.as_ref().map(|w| w.name) {
+            Some("Short Bow") => 4,
+            Some("Crossbow") => 3,
+            Some("Long Bow") => 6,
+            Some("Heavy Crossbow") => 4,
+            Some("Elven Bow") => 8,
+            _ => 4,
+        }
+    }
+
+    /// Max range for the equipped ranged weapon, factoring in dexterity.
+    pub fn ranged_max_range(&self) -> i32 {
+        self.ranged_weapon_base_range() + self.player_dexterity / 3
+    }
+
+    /// Hit chance (0–95) for a ranged attack at the given distance.
+    /// Higher dexterity = better accuracy. Chance drops with distance.
+    pub fn ranged_hit_chance(&self, distance: i32) -> i32 {
+        let max_range = self.ranged_max_range();
+        if distance <= 0 || distance > max_range {
+            return 0;
+        }
+        let base = (90 - distance * 70 / max_range).max(20);
+        (base + self.player_dexterity * 2).min(95)
+    }
+
+    /// Fire the equipped ranged weapon at target tile (tx, ty).
+    /// Consumes a turn: enemies move, survival ticks, FOV updates.
+    /// Returns a TurnResult describing what happened.
+    pub fn ranged_attack(&mut self, tx: i32, ty: i32) -> TurnResult {
+        if !self.alive || self.won {
+            return TurnResult::Blocked;
+        }
+        if !self.has_ranged_weapon() {
+            return TurnResult::Blocked;
+        }
+
+        // Update facing direction toward target
+        if tx < self.player_x { self.player_facing_left = true; }
+        if tx > self.player_x { self.player_facing_left = false; }
+
+        let map = self.world.current_map();
+        let distance = ((tx - self.player_x).abs()).max((ty - self.player_y).abs());
+        let max_range = self.ranged_max_range();
+        let weapon_name = self.equipped_weapon.as_ref().map(|w| w.name).unwrap_or("bow");
+
+        // Range check
+        if distance > max_range || distance <= 0 {
+            self.messages.push(format!("Out of range! Max range: {max_range}."));
+            return TurnResult::Blocked;
+        }
+
+        // Line of sight check
+        if !map.has_line_of_sight(self.player_x, self.player_y, tx, ty) {
+            self.messages.push("No line of sight!".into());
+            return TurnResult::Blocked;
+        }
+
+        // Find enemy at target
+        let enemy_idx = self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0);
+        if enemy_idx.is_none() {
+            self.messages.push("Nothing to shoot at.".into());
+            return TurnResult::Blocked;
+        }
+        let idx = enemy_idx.unwrap();
+
+        // Roll hit chance
+        let hit_chance = self.ranged_hit_chance(distance);
+        let seed = self.turn as u64 * 7 + self.player_x as u64 * 31 + self.player_y as u64 * 17;
+        let roll = (xorshift64(seed) % 100) as i32;
+        let name = self.enemies[idx].name;
+
+        if roll >= hit_chance {
+            // Miss
+            self.messages.push(format!(
+                "Your {} misses the {name}! ({hit_chance}% chance)",
+                weapon_name,
+            ));
+        } else {
+            // Hit
+            let dmg = self.effective_attack();
+            self.enemies[idx].hp -= dmg;
+            self.messages.push(format!(
+                "Your {} hits {name} for {dmg} damage!",
+                weapon_name,
+            ));
+
+            if self.enemies[idx].hp <= 0 {
+                let xp = xp_for_enemy(name);
+                let ex = self.enemies[idx].x;
+                let ey = self.enemies[idx].y;
+                self.player_xp += xp;
+                self.check_level_up();
+                self.messages.push(format!("You slay the {name}! (+{xp} XP)"));
+                if let Some(meat) = meat_drop(name) {
+                    self.ground_items.push(GroundItem { x: ex, y: ey, item: meat });
+                    self.messages.push("It dropped some meat.".into());
+                }
+                if self.enemies[idx].glyph == 'D' {
+                    self.won = true;
+                    self.messages.push("You conquered the cave!".into());
+                    return TurnResult::Won;
+                }
+            }
+        }
+
+        // Ranged attack costs a turn: enemies move, survival ticks
+        if !self.sprinting {
+            self.enemy_turn();
+        }
+        self.tick_survival();
+        self.update_fov();
+
+        TurnResult::Moved
+    }
 }
 
 /// Generate a random item appropriate for the given dungeon tier.
@@ -1176,21 +1318,26 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                 Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
             } else if roll < 40 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
-            } else if roll < 52 {
+            } else if roll < 50 {
                 match sub {
                     0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) },
                     1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(1) },
                     _ => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(2) },
                 }
-            } else if roll < 58 {
+            } else if roll < 56 {
+                match sub {
+                    0 => Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(2) },
+                    _ => Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(3) },
+                }
+            } else if roll < 62 {
                 Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
-            } else if roll < 63 {
+            } else if roll < 67 {
                 Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1) }
-            } else if roll < 68 {
+            } else if roll < 72 {
                 Item { kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1) }
-            } else if roll < 73 {
+            } else if roll < 77 {
                 Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1) }
-            } else if roll < 82 {
+            } else if roll < 84 {
                 Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1) }
             } else {
                 match sub {
@@ -1205,21 +1352,26 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                 Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10) }
             } else if roll < 36 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12) }
-            } else if roll < 48 {
+            } else if roll < 46 {
                 match sub {
                     0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) },
                     1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(5) },
                     _ => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(4) },
                 }
-            } else if roll < 54 {
+            } else if roll < 52 {
+                match sub {
+                    0 => Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(4) },
+                    _ => Item { kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(5) },
+                }
+            } else if roll < 58 {
                 Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
-            } else if roll < 59 {
+            } else if roll < 63 {
                 Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3) }
-            } else if roll < 64 {
+            } else if roll < 68 {
                 Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3) }
-            } else if roll < 69 {
+            } else if roll < 73 {
                 Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2) }
-            } else if roll < 78 {
+            } else if roll < 80 {
                 match sub {
                     0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2) },
                     _ => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3) },
@@ -1236,19 +1388,21 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                 Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15) }
             } else if roll < 32 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16) }
-            } else if roll < 46 {
+            } else if roll < 42 {
                 match sub {
                     0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(6) },
                     1 => Item { kind: ItemKind::Weapon, name: "Crystal Staff", glyph: '/', effect: ItemEffect::BuffAttack(7) },
                     _ => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(6) },
                 }
-            } else if roll < 52 {
+            } else if roll < 48 {
+                Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6) }
+            } else if roll < 54 {
                 Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6) }
-            } else if roll < 57 {
+            } else if roll < 59 {
                 Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5) }
-            } else if roll < 62 {
+            } else if roll < 64 {
                 Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5) }
-            } else if roll < 67 {
+            } else if roll < 69 {
                 Item { kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4) }
             } else if roll < 80 {
                 match sub {
@@ -3232,5 +3386,346 @@ mod tests {
         let mut g = Game::new(map);
         g.set_inventory_scroll(5);
         assert_eq!(g.inventory_scroll, 0);
+    }
+
+    // === Ranged weapon system ===
+
+    fn short_bow() -> Item {
+        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(2) }
+    }
+    fn crossbow() -> Item {
+        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(3) }
+    }
+    fn long_bow() -> Item {
+        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(4) }
+    }
+    fn elven_bow() -> Item {
+        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6) }
+    }
+
+    #[test]
+    fn player_starts_with_dexterity() {
+        let g = test_game();
+        assert_eq!(g.player_dexterity, 3);
+    }
+
+    #[test]
+    fn equip_ranged_weapon() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(short_bow());
+        assert!(g.equip_item(0));
+        assert!(g.inventory.is_empty());
+        assert_eq!(g.equipped_weapon.as_ref().unwrap().name, "Short Bow");
+        assert!(g.has_ranged_weapon());
+    }
+
+    #[test]
+    fn ranged_weapon_goes_in_weapon_slot() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Equip melee weapon first
+        g.inventory.push(rusty_sword());
+        g.equip_item(0);
+        assert!(!g.has_ranged_weapon());
+        // Equip ranged weapon — swaps melee to inventory
+        g.inventory.push(short_bow());
+        g.equip_item(0);
+        assert!(g.has_ranged_weapon());
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.inventory[0].name, "Rusty Sword");
+    }
+
+    #[test]
+    fn ranged_weapon_attack_bonus() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(short_bow());
+        // Base attack 5 + bow 2 = 7
+        assert_eq!(g.effective_attack(), 7);
+    }
+
+    #[test]
+    fn ranged_max_range_with_dexterity() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(short_bow());
+        // Short Bow base range 4, dex 3 → 4 + 3/3 = 5
+        assert_eq!(g.ranged_max_range(), 5);
+        g.player_dexterity = 9;
+        // dex 9 → 4 + 9/3 = 7
+        assert_eq!(g.ranged_max_range(), 7);
+    }
+
+    #[test]
+    fn ranged_max_range_crossbow() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(crossbow());
+        // Crossbow base range 3, dex 3 → 3 + 1 = 4
+        assert_eq!(g.ranged_max_range(), 4);
+    }
+
+    #[test]
+    fn ranged_max_range_elven_bow() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(elven_bow());
+        // Elven Bow base range 8, dex 3 → 8 + 1 = 9
+        assert_eq!(g.ranged_max_range(), 9);
+    }
+
+    #[test]
+    fn ranged_hit_chance_decreases_with_distance() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(short_bow());
+        let chance_1 = g.ranged_hit_chance(1);
+        let chance_3 = g.ranged_hit_chance(3);
+        let chance_5 = g.ranged_hit_chance(5);
+        assert!(chance_1 > chance_3, "closer should be more accurate");
+        assert!(chance_3 > chance_5, "closer should be more accurate");
+    }
+
+    #[test]
+    fn ranged_hit_chance_zero_beyond_range() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(short_bow());
+        let max_range = g.ranged_max_range();
+        assert_eq!(g.ranged_hit_chance(max_range + 1), 0);
+    }
+
+    #[test]
+    fn ranged_hit_chance_zero_at_zero_distance() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(short_bow());
+        assert_eq!(g.ranged_hit_chance(0), 0);
+    }
+
+    #[test]
+    fn ranged_hit_chance_capped_at_95() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(short_bow());
+        g.player_dexterity = 100; // absurdly high
+        assert!(g.ranged_hit_chance(1) <= 95);
+    }
+
+    #[test]
+    fn ranged_hit_chance_improves_with_dexterity() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(long_bow());
+        g.player_dexterity = 3;
+        let low_dex = g.ranged_hit_chance(4);
+        g.player_dexterity = 9;
+        let high_dex = g.ranged_hit_chance(4);
+        assert!(high_dex > low_dex, "higher dex should improve hit chance");
+    }
+
+    #[test]
+    fn ranged_attack_hits_enemy() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        // Ensure edges are walls for valid map
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100; // guarantee hit
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 20, attack: 2, glyph: 'g', name: "Goblin", facing_left: false });
+        let result = g.ranged_attack(8, 5);
+        assert!(matches!(result, TurnResult::Moved));
+        // With dex 100, should definitely hit. Damage = 5 + 2 = 7
+        assert_eq!(g.enemies[0].hp, 20 - 7);
+    }
+
+    #[test]
+    fn ranged_attack_kills_enemy() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 3, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        g.ranged_attack(8, 5);
+        assert!(g.enemies[0].hp <= 0);
+        assert!(g.messages.iter().any(|m| m.contains("slay")));
+    }
+
+    #[test]
+    fn ranged_attack_no_retaliation() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 10, glyph: 'g', name: "Goblin", facing_left: false });
+        let hp_before = g.player_hp;
+        g.ranged_attack(8, 5);
+        // Enemy is 3 tiles away — no retaliation from the ranged shot itself
+        // (enemy_turn may still attack if it chases into melee)
+        // At distance 3, the enemy won't reach the player in one turn
+        assert_eq!(g.player_hp, hp_before, "ranged attack should not cause retaliation from distant enemy");
+    }
+
+    #[test]
+    fn ranged_attack_out_of_range() {
+        let mut map = Map::new_filled(30, 30, Tile::Floor);
+        for x in 0..30 { map.set(x, 0, Tile::Wall); map.set(x, 29, Tile::Wall); }
+        for y in 0..30 { map.set(0, y, Tile::Wall); map.set(29, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.equipped_weapon = Some(short_bow());
+        // Place enemy far beyond range
+        g.enemies.push(Enemy { x: 25, y: 5, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        let result = g.ranged_attack(25, 5);
+        assert!(matches!(result, TurnResult::Blocked));
+        assert_eq!(g.enemies[0].hp, 10, "out-of-range shot should not damage");
+    }
+
+    #[test]
+    fn ranged_attack_blocked_by_wall() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        // Place a wall between player and enemy
+        map.set(7, 5, Tile::Wall);
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 9, y: 5, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        let result = g.ranged_attack(9, 5);
+        assert!(matches!(result, TurnResult::Blocked));
+        assert!(g.messages.iter().any(|m| m.contains("line of sight")));
+    }
+
+    #[test]
+    fn ranged_attack_no_enemy() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.equipped_weapon = Some(short_bow());
+        let result = g.ranged_attack(8, 5);
+        assert!(matches!(result, TurnResult::Blocked));
+        assert!(g.messages.iter().any(|m| m.contains("Nothing to shoot")));
+    }
+
+    #[test]
+    fn ranged_attack_needs_ranged_weapon() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword()); // melee weapon
+        let result = g.ranged_attack(g.player_x + 3, g.player_y);
+        assert!(matches!(result, TurnResult::Blocked));
+    }
+
+    #[test]
+    fn ranged_attack_updates_facing() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 10;
+        g.player_y = 10;
+        g.player_dexterity = 100;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 7, y: 10, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        g.ranged_attack(7, 10); // shooting left
+        assert!(g.player_facing_left);
+    }
+
+    #[test]
+    fn use_ranged_weapon_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(short_bow());
+        assert!(!g.use_item(0), "ranged weapon should not be usable as consumable");
+        assert_eq!(g.inventory.len(), 1);
+    }
+
+    #[test]
+    fn has_ranged_weapon_false_without_weapon() {
+        let g = test_game();
+        assert!(!g.has_ranged_weapon());
+    }
+
+    #[test]
+    fn has_ranged_weapon_false_with_melee() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        assert!(!g.has_ranged_weapon());
+    }
+
+    #[test]
+    fn level_up_grants_dexterity_every_two_levels() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let initial_dex = g.player_dexterity;
+        // Level up to 2 (even level = +1 dex)
+        g.player_xp = g.xp_to_next_level();
+        g.check_level_up();
+        assert_eq!(g.player_level, 2);
+        assert_eq!(g.player_dexterity, initial_dex + 1);
+        // Level up to 3 (odd level = no dex)
+        g.player_xp = g.xp_to_next_level();
+        g.check_level_up();
+        assert_eq!(g.player_level, 3);
+        assert_eq!(g.player_dexterity, initial_dex + 1);
+        // Level up to 4 (even level = +1 dex)
+        g.player_xp = g.xp_to_next_level();
+        g.check_level_up();
+        assert_eq!(g.player_level, 4);
+        assert_eq!(g.player_dexterity, initial_dex + 2);
+    }
+
+    #[test]
+    fn ranged_weapons_in_loot_tables() {
+        // Tier 0 should produce bows/crossbows
+        let mut rng = 42u64;
+        let items: Vec<_> = (0..200).map(|_| random_item(0, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.kind == ItemKind::RangedWeapon),
+            "tier 0 should generate ranged weapons");
+        // Tier 1 should produce long bows/heavy crossbows
+        rng = 42;
+        let items: Vec<_> = (0..200).map(|_| random_item(1, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.kind == ItemKind::RangedWeapon),
+            "tier 1 should generate ranged weapons");
+        // Tier 2 should produce elven bow
+        rng = 42;
+        let items: Vec<_> = (0..200).map(|_| random_item(2, &mut rng)).collect();
+        assert!(items.iter().any(|i| i.name == "Elven Bow"),
+            "tier 2 should generate Elven Bow");
+    }
+
+    #[test]
+    fn ranged_attack_costs_a_turn() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        let turn_before = g.turn;
+        g.ranged_attack(8, 5);
+        assert_eq!(g.turn, turn_before + 1, "ranged attack should advance turn counter");
     }
 }
