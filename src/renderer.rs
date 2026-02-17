@@ -747,7 +747,7 @@ impl Renderer {
                     crate::game::ItemEffect::DamageAoe(n) => format!("{} DMG", n),
                     crate::game::ItemEffect::BuffAttack(n) => format!("+{} ATK", n),
                     crate::game::ItemEffect::BuffDefense(n) => format!("+{} DEF", n),
-                    crate::game::ItemEffect::Feed(n) => format!("+{} FOOD", n),
+                    crate::game::ItemEffect::Feed(n, _) => format!("+{} FOOD", n),
                 };
                 ctx.set_text_align("right");
                 ctx.set_fill_style_str("#999");

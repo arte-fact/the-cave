@@ -7,7 +7,13 @@ pub const MAX_INVENTORY: usize = 10;
 const SPRINT_COST: i32 = 15;
 const STAMINA_REGEN: i32 = 5;
 const HUNGER_DRAIN: i32 = 1;
+/// Hunger drains once every this many turns (5x slower than 1/turn).
+const HUNGER_INTERVAL: u32 = 5;
 const STARVATION_DAMAGE: i32 = 1;
+/// Hunger must be above this to trigger passive HP regen.
+const REGEN_HUNGER_THRESHOLD: i32 = 50;
+/// Hunger cost per HP regenerated.
+const REGEN_HUNGER_COST: i32 = 2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ItemKind {
@@ -24,14 +30,27 @@ pub enum ItemKind {
     Ring,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FoodSideEffect {
+    None,
+    /// Restores HP.
+    Heal(i32),
+    /// Deals damage (toxic food).
+    Poison(i32),
+    /// Restores stamina.
+    Energize(i32),
+    /// Drains stamina (nausea).
+    Sicken(i32),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ItemEffect {
     Heal(i32),
     DamageAoe(i32),
     BuffAttack(i32),
     BuffDefense(i32),
-    /// Restores hunger points.
-    Feed(i32),
+    /// Restores hunger points with an optional side effect.
+    Feed(i32, FoodSideEffect),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -199,7 +218,17 @@ fn item_info_desc(item: &Item) -> String {
         ItemEffect::DamageAoe(n) => format!("Deals {} damage in area", n),
         ItemEffect::BuffAttack(n) => format!("+{} Attack", n),
         ItemEffect::BuffDefense(n) => format!("+{} Defense", n),
-        ItemEffect::Feed(n) => format!("Restores {} hunger", n),
+        ItemEffect::Feed(n, side) => {
+            let base = format!("Restores {} hunger", n);
+            let suffix = match side {
+                FoodSideEffect::None => String::new(),
+                FoodSideEffect::Heal(h) => format!(", +{} HP", h),
+                FoodSideEffect::Poison(d) => format!(", toxic (-{} HP)", d),
+                FoodSideEffect::Energize(s) => format!(", +{} stamina", s),
+                FoodSideEffect::Sicken(s) => format!(", nauseating (-{} stamina)", s),
+            };
+            format!("{}{}", base, suffix)
+        }
     };
     format!("{} — {}", item.name, effect)
 }
@@ -611,7 +640,7 @@ impl Game {
         }
     }
 
-    /// Spawn food on the overworld: berries, mushrooms, herbs, water on grass tiles.
+    /// Spawn food on the overworld: berries, mushrooms, plants, water on grass tiles.
     pub fn spawn_overworld_food(&mut self, seed: u64) {
         let map = self.world.current_map();
         let mut rng = seed;
@@ -628,14 +657,42 @@ impl Game {
                 }
                 rng = xorshift64(rng);
                 let roll = rng % 100;
-                let food = if roll < 35 {
-                    Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(8) }
-                } else if roll < 60 {
-                    Item { kind: ItemKind::Food, name: "Mushrooms", glyph: '%', effect: ItemEffect::Feed(10) }
+                let food = if roll < 12 {
+                    Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%',
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Heal(2)) }
+                } else if roll < 22 {
+                    Item { kind: ItemKind::Food, name: "Wild Mushrooms", glyph: '%',
+                        effect: ItemEffect::Feed(10, FoodSideEffect::Poison(2)) }
+                } else if roll < 30 {
+                    Item { kind: ItemKind::Food, name: "Clean Water", glyph: '~',
+                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
+                } else if roll < 40 {
+                    Item { kind: ItemKind::Food, name: "Wild Wheat", glyph: '%',
+                        effect: ItemEffect::Feed(6, FoodSideEffect::None) }
+                } else if roll < 48 {
+                    Item { kind: ItemKind::Food, name: "Wild Rice", glyph: '%',
+                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
+                } else if roll < 56 {
+                    Item { kind: ItemKind::Food, name: "Wild Corn", glyph: '%',
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(5)) }
+                } else if roll < 64 {
+                    Item { kind: ItemKind::Food, name: "Quinoa Seeds", glyph: '%',
+                        effect: ItemEffect::Feed(7, FoodSideEffect::Heal(2)) }
+                } else if roll < 72 {
+                    Item { kind: ItemKind::Food, name: "Amaranth", glyph: '%',
+                        effect: ItemEffect::Feed(6, FoodSideEffect::Heal(1)) }
                 } else if roll < 80 {
-                    Item { kind: ItemKind::Food, name: "Fresh Herbs", glyph: '%', effect: ItemEffect::Feed(6) }
+                    Item { kind: ItemKind::Food, name: "Red Spinach", glyph: '%',
+                        effect: ItemEffect::Feed(4, FoodSideEffect::Energize(3)) }
+                } else if roll < 87 {
+                    Item { kind: ItemKind::Food, name: "Bitter Vetch", glyph: '%',
+                        effect: ItemEffect::Feed(4, FoodSideEffect::Poison(3)) }
+                } else if roll < 93 {
+                    Item { kind: ItemKind::Food, name: "Sorghum", glyph: '%',
+                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
                 } else {
-                    Item { kind: ItemKind::Food, name: "Clean Water", glyph: '~', effect: ItemEffect::Feed(5) }
+                    Item { kind: ItemKind::Food, name: "Buckwheat", glyph: '%',
+                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
                 };
                 self.ground_items.push(GroundItem { x, y, item: food });
             }
@@ -700,9 +757,21 @@ impl Game {
             self.stamina = (self.stamina + STAMINA_REGEN).min(self.max_stamina);
         }
 
-        // Hunger: decrease every turn
-        self.hunger -= HUNGER_DRAIN;
-        if self.hunger < 0 { self.hunger = 0; }
+        // Hunger: decrease every 5 turns (5x slower than before)
+        if self.turn % HUNGER_INTERVAL == 0 {
+            self.hunger -= HUNGER_DRAIN;
+            if self.hunger < 0 { self.hunger = 0; }
+        }
+
+        // Health regen: when well-fed and injured, heal 1 HP every 5 turns, costs food
+        if self.turn % HUNGER_INTERVAL == 0
+            && self.hunger > REGEN_HUNGER_THRESHOLD
+            && self.player_hp < self.player_max_hp
+        {
+            self.player_hp += 1;
+            self.hunger -= REGEN_HUNGER_COST;
+            if self.hunger < 0 { self.hunger = 0; }
+        }
 
         // Starvation damage
         if self.hunger == 0 {
@@ -725,12 +794,38 @@ impl Game {
         if self.inventory[index].kind != ItemKind::Food {
             return false;
         }
-        if let ItemEffect::Feed(amount) = self.inventory[index].effect {
+        if let ItemEffect::Feed(amount, side_effect) = self.inventory[index].effect {
             let old = self.hunger;
             self.hunger = (self.hunger + amount).min(self.max_hunger);
             let gained = self.hunger - old;
             let name = self.inventory[index].name;
             self.messages.push(format!("You eat {name}. Hunger +{gained}."));
+
+            // Apply side effect
+            match side_effect {
+                FoodSideEffect::None => {}
+                FoodSideEffect::Heal(hp) => {
+                    self.player_hp = (self.player_hp + hp).min(self.player_max_hp);
+                    self.messages.push(format!("You feel revitalized. +{hp} HP."));
+                }
+                FoodSideEffect::Poison(dmg) => {
+                    self.player_hp -= dmg;
+                    self.messages.push(format!("Your stomach churns! -{dmg} HP."));
+                    if self.player_hp <= 0 {
+                        self.alive = false;
+                        self.messages.push("You died from food poisoning.".into());
+                    }
+                }
+                FoodSideEffect::Energize(stam) => {
+                    self.stamina = (self.stamina + stam).min(self.max_stamina);
+                    self.messages.push(format!("You feel energized. +{stam} stamina."));
+                }
+                FoodSideEffect::Sicken(stam) => {
+                    self.stamina = (self.stamina - stam).max(0);
+                    self.messages.push(format!("You feel nauseous. -{stam} stamina."));
+                }
+            }
+
             self.inventory.remove(index);
             self.clamp_inventory_scroll();
             true
@@ -1390,9 +1485,9 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                 Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1) }
             } else {
                 match sub {
-                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(8) },
-                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(6) },
-                    _ => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(8) },
+                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(8, FoodSideEffect::None) },
+                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(6, FoodSideEffect::None) },
+                    _ => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(8, FoodSideEffect::Heal(2)) },
                 }
             }
         }
@@ -1427,8 +1522,8 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                 }
             } else {
                 match sub {
-                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(15) },
-                    _ => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(12) },
+                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None) },
+                    _ => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(12, FoodSideEffect::Sicken(10)) },
                 }
             }
         }
@@ -1460,8 +1555,8 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
                 }
             } else {
                 match sub {
-                    0 => Item { kind: ItemKind::Food, name: "Elven Waybread", glyph: '%', effect: ItemEffect::Feed(25) },
-                    _ => Item { kind: ItemKind::Food, name: "Honey Mead", glyph: '~', effect: ItemEffect::Feed(18) },
+                    0 => Item { kind: ItemKind::Food, name: "Elven Waybread", glyph: '%', effect: ItemEffect::Feed(25, FoodSideEffect::Heal(5)) },
+                    _ => Item { kind: ItemKind::Food, name: "Honey Mead", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Energize(15)) },
                 }
             }
         }
@@ -1471,29 +1566,17 @@ fn random_item(tier: usize, rng: &mut u64) -> Item {
 /// Returns a meat/food item if the killed enemy is a beast.
 fn meat_drop(enemy_name: &str) -> Option<Item> {
     match enemy_name {
-        "Giant Rat" => Some(Item {
-            kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
-            effect: ItemEffect::Feed(5),
-        }),
-        "Giant Bat" => Some(Item {
-            kind: ItemKind::Food, name: "Bat Wing", glyph: '%',
-            effect: ItemEffect::Feed(4),
-        }),
         "Wolf" => Some(Item {
             kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
-            effect: ItemEffect::Feed(15),
-        }),
-        "Giant Spider" => Some(Item {
-            kind: ItemKind::Food, name: "Spider Leg", glyph: '%',
-            effect: ItemEffect::Feed(8),
+            effect: ItemEffect::Feed(15, FoodSideEffect::Energize(10)),
         }),
         "Boar" => Some(Item {
             kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
-            effect: ItemEffect::Feed(25),
+            effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)),
         }),
         "Bear" => Some(Item {
             kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
-            effect: ItemEffect::Feed(35),
+            effect: ItemEffect::Feed(35, FoodSideEffect::Heal(5)),
         }),
         _ => None,
     }
@@ -2543,7 +2626,7 @@ mod tests {
     // === Stamina, Sprint, Hunger & Food ===
 
     fn raw_food(amount: i32) -> Item {
-        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount) }
+        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount, FoodSideEffect::None) }
     }
 
     // --- Stamina ---
@@ -2680,17 +2763,30 @@ mod tests {
     }
 
     #[test]
-    fn hunger_drains_on_move() {
+    fn hunger_drains_every_five_moves() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         let hunger_before = g.hunger;
-        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-        for (dx, dy) in dirs {
-            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
-            if g.current_map().is_walkable(nx, ny) {
-                g.move_player(dx, dy);
-                assert_eq!(g.hunger, hunger_before - 1, "hunger should drain 1 per move");
-                return;
+        // Move 5 times to trigger hunger drain (every HUNGER_INTERVAL turns)
+        let mut moves = 0;
+        for _ in 0..10 {
+            let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+            for (dx, dy) in dirs {
+                let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+                if g.current_map().is_walkable(nx, ny) {
+                    g.move_player(dx, dy);
+                    moves += 1;
+                    if moves < 5 {
+                        assert_eq!(g.hunger, hunger_before,
+                            "hunger should NOT drain before 5 moves (move {moves})");
+                    }
+                    if moves == 5 {
+                        assert_eq!(g.hunger, hunger_before - 1,
+                            "hunger should drain 1 after 5 moves");
+                        return;
+                    }
+                    break;
+                }
             }
         }
     }
@@ -2699,7 +2795,7 @@ mod tests {
     fn starvation_damages_player() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        g.hunger = 1; // Will reach 0 after one move
+        g.hunger = 0; // Already starving
         let hp_before = g.player_hp;
         let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         for (dx, dy) in dirs {
@@ -2717,7 +2813,7 @@ mod tests {
     fn starvation_can_kill_player() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        g.hunger = 1;
+        g.hunger = 0;
         g.player_hp = 1;
         let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         for (dx, dy) in dirs {
@@ -2838,39 +2934,15 @@ mod tests {
     }
 
     #[test]
-    fn killing_rat_drops_meat() {
+    fn killing_rat_drops_no_meat() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false });
         g.move_player(1, 0);
-        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Rat Meat"),
-            "giant rat should drop rat meat");
-    }
-
-    #[test]
-    fn killing_bat_drops_meat() {
-        let map = Map::generate(30, 20, 42);
-        let mut g = Game::new(map);
-        let gx = g.player_x + 1;
-        let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'a', name: "Giant Bat", facing_left: false });
-        g.move_player(1, 0);
-        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Bat Wing"),
-            "giant bat should drop bat wing");
-    }
-
-    #[test]
-    fn killing_spider_drops_meat() {
-        let map = Map::generate(30, 20, 42);
-        let mut g = Game::new(map);
-        let gx = g.player_x + 1;
-        let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'i', name: "Giant Spider", facing_left: false });
-        g.move_player(1, 0);
-        assert!(g.ground_items.iter().any(|gi| gi.item.name == "Spider Leg"),
-            "giant spider should drop spider leg");
+        assert!(!g.ground_items.iter().any(|gi| gi.item.kind == ItemKind::Food),
+            "giant rat should not drop food");
     }
 
     #[test]
@@ -2888,15 +2960,15 @@ mod tests {
     fn meat_has_feed_effect() {
         let meat = meat_drop("Wolf").unwrap();
         assert_eq!(meat.kind, ItemKind::Food);
-        assert!(matches!(meat.effect, ItemEffect::Feed(_)));
+        assert!(matches!(meat.effect, ItemEffect::Feed(_, _)));
     }
 
     #[test]
     fn bear_meat_restores_more_than_wolf() {
         let wolf = meat_drop("Wolf").unwrap();
         let bear = meat_drop("Bear").unwrap();
-        let wolf_feed = match wolf.effect { ItemEffect::Feed(n) => n, _ => 0 };
-        let bear_feed = match bear.effect { ItemEffect::Feed(n) => n, _ => 0 };
+        let wolf_feed = match wolf.effect { ItemEffect::Feed(n, _) => n, _ => 0 };
+        let bear_feed = match bear.effect { ItemEffect::Feed(n, _) => n, _ => 0 };
         assert!(bear_feed > wolf_feed, "bear meat should restore more hunger");
     }
 
@@ -2930,20 +3002,28 @@ mod tests {
     }
 
     #[test]
-    fn all_beasts_drop_food() {
-        let beasts = ["Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear"];
+    fn large_beasts_drop_food() {
+        let beasts = ["Wolf", "Boar", "Bear"];
         for name in beasts {
             assert!(meat_drop(name).is_some(), "{name} should drop food");
         }
     }
 
     #[test]
+    fn small_creatures_drop_no_food() {
+        let creatures = ["Giant Rat", "Giant Bat", "Giant Spider"];
+        for name in creatures {
+            assert!(meat_drop(name).is_none(), "{name} should not drop food");
+        }
+    }
+
+    #[test]
     fn meat_feed_values_scale_with_beast() {
-        let drops: Vec<_> = ["Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear"]
+        let drops: Vec<_> = ["Wolf", "Boar", "Bear"]
             .iter()
             .map(|n| {
                 let item = meat_drop(n).unwrap();
-                match item.effect { ItemEffect::Feed(v) => v, _ => 0 }
+                match item.effect { ItemEffect::Feed(v, _) => v, _ => 0 }
             })
             .collect();
         // Bear meat should be the most filling
@@ -2972,8 +3052,8 @@ mod tests {
             .map(|_| random_item(2, &mut rng))
             .filter(|i| i.kind == ItemKind::Food)
             .collect();
-        let avg_t0: f64 = t0_food.iter().map(|i| match i.effect { ItemEffect::Feed(v) => v as f64, _ => 0.0 }).sum::<f64>() / t0_food.len() as f64;
-        let avg_t2: f64 = t2_food.iter().map(|i| match i.effect { ItemEffect::Feed(v) => v as f64, _ => 0.0 }).sum::<f64>() / t2_food.len() as f64;
+        let avg_t0: f64 = t0_food.iter().map(|i| match i.effect { ItemEffect::Feed(v, _) => v as f64, _ => 0.0 }).sum::<f64>() / t0_food.len() as f64;
+        let avg_t2: f64 = t2_food.iter().map(|i| match i.effect { ItemEffect::Feed(v, _) => v as f64, _ => 0.0 }).sum::<f64>() / t2_food.len() as f64;
         assert!(avg_t2 > avg_t0, "deep dungeon food should be more filling: t0_avg={avg_t0}, t2_avg={avg_t2}");
     }
 

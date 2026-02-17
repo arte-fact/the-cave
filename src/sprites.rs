@@ -145,17 +145,23 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Gold Ring"     => ItemSprite::TwistedGoldRing.sprite_ref(),
         "Diamond Ring"  => ItemSprite::SapphireRing.sprite_ref(),
         // Food — forageables
-        "Wild Berries"  => ItemSprite::Apple.sprite_ref(),
-        "Mushrooms"     => ItemSprite::Cheese.sprite_ref(),
-        "Fresh Herbs"   => ItemSprite::Apple.sprite_ref(),
-        "Clean Water"   => ItemSprite::BottleOfWater.sprite_ref(),
+        "Wild Berries"   => ItemSprite::Apple.sprite_ref(),
+        "Wild Mushrooms" => TileSprite::SmallMushrooms.sprite_ref(),
+        "Clean Water"    => ItemSprite::BottleOfWater.sprite_ref(),
+        // Food — foraged plants (tile sprites)
+        "Wild Wheat"     => TileSprite::Wheat.sprite_ref(),
+        "Wild Rice"      => TileSprite::Rice.sprite_ref(),
+        "Wild Corn"      => TileSprite::MaizeCorn.sprite_ref(),
+        "Quinoa Seeds"   => TileSprite::Quinoa.sprite_ref(),
+        "Amaranth"       => TileSprite::Amaranth.sprite_ref(),
+        "Red Spinach"    => TileSprite::RedSpinach.sprite_ref(),
+        "Bitter Vetch"   => TileSprite::BitterVetch.sprite_ref(),
+        "Sorghum"        => TileSprite::Sorghum.sprite_ref(),
+        "Buckwheat"      => TileSprite::Buckwheat.sprite_ref(),
         // Food — meats
-        "Rat Meat"      => ItemSprite::Cheese.sprite_ref(),
-        "Bat Wing"      => ItemSprite::Cheese.sprite_ref(),
-        "Wolf Meat"     => ItemSprite::Bread.sprite_ref(),
-        "Spider Leg"    => ItemSprite::Cheese.sprite_ref(),
-        "Boar Meat"     => ItemSprite::Bread.sprite_ref(),
-        "Bear Meat"     => ItemSprite::Bread.sprite_ref(),
+        "Wolf Meat"      => ItemSprite::Bread.sprite_ref(),
+        "Boar Meat"      => ItemSprite::Bread.sprite_ref(),
+        "Bear Meat"      => ItemSprite::Bread.sprite_ref(),
         // Food — dungeon provisions
         "Stale Bread"    => ItemSprite::Bread.sprite_ref(),
         "Waterskin"      => ItemSprite::BottleOfWater.sprite_ref(),
@@ -463,43 +469,66 @@ mod tests {
     }
 
     #[test]
-    fn item_sprite_food_uses_food_sprites() {
-        // Solid foods on row 25
-        let solid_foods = [
-            "Wild Berries", "Mushrooms", "Fresh Herbs",
-            "Rat Meat", "Bat Wing", "Wolf Meat", "Spider Leg", "Boar Meat", "Bear Meat",
+    fn item_sprite_food_uses_correct_sprites() {
+        // Foods using item sprites (row 25)
+        let item_foods = [
+            "Wild Berries", "Wolf Meat", "Boar Meat", "Bear Meat",
             "Stale Bread", "Dried Rations", "Elven Waybread",
         ];
-        for name in solid_foods {
+        for name in item_foods {
             let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
             assert_eq!(s.row, 25, "{name} should be on food row 25");
         }
         // Drinks on row 24-25 (BottleOfBeer=25, BottleOfWater=24)
         let drinks = ["Clean Water", "Waterskin", "Dwarven Ale", "Honey Mead"];
         for name in drinks {
             let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items);
+            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
             assert!(s.row == 24 || s.row == 25, "{name} row {} not in 24-25", s.row);
+        }
+        // Foraged plants use tile sprites (row 19-20)
+        let plant_foods = [
+            "Wild Mushrooms", "Wild Wheat", "Wild Rice", "Wild Corn",
+            "Quinoa Seeds", "Amaranth", "Red Spinach", "Bitter Vetch",
+            "Sorghum", "Buckwheat",
+        ];
+        for name in plant_foods {
+            let s = item_sprite(name);
+            assert_eq!(s.sheet, Sheet::Tiles, "{name} should use Tiles sheet");
+            assert!(s.row == 19 || s.row == 20,
+                "{name} should be on crop row 19 or mushroom row 20, got {}", s.row);
         }
     }
 
     #[test]
     fn food_sprites_within_sheet_bounds() {
-        let names = [
-            // Forageables
-            "Wild Berries", "Mushrooms", "Fresh Herbs", "Clean Water",
+        let all_food = [
+            // Forageables (item sprites)
+            "Wild Berries", "Clean Water",
+            // Foraged plants (tile sprites)
+            "Wild Mushrooms", "Wild Wheat", "Wild Rice", "Wild Corn",
+            "Quinoa Seeds", "Amaranth", "Red Spinach", "Bitter Vetch",
+            "Sorghum", "Buckwheat",
             // Meats
-            "Rat Meat", "Bat Wing", "Wolf Meat", "Spider Leg", "Boar Meat", "Bear Meat",
+            "Wolf Meat", "Boar Meat", "Bear Meat",
             // Dungeon provisions
             "Stale Bread", "Waterskin", "Dried Rations", "Dwarven Ale",
             "Elven Waybread", "Honey Mead",
         ];
-        for name in names {
+        for name in all_food {
             let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row < 26, "{name} row {} >= 26", s.row);
-            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+            match s.sheet {
+                Sheet::Items => {
+                    assert!(s.row < 26, "{name} Items row {} >= 26", s.row);
+                    assert!(s.col < 11, "{name} Items col {} >= 11", s.col);
+                }
+                Sheet::Tiles => {
+                    assert!(s.row < 26, "{name} Tiles row {} >= 26", s.row);
+                    assert!(s.col < 17, "{name} Tiles col {} >= 17", s.col);
+                }
+                _ => panic!("{name} uses unexpected sheet {:?}", s.sheet),
+            }
         }
     }
 
