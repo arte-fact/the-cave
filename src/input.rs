@@ -36,6 +36,8 @@ pub enum InputAction {
     ToggleStats,
     /// Toggle sprint mode.
     ToggleSprint,
+    /// Toggle glyph rendering mode.
+    ToggleGlyphMode,
 }
 
 pub struct Input {
@@ -194,6 +196,10 @@ impl Input {
                 "s" => {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::ToggleSprint);
+                }
+                "g" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::ToggleGlyphMode);
                 }
                 _ => {}
             }
