@@ -854,33 +854,44 @@ impl Renderer {
         ctx.restore(); // pop clip
     }
 
+    /// Height of a single skill row in CSS-space (pre-DPR), for hit-testing.
+    pub fn stats_skill_row_h(&self) -> f64 {
+        30.0
+    }
+
     fn draw_stats_drawer(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64, anim_t: f64) {
         let ctx = &self.ctx;
         let d = self.dpr;
-        let drawer_h = canvas_h * 0.45;
+        let drawer_h = canvas_h * 0.55;
         let base_y = canvas_h - bottom_h - drawer_h;
         let slide_offset = drawer_h * (1.0 - anim_t);
         let drawer_y = base_y + slide_offset;
         let pad = 12.0 * d;
+        let scroll_off = game.stats_scroll * d;
 
         ctx.save();
         ctx.begin_path();
         ctx.rect(0.0, base_y, canvas_w, drawer_h);
         ctx.clip();
 
+        // Background
         ctx.set_fill_style_str("rgba(8,8,16,0.94)");
         self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
         ctx.set_fill_style_str("rgba(160,80,255,0.3)");
         self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
 
+        // Header (fixed, not scrolled)
         ctx.set_font(&self.font(14.0, "bold"));
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("center");
         ctx.set_text_baseline("top");
         let _ = ctx.fill_text("CHARACTER", canvas_w / 2.0, drawer_y + 10.0 * d);
 
+        // Scrollable content starts here
+        let content_top = drawer_y + 32.0 * d;
+        let mut y = content_top - scroll_off;
+
         let icon_sz = 36.0 * d;
-        let mut y = drawer_y + 32.0 * d;
         let line_h = 24.0 * d;
 
         // Player sprite + level
@@ -913,7 +924,7 @@ impl Renderer {
 
         y += xp_bar_h + 12.0 * d;
 
-        // Stat rows
+        // Stat summary rows
         let mut stats: Vec<(&str, String, &str)> = vec![
             ("HP", format!("{} / {}", game.player_hp, game.player_max_hp), "#4c4"),
             ("Attack", format!("{}", game.effective_attack()), "#8cf"),
@@ -937,11 +948,74 @@ impl Renderer {
             y += line_h;
         }
 
-        // Equipment section
+        // ---- Skill Points Section ----
         y += 8.0 * d;
         ctx.set_font(&self.font(11.0, "bold"));
         ctx.set_fill_style_str("#666");
         ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("Skill Points", pad, y);
+        // Unspent count
+        if game.skill_points > 0 {
+            ctx.set_fill_style_str("#ff0");
+            ctx.set_text_align("right");
+            let _ = ctx.fill_text(&format!("{} available", game.skill_points), canvas_w - pad, y);
+        }
+        y += 20.0 * d;
+
+        let skill_row_h = self.stats_skill_row_h() * d;
+        let btn_sz = 24.0 * d;
+        let has_points = game.skill_points > 0;
+
+        let skills: [(&str, &str, String, &str); 4] = [
+            ("STR", "Strength", format!("{}", game.strength), "#f84"),
+            ("VIT", "Vitality", format!("{}", game.vitality), "#4f4"),
+            ("DEX", "Dexterity", format!("{}", game.player_dexterity), "#adf"),
+            ("STA", "Stamina", format!("{}", game.max_stamina), "#8df"),
+        ];
+        for (abbr, label, value, color) in &skills {
+            // Abbreviation badge
+            ctx.set_font(&self.font(10.0, "bold"));
+            ctx.set_fill_style_str(color);
+            ctx.set_text_align("left");
+            ctx.set_text_baseline("middle");
+            let row_mid = y + skill_row_h / 2.0;
+            let _ = ctx.fill_text(abbr, pad, row_mid);
+
+            // Label
+            ctx.set_font(&self.font(11.0, ""));
+            ctx.set_fill_style_str("#aaa");
+            let _ = ctx.fill_text(label, pad + 36.0 * d, row_mid);
+
+            // Value
+            ctx.set_font(&self.font(12.0, "bold"));
+            ctx.set_fill_style_str(color);
+            ctx.set_text_align("right");
+            let btn_area = if has_points { btn_sz + 8.0 * d } else { 0.0 };
+            let _ = ctx.fill_text(value, canvas_w - pad - btn_area, row_mid);
+
+            // "+" button when skill points available
+            if has_points {
+                let btn_x = canvas_w - pad - btn_sz;
+                let btn_y = y + (skill_row_h - btn_sz) / 2.0;
+                ctx.set_fill_style_str("rgba(100,200,100,0.25)");
+                self.fill_rounded_rect(btn_x, btn_y, btn_sz, btn_sz, 4.0 * d);
+                ctx.set_font(&self.font(14.0, "bold"));
+                ctx.set_fill_style_str("#4f4");
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text("+", btn_x + btn_sz / 2.0, btn_y + btn_sz / 2.0);
+            }
+
+            y += skill_row_h;
+        }
+
+        // ---- Equipment Section ----
+        y += 8.0 * d;
+        ctx.set_font(&self.font(11.0, "bold"));
+        ctx.set_fill_style_str("#666");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
         let _ = ctx.fill_text("Equipment", pad, y);
         y += 20.0 * d;
 

@@ -13,7 +13,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
-use game::{Drawer, Game, ItemKind, TurnResult};
+use game::{Drawer, Game, ItemKind, SkillKind, TurnResult};
 use input::{Input, InputAction};
 use map::{bresenham_line, Map};
 use renderer::{Renderer, SpriteSheets};
@@ -58,6 +58,8 @@ enum DrawerTap {
     UseEquip(usize),
     /// Drop button tapped for the selected item.
     Drop(usize),
+    /// Allocate a skill point to the given attribute.
+    StatsAllocate(SkillKind),
     /// Tapped inside the drawer but not on an actionable element.
     Consumed,
 }
@@ -76,11 +78,12 @@ fn hit_test_drawer(
     item_count: usize,
     inventory_scroll: usize,
     selected_item: Option<usize>,
+    skill_points: u32,
 ) -> Option<DrawerTap> {
     let drawer_frac = match drawer {
         Drawer::None => return None,
         Drawer::Inventory => 0.55,
-        Drawer::Stats => 0.45,
+        Drawer::Stats => 0.55,
     };
     let drawer_h = css_h * drawer_frac;
     let drawer_y = css_h - bar_h_css - drawer_h;
@@ -90,8 +93,27 @@ fn hit_test_drawer(
         return None;
     }
 
-    // Stats drawer has no interactive elements
+    // Stats drawer: check for skill point allocation buttons
     if drawer == Drawer::Stats {
+        if skill_points > 0 {
+            // Compute where the skill section starts (CSS space)
+            // header(32) + sprite(42) + xp_bar(22) + stat_rows(6*24=144) + section_header(28) = 268
+            let skill_section_y = drawer_y + 268.0;
+            let skill_row_h = 30.0;
+            let btn_sz = 24.0;
+            let pad = 12.0;
+            let btn_x = css_w - pad - btn_sz;
+            let skills = [SkillKind::Strength, SkillKind::Vitality, SkillKind::Dexterity, SkillKind::Stamina];
+            for (i, skill) in skills.iter().enumerate() {
+                let row_y = skill_section_y + i as f64 * skill_row_h;
+                let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
+                if css_x >= btn_x && css_x <= btn_x + btn_sz
+                    && css_y >= btn_y && css_y <= btn_y + btn_sz
+                {
+                    return Some(DrawerTap::StatsAllocate(*skill));
+                }
+            }
+        }
         return Some(DrawerTap::Consumed);
     }
 
@@ -440,7 +462,7 @@ pub fn start() -> Result<(), JsValue> {
                             } else if let Some(dtap) = hit_test_drawer(
                                 css_x, css_y, css_w, css_h, bar_h_css,
                                 gm.drawer, gm.inventory.len(), gm.inventory_scroll,
-                                gm.selected_inventory_item,
+                                gm.selected_inventory_item, gm.skill_points,
                             ) {
                                 // Tap landed inside an open drawer
                                 match dtap {
@@ -476,6 +498,9 @@ pub fn start() -> Result<(), JsValue> {
                                     }
                                     DrawerTap::ScrollDown => {
                                         gm.scroll_inventory(1);
+                                    }
+                                    DrawerTap::StatsAllocate(skill) => {
+                                        gm.allocate_skill_point(skill);
                                     }
                                     DrawerTap::Consumed => {}
                                 }
@@ -530,7 +555,7 @@ pub fn start() -> Result<(), JsValue> {
                     }
                     // Inspect the destination tile during swipe
                     gm.inspected = gm.inspect_tile(dest.0, dest.1);
-                } else if gm.drawer != Drawer::None {
+                } else if gm.drawer == Drawer::Inventory {
                     // Swipe-scroll inventory when drawer is open
                     let slot_h_css = 34.0;
                     let mut base = drawer_swipe_base.borrow_mut();
@@ -542,6 +567,17 @@ pub fn start() -> Result<(), JsValue> {
                         let delta = (dy / slot_h_css).round() as i32;
                         let new_scroll = (base_scroll as i32 + delta).max(0) as usize;
                         gm.set_inventory_scroll(new_scroll);
+                    }
+                } else if gm.drawer == Drawer::Stats {
+                    // Swipe-scroll stats panel
+                    let mut base = drawer_swipe_base.borrow_mut();
+                    if base.is_none() {
+                        *base = Some((gm.stats_scroll as usize, swipe.start_y));
+                    }
+                    if let Some((base_scroll, start_y)) = *base {
+                        let dy = start_y - swipe.current_y; // positive = scroll down
+                        let new_scroll = (base_scroll as f64 + dy).max(0.0);
+                        gm.stats_scroll = new_scroll;
                     }
                 }
             } else {

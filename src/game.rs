@@ -212,6 +212,15 @@ pub enum Drawer {
     Stats,
 }
 
+/// Allocatable skill attributes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SkillKind {
+    Strength,
+    Vitality,
+    Dexterity,
+    Stamina,
+}
+
 pub struct Game {
     pub player_x: i32,
     pub player_y: i32,
@@ -248,6 +257,14 @@ pub struct Game {
     /// Player XP and level for progression.
     pub player_xp: u32,
     pub player_level: u32,
+    /// Unspent skill points (awarded on level up).
+    pub skill_points: u32,
+    /// Strength: bonus to melee attack damage.
+    pub strength: i32,
+    /// Vitality: bonus to max HP.
+    pub vitality: i32,
+    /// Scroll offset for the stats drawer (in CSS-space pixels).
+    pub stats_scroll: f64,
     /// Stamina for sprinting. Max 100, regen 5/turn while walking.
     pub stamina: i32,
     pub max_stamina: i32,
@@ -292,6 +309,10 @@ impl Game {
             inspected: None,
             player_xp: 0,
             player_level: 1,
+            skill_points: 0,
+            strength: 0,
+            vitality: 0,
+            stats_scroll: 0.0,
             stamina: 100,
             max_stamina: 100,
             sprinting: false,
@@ -332,6 +353,10 @@ impl Game {
             inspected: None,
             player_xp: 0,
             player_level: 1,
+            skill_points: 0,
+            strength: 0,
+            vitality: 0,
+            stats_scroll: 0.0,
             stamina: 100,
             max_stamina: 100,
             sprinting: false,
@@ -362,9 +387,9 @@ impl Game {
         map.compute_fov(self.player_x, self.player_y, r);
     }
 
-    /// Player's total attack: base + weapon bonus.
+    /// Player's total attack: base + strength + weapon bonus.
     pub fn effective_attack(&self) -> i32 {
-        let mut total = self.player_attack;
+        let mut total = self.player_attack + self.strength;
         if let Some(item) = &self.equipped_weapon {
             if let ItemEffect::BuffAttack(bonus) = item.effect { total += bonus; }
         }
@@ -766,22 +791,46 @@ impl Game {
         while self.player_xp >= self.xp_to_next_level() {
             self.player_xp -= self.xp_to_next_level();
             self.player_level += 1;
-            self.player_max_hp += 3;
+            self.skill_points += 2;
+            // Small base HP bump on level up + full heal
+            self.player_max_hp += 2;
             self.player_hp = self.player_max_hp;
-            self.player_attack += 1;
-            if self.player_level % 2 == 0 {
+            self.messages.push(format!(
+                "Level up! You are now level {}. +2 skill points!",
+                self.player_level
+            ));
+        }
+    }
+
+    /// Allocate one skill point into the given attribute.
+    /// Returns true if successful, false if no points available.
+    pub fn allocate_skill_point(&mut self, skill: SkillKind) -> bool {
+        if self.skill_points == 0 {
+            return false;
+        }
+        self.skill_points -= 1;
+        match skill {
+            SkillKind::Strength => {
+                self.strength += 1;
+                self.messages.push(format!("Strength increased to {}.", self.strength));
+            }
+            SkillKind::Vitality => {
+                self.vitality += 1;
+                self.player_max_hp += 3;
+                self.player_hp = (self.player_hp + 3).min(self.player_max_hp);
+                self.messages.push(format!("Vitality increased to {}. Max HP +3.", self.vitality));
+            }
+            SkillKind::Dexterity => {
                 self.player_dexterity += 1;
-                self.messages.push(format!(
-                    "Level up! You are now level {}. HP+3, ATK+1, DEX+1.",
-                    self.player_level
-                ));
-            } else {
-                self.messages.push(format!(
-                    "Level up! You are now level {}. HP+3, ATK+1.",
-                    self.player_level
-                ));
+                self.messages.push(format!("Dexterity increased to {}.", self.player_dexterity));
+            }
+            SkillKind::Stamina => {
+                self.max_stamina += 10;
+                self.stamina = (self.stamina + 10).min(self.max_stamina);
+                self.messages.push(format!("Stamina increased to {}.", self.max_stamina));
             }
         }
+        true
     }
 
     /// Spawn forest animals on the overworld: wolves, boars, bears.
@@ -2424,17 +2473,16 @@ mod tests {
     }
 
     #[test]
-    fn level_up_increases_stats() {
+    fn level_up_awards_skill_points() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         let old_max = g.player_max_hp;
-        let old_atk = g.player_attack;
         // Force enough XP for level 2 (need 20 XP at level 1)
         g.player_xp = 20;
         g.check_level_up();
         assert_eq!(g.player_level, 2);
-        assert_eq!(g.player_max_hp, old_max + 3);
-        assert_eq!(g.player_attack, old_atk + 1);
+        assert_eq!(g.skill_points, 2);
+        assert_eq!(g.player_max_hp, old_max + 2); // base +2 HP per level
         assert_eq!(g.player_hp, g.player_max_hp); // full heal on level up
     }
 
@@ -3673,25 +3721,14 @@ mod tests {
     }
 
     #[test]
-    fn level_up_grants_dexterity_every_two_levels() {
+    fn multiple_level_ups_stack_skill_points() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        let initial_dex = g.player_dexterity;
-        // Level up to 2 (even level = +1 dex)
-        g.player_xp = g.xp_to_next_level();
+        // Give enough XP for 3 level-ups
+        g.player_xp = 200;
         g.check_level_up();
-        assert_eq!(g.player_level, 2);
-        assert_eq!(g.player_dexterity, initial_dex + 1);
-        // Level up to 3 (odd level = no dex)
-        g.player_xp = g.xp_to_next_level();
-        g.check_level_up();
-        assert_eq!(g.player_level, 3);
-        assert_eq!(g.player_dexterity, initial_dex + 1);
-        // Level up to 4 (even level = +1 dex)
-        g.player_xp = g.xp_to_next_level();
-        g.check_level_up();
-        assert_eq!(g.player_level, 4);
-        assert_eq!(g.player_dexterity, initial_dex + 2);
+        assert!(g.player_level >= 3);
+        assert!(g.skill_points >= 4); // at least 2 level ups * 2 points
     }
 
     #[test]
@@ -3727,5 +3764,115 @@ mod tests {
         let turn_before = g.turn;
         g.ranged_attack(8, 5);
         assert_eq!(g.turn, turn_before + 1, "ranged attack should advance turn counter");
+    }
+
+    // === Skill Points ===
+
+    #[test]
+    fn player_starts_with_zero_skill_points() {
+        let g = test_game();
+        assert_eq!(g.skill_points, 0);
+        assert_eq!(g.strength, 0);
+        assert_eq!(g.vitality, 0);
+    }
+
+    #[test]
+    fn allocate_strength_increases_attack() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.skill_points = 1;
+        let atk_before = g.effective_attack();
+        assert!(g.allocate_skill_point(SkillKind::Strength));
+        assert_eq!(g.strength, 1);
+        assert_eq!(g.effective_attack(), atk_before + 1);
+        assert_eq!(g.skill_points, 0);
+    }
+
+    #[test]
+    fn allocate_vitality_increases_max_hp() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.skill_points = 1;
+        let hp_before = g.player_max_hp;
+        assert!(g.allocate_skill_point(SkillKind::Vitality));
+        assert_eq!(g.vitality, 1);
+        assert_eq!(g.player_max_hp, hp_before + 3);
+        assert_eq!(g.skill_points, 0);
+    }
+
+    #[test]
+    fn allocate_dexterity_increases_dex() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.skill_points = 1;
+        let dex_before = g.player_dexterity;
+        assert!(g.allocate_skill_point(SkillKind::Dexterity));
+        assert_eq!(g.player_dexterity, dex_before + 1);
+        assert_eq!(g.skill_points, 0);
+    }
+
+    #[test]
+    fn allocate_stamina_increases_max_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.skill_points = 1;
+        let stam_before = g.max_stamina;
+        assert!(g.allocate_skill_point(SkillKind::Stamina));
+        assert_eq!(g.max_stamina, stam_before + 10);
+        assert_eq!(g.skill_points, 0);
+    }
+
+    #[test]
+    fn allocate_fails_with_no_points() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert_eq!(g.skill_points, 0);
+        assert!(!g.allocate_skill_point(SkillKind::Strength));
+        assert_eq!(g.strength, 0);
+    }
+
+    #[test]
+    fn allocate_generates_message() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.skill_points = 1;
+        let msg_before = g.messages.len();
+        g.allocate_skill_point(SkillKind::Strength);
+        assert!(g.messages.len() > msg_before);
+        assert!(g.messages.last().unwrap().contains("Strength"));
+    }
+
+    #[test]
+    fn strength_affects_combat_damage() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.strength = 3;
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false });
+        g.move_player(1, 0);
+        // Base attack 5 + strength 3 = 8 damage
+        assert_eq!(g.enemies[0].hp, 20 - 8);
+    }
+
+    #[test]
+    fn vitality_hp_gained_on_allocate() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.player_hp = 15; // damaged
+        g.skill_points = 1;
+        g.allocate_skill_point(SkillKind::Vitality);
+        // HP should increase by 3 but not exceed new max
+        assert_eq!(g.player_hp, 18);
+        assert_eq!(g.player_max_hp, 23); // 20 + 3
+    }
+
+    #[test]
+    fn level_up_message_mentions_skill_points() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.player_xp = 20;
+        g.check_level_up();
+        assert!(g.messages.iter().any(|m| m.contains("skill points")));
     }
 }
