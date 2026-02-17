@@ -1236,6 +1236,9 @@ impl Game {
         self.player_x = nx;
         self.player_y = ny;
 
+        // Auto-pickup items on the tile we moved to
+        self.pickup_items_explicit();
+
         // Check for map transitions
         let tile = self.world.current_map().get(nx, ny);
         if self.try_transition(tile, nx, ny) {
