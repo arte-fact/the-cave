@@ -8,6 +8,7 @@
 pub use crate::sprite_atlas::{Sheet, SpriteRef};
 
 use crate::map::Tile;
+use crate::sprite_atlas::animals::AnimalSprite;
 use crate::sprite_atlas::items::ItemSprite;
 use crate::sprite_atlas::monsters::MonsterSprite;
 use crate::sprite_atlas::rogues::RogueSprite;
@@ -67,8 +68,8 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         'a' => MonsterSprite::GiantBat.sprite_ref(),
         'w' => MonsterSprite::WargDireWolf.sprite_ref(),
         'i' => MonsterSprite::GiantSpider.sprite_ref(),
-        'b' => MonsterSprite::Manticore.sprite_ref(),
-        'B' => MonsterSprite::Wendigo.sprite_ref(),
+        'b' => AnimalSprite::Boar.sprite_ref(),
+        'B' => AnimalSprite::GrizzlyBear.sprite_ref(),
         'L' => MonsterSprite::Lycanthrope.sprite_ref(),
         // Dungeon — shallow
         'c' => MonsterSprite::SmallKoboldCanine.sprite_ref(),
@@ -177,6 +178,7 @@ pub fn item_sprite(name: &str) -> SpriteRef {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sprite_atlas::animals::AnimalSprite;
     use crate::sprite_atlas::monsters::MonsterSprite;
     use crate::sprite_atlas::items::ItemSprite;
 
@@ -305,12 +307,12 @@ mod tests {
 
     #[test]
     fn enemy_sprite_boar() {
-        assert_eq!(enemy_sprite('b'), MonsterSprite::Manticore.sprite_ref());
+        assert_eq!(enemy_sprite('b'), AnimalSprite::Boar.sprite_ref());
     }
 
     #[test]
     fn enemy_sprite_bear() {
-        assert_eq!(enemy_sprite('B'), MonsterSprite::Wendigo.sprite_ref());
+        assert_eq!(enemy_sprite('B'), AnimalSprite::GrizzlyBear.sprite_ref());
     }
 
     #[test]
@@ -363,9 +365,9 @@ mod tests {
 
     #[test]
     fn monster_sprites_within_sheet_bounds() {
-        let all_glyphs = [
-            // Forest
-            'r', 'a', 'w', 'i', 'b', 'B', 'L',
+        let monster_glyphs = [
+            // Forest (non-animal)
+            'r', 'a', 'w', 'i', 'L',
             // Dungeon shallow
             'c', 'S', 'g', 's',
             // Dungeon mid
@@ -377,10 +379,18 @@ mod tests {
             // Unknown fallback
             '?',
         ];
-        for glyph in all_glyphs {
+        for glyph in monster_glyphs {
             let s = enemy_sprite(glyph);
             assert!(s.row < 13, "glyph '{}' row {} >= 13", glyph, s.row);
             assert!(s.col < 12, "glyph '{}' col {} >= 12", glyph, s.col);
+        }
+        // Boar and Bear use Animal sheet
+        let animal_glyphs = ['b', 'B'];
+        for glyph in animal_glyphs {
+            let s = enemy_sprite(glyph);
+            assert_eq!(s.sheet, Sheet::Animals, "glyph '{}' should use Animals sheet", glyph);
+            assert!(s.row < 17, "glyph '{}' row {} >= 17", glyph, s.row);
+            assert!(s.col < 9, "glyph '{}' col {} >= 9", glyph, s.col);
         }
     }
 

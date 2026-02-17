@@ -94,6 +94,50 @@ pub enum TurnResult {
     MapChanged,
 }
 
+/// Floating text indicator (damage numbers, XP, healing).
+#[derive(Clone)]
+pub struct FloatingText {
+    pub world_x: i32,
+    pub world_y: i32,
+    pub text: String,
+    pub color: &'static str,
+    /// 0.0 = just created, 1.0 = expired.
+    pub age: f64,
+}
+
+/// Brief position offset animation (attack lunge, damage recoil).
+#[derive(Clone)]
+pub struct BumpAnim {
+    pub is_player: bool,
+    pub enemy_idx: usize,
+    pub dx: f64,
+    pub dy: f64,
+    /// 0.0 = start, 1.0 = done.
+    pub progress: f64,
+}
+
+/// Visual effect overlay (AOE blast, healing glow, etc.).
+#[derive(Clone)]
+pub struct VisualEffect {
+    pub kind: EffectKind,
+    pub x: i32,
+    pub y: i32,
+    /// 0.0 = start, 1.0 = done.
+    pub age: f64,
+}
+
+#[derive(Clone)]
+pub enum EffectKind {
+    /// Expanding ring of damage.
+    AoeBlast,
+    /// Healing glow on target.
+    HealGlow,
+    /// Poison cloud on target.
+    PoisonCloud,
+    /// Energize sparkle on target.
+    EnergizeEffect,
+}
+
 /// Structured info about a tile at a specific world position.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TileInfo {
@@ -313,6 +357,12 @@ pub struct Game {
     pub overworld_kills: u32,
     /// Current sprint cost per turn (reduced by Stamina skill).
     pub sprint_cost: i32,
+    /// Active floating text indicators.
+    pub floating_texts: Vec<FloatingText>,
+    /// Active bump/lunge animations.
+    pub bump_anims: Vec<BumpAnim>,
+    /// Active visual effects.
+    pub visual_effects: Vec<VisualEffect>,
 }
 
 impl Game {
@@ -359,6 +409,9 @@ impl Game {
             turn: 0,
             overworld_kills: 0,
             sprint_cost: SPRINT_COST,
+            floating_texts: Vec::new(),
+            bump_anims: Vec::new(),
+            visual_effects: Vec::new(),
         }
     }
 
@@ -405,6 +458,9 @@ impl Game {
             turn: 0,
             overworld_kills: 0,
             sprint_cost: SPRINT_COST,
+            floating_texts: Vec::new(),
+            bump_anims: Vec::new(),
+            visual_effects: Vec::new(),
         }
     }
 
@@ -533,6 +589,14 @@ impl Game {
                     let healed = self.player_hp - old_hp;
                     let name = item.name;
                     self.messages.push(format!("You drink {name}. Healed {healed} HP."));
+                    self.floating_texts.push(FloatingText {
+                        world_x: self.player_x, world_y: self.player_y,
+                        text: format!("+{healed} HP"), color: "#4f4", age: 0.0,
+                    });
+                    self.visual_effects.push(VisualEffect {
+                        kind: EffectKind::HealGlow,
+                        x: self.player_x, y: self.player_y, age: 0.0,
+                    });
                     self.inventory.remove(index);
                     self.clamp_inventory_scroll();
                     return true;
@@ -545,14 +609,23 @@ impl Game {
                     self.messages.push(format!("You read {name}!"));
                     self.inventory.remove(index);
                     self.clamp_inventory_scroll();
-                    // Damage all enemies within 3 tiles
                     let px = self.player_x;
                     let py = self.player_y;
+                    // AOE blast effect
+                    self.visual_effects.push(VisualEffect {
+                        kind: EffectKind::AoeBlast,
+                        x: px, y: py, age: 0.0,
+                    });
+                    // Damage all enemies within 3 tiles
                     for enemy in &mut self.enemies {
                         if enemy.hp <= 0 { continue; }
                         let dist = (enemy.x - px).abs() + (enemy.y - py).abs();
                         if dist <= 3 {
                             enemy.hp -= damage;
+                            self.floating_texts.push(FloatingText {
+                                world_x: enemy.x, world_y: enemy.y,
+                                text: format!("-{damage}"), color: "#f84", age: 0.0,
+                            });
                             if enemy.hp <= 0 {
                                 self.messages.push(format!("{} is destroyed!", enemy.name));
                             }
@@ -611,25 +684,6 @@ impl Game {
         true
     }
 
-    /// Auto-pickup items at the player's position.
-    fn pickup_items(&mut self) {
-        let px = self.player_x;
-        let py = self.player_y;
-        let mut i = 0;
-        while i < self.ground_items.len() {
-            if self.ground_items[i].x == px && self.ground_items[i].y == py {
-                if self.inventory.len() >= MAX_INVENTORY {
-                    self.messages.push("Inventory full!".into());
-                    break;
-                }
-                let gi = self.ground_items.remove(i);
-                self.messages.push(format!("Picked up {}.", gi.item.name));
-                self.inventory.push(gi.item);
-            } else {
-                i += 1;
-            }
-        }
-    }
 
     /// Spawn items on the overworld (rare, near roads).
     pub fn spawn_overworld_items(&mut self, seed: u64) {
@@ -839,15 +893,31 @@ impl Game {
             self.messages.push(format!("You eat {name}. Hunger +{gained}."));
 
             // Apply side effect
+            let fx = self.player_x;
+            let fy = self.player_y;
             match side_effect {
                 FoodSideEffect::None => {}
                 FoodSideEffect::Heal(hp) => {
                     self.player_hp = (self.player_hp + hp).min(self.player_max_hp);
                     self.messages.push(format!("You feel revitalized. +{hp} HP."));
+                    self.floating_texts.push(FloatingText {
+                        world_x: fx, world_y: fy,
+                        text: format!("+{hp} HP"), color: "#4f4", age: 0.0,
+                    });
+                    self.visual_effects.push(VisualEffect {
+                        kind: EffectKind::HealGlow, x: fx, y: fy, age: 0.0,
+                    });
                 }
                 FoodSideEffect::Poison(dmg) => {
                     self.player_hp -= dmg;
                     self.messages.push(format!("Your stomach churns! -{dmg} HP."));
+                    self.floating_texts.push(FloatingText {
+                        world_x: fx, world_y: fy,
+                        text: format!("-{dmg} HP"), color: "#a4f", age: 0.0,
+                    });
+                    self.visual_effects.push(VisualEffect {
+                        kind: EffectKind::PoisonCloud, x: fx, y: fy, age: 0.0,
+                    });
                     if self.player_hp <= 0 {
                         self.alive = false;
                         self.messages.push("You died from food poisoning.".into());
@@ -856,10 +926,21 @@ impl Game {
                 FoodSideEffect::Energize(stam) => {
                     self.stamina = (self.stamina + stam).min(self.max_stamina);
                     self.messages.push(format!("You feel energized. +{stam} stamina."));
+                    self.floating_texts.push(FloatingText {
+                        world_x: fx, world_y: fy,
+                        text: format!("+{stam} STA"), color: "#4ef", age: 0.0,
+                    });
+                    self.visual_effects.push(VisualEffect {
+                        kind: EffectKind::EnergizeEffect, x: fx, y: fy, age: 0.0,
+                    });
                 }
                 FoodSideEffect::Sicken(stam) => {
                     self.stamina = (self.stamina - stam).max(0);
                     self.messages.push(format!("You feel nauseous. -{stam} stamina."));
+                    self.floating_texts.push(FloatingText {
+                        world_x: fx, world_y: fy,
+                        text: format!("-{stam} STA"), color: "#a4f", age: 0.0,
+                    });
                 }
             }
 
@@ -1144,58 +1225,9 @@ impl Game {
         let nx = self.player_x + dx;
         let ny = self.player_y + dy;
 
-        // Check for enemy at target
-        if let Some(idx) = self.enemies.iter().position(|e| e.x == nx && e.y == ny && e.hp > 0) {
-            let atk = self.effective_attack();
-            let edef = self.enemies[idx].defense;
-            let dmg = calc_damage(atk, edef);
-            self.enemies[idx].hp -= dmg;
-            let name = self.enemies[idx].name;
-
-            let mut result;
-            if self.enemies[idx].hp <= 0 {
-                let xp = self.xp_with_diminishing(name);
-                let ex = self.enemies[idx].x;
-                let ey = self.enemies[idx].y;
-                self.player_xp += xp;
-                self.check_level_up();
-                self.messages.push(format!("You slay the {name}! (+{xp} XP)"));
-                // Track overworld kills for diminishing XP
-                if self.world.location == Location::Overworld {
-                    self.overworld_kills += 1;
-                }
-                // Animals drop meat
-                if let Some(meat) = meat_drop(name) {
-                    self.ground_items.push(GroundItem { x: ex, y: ey, item: meat });
-                    self.messages.push("It dropped some meat.".into());
-                }
-                // Check win: dragon killed
-                if self.enemies[idx].glyph == 'D' {
-                    self.won = true;
-                    self.messages.push("You conquered the cave!".into());
-                    return TurnResult::Won;
-                }
-                result = TurnResult::Killed { target_name: name };
-            } else {
-                self.messages.push(format!("You hit {name} for {dmg} damage."));
-                result = TurnResult::Attacked { target_name: name, damage: dmg };
-            }
-
-            // No retaliation — enemies act on their own turn (standard roguelike model).
-            if self.sprinting {
-                self.enemy_turn_inner(true);
-            } else {
-                self.enemy_turn();
-            }
-            self.tick_survival();
-            self.update_fov();
-
-            // Check if player died during enemy turn
-            if !self.alive {
-                result = TurnResult::PlayerDied;
-            }
-
-            return result;
+        // Enemies block movement — attack must be explicit (tap the enemy)
+        if self.enemies.iter().any(|e| e.x == nx && e.y == ny && e.hp > 0) {
+            return TurnResult::Blocked;
         }
 
         if !self.world.current_map().is_walkable(nx, ny) {
@@ -1205,8 +1237,8 @@ impl Game {
         self.player_x = nx;
         self.player_y = ny;
 
-        // Auto-pickup items at new position
-        self.pickup_items();
+        // Auto-pickup items on the tile we moved to
+        self.pickup_items_explicit();
 
         // Check for map transitions
         let tile = self.world.current_map().get(nx, ny);
@@ -1383,16 +1415,37 @@ impl Game {
                         let dodge_roll = xorshift64(seed.wrapping_add(17)) % 100;
                         if dodge_roll < dodge_chance {
                             self.messages.push(format!("You dodge {name}'s arrow!"));
+                            self.floating_texts.push(FloatingText {
+                                world_x: px, world_y: py,
+                                text: "DODGE".into(), color: "#4ef", age: 0.0,
+                            });
                             continue;
                         }
                         self.player_hp -= dmg;
                         self.messages.push(format!("{name} shoots you for {dmg} damage."));
+                        self.floating_texts.push(FloatingText {
+                            world_x: px, world_y: py,
+                            text: format!("-{dmg}"), color: "#f44", age: 0.0,
+                        });
+                        // Player recoils from hit
+                        let rdx = (px - ex) as f64;
+                        let rdy = (py - ey) as f64;
+                        let rlen = (rdx * rdx + rdy * rdy).sqrt().max(1.0);
+                        self.bump_anims.push(BumpAnim {
+                            is_player: true, enemy_idx: 0,
+                            dx: rdx / rlen * 0.15, dy: rdy / rlen * 0.15,
+                            progress: 0.0,
+                        });
                         if self.player_hp <= 0 {
                             self.alive = false;
                             self.messages.push("You died.".into());
                         }
                     } else {
                         self.messages.push(format!("{name}'s arrow misses!"));
+                        self.floating_texts.push(FloatingText {
+                            world_x: ex, world_y: ey,
+                            text: "MISS".into(), color: "#888", age: 0.0,
+                        });
                     }
                     continue; // Ranged enemies don't also chase this turn
                 }
@@ -1409,9 +1462,31 @@ impl Game {
                 let dodge_roll = xorshift64(dodge_seed) % 100;
                 if dodge_roll < dodge_chance {
                     self.messages.push(format!("You dodge {name}'s attack!"));
+                    self.floating_texts.push(FloatingText {
+                        world_x: px, world_y: py,
+                        text: "DODGE".into(), color: "#4ef", age: 0.0,
+                    });
                 } else {
                     self.player_hp -= dmg;
                     self.messages.push(format!("{name} hits you for {dmg} damage."));
+                    self.floating_texts.push(FloatingText {
+                        world_x: px, world_y: py,
+                        text: format!("-{dmg}"), color: "#f44", age: 0.0,
+                    });
+                    // Enemy lunges at player
+                    let ldx = (px - ex) as f64;
+                    let ldy = (py - ey) as f64;
+                    self.bump_anims.push(BumpAnim {
+                        is_player: false, enemy_idx: i,
+                        dx: ldx * 0.25, dy: ldy * 0.25,
+                        progress: 0.0,
+                    });
+                    // Player recoils
+                    self.bump_anims.push(BumpAnim {
+                        is_player: true, enemy_idx: 0,
+                        dx: -ldx * 0.12, dy: -ldy * 0.12,
+                        progress: 0.0,
+                    });
                     if self.player_hp <= 0 {
                         self.alive = false;
                         self.messages.push("You died.".into());
@@ -1440,10 +1515,30 @@ impl Game {
                         let dodge_roll = xorshift64(dodge_seed) % 100;
                         if dodge_roll < dodge_chance {
                             self.messages.push(format!("You dodge {name}'s attack!"));
+                            self.floating_texts.push(FloatingText {
+                                world_x: px, world_y: py,
+                                text: "DODGE".into(), color: "#4ef", age: 0.0,
+                            });
                             break;
                         }
                         self.player_hp -= dmg;
                         self.messages.push(format!("{name} hits you for {dmg} damage."));
+                        self.floating_texts.push(FloatingText {
+                            world_x: px, world_y: py,
+                            text: format!("-{dmg}"), color: "#f44", age: 0.0,
+                        });
+                        let ldx = (px - ex) as f64;
+                        let ldy = (py - ey) as f64;
+                        self.bump_anims.push(BumpAnim {
+                            is_player: false, enemy_idx: i,
+                            dx: ldx * 0.25, dy: ldy * 0.25,
+                            progress: 0.0,
+                        });
+                        self.bump_anims.push(BumpAnim {
+                            is_player: true, enemy_idx: 0,
+                            dx: -ldx * 0.12, dy: -ldy * 0.12,
+                            progress: 0.0,
+                        });
                         if self.player_hp <= 0 {
                             self.alive = false;
                             self.messages.push("You died.".into());
@@ -1561,6 +1656,10 @@ impl Game {
                 "Your {} misses the {name}! ({hit_chance}% chance)",
                 weapon_name,
             ));
+            self.floating_texts.push(FloatingText {
+                world_x: tx, world_y: ty,
+                text: "MISS".into(), color: "#888", age: 0.0,
+            });
         } else {
             // Hit — ranged damage includes distance bonus
             let edef = self.enemies[idx].defense;
@@ -1570,6 +1669,19 @@ impl Game {
                 "Your {} hits {name} for {dmg} damage!",
                 weapon_name,
             ));
+            self.floating_texts.push(FloatingText {
+                world_x: tx, world_y: ty,
+                text: format!("-{dmg}"), color: "#f44", age: 0.0,
+            });
+            // Enemy recoils from hit
+            let rdx = (tx - self.player_x) as f64;
+            let rdy = (ty - self.player_y) as f64;
+            let rlen = (rdx * rdx + rdy * rdy).sqrt().max(1.0);
+            self.bump_anims.push(BumpAnim {
+                is_player: false, enemy_idx: idx,
+                dx: rdx / rlen * 0.15, dy: rdy / rlen * 0.15,
+                progress: 0.0,
+            });
 
             if self.enemies[idx].hp <= 0 {
                 let xp = self.xp_with_diminishing(name);
@@ -1578,6 +1690,10 @@ impl Game {
                 self.player_xp += xp;
                 self.check_level_up();
                 self.messages.push(format!("You slay the {name}! (+{xp} XP)"));
+                self.floating_texts.push(FloatingText {
+                    world_x: ex, world_y: ey,
+                    text: format!("+{xp} XP"), color: "#ff0", age: 0.0,
+                });
                 if self.world.location == Location::Overworld {
                     self.overworld_kills += 1;
                 }
@@ -1603,6 +1719,155 @@ impl Game {
         self.update_fov();
 
         TurnResult::Moved
+    }
+
+    // === Explicit interaction system ===
+
+    /// Explicitly attack an enemy at the given position (must be adjacent).
+    pub fn attack_adjacent(&mut self, tx: i32, ty: i32) -> TurnResult {
+        if !self.alive || self.won {
+            return TurnResult::Blocked;
+        }
+
+        let dist = (tx - self.player_x).abs() + (ty - self.player_y).abs();
+        if dist != 1 {
+            return TurnResult::Blocked;
+        }
+
+        // Face the target
+        let dx = tx - self.player_x;
+        let dy = ty - self.player_y;
+        if dx < 0 { self.player_facing_left = true; }
+        if dx > 0 { self.player_facing_left = false; }
+
+        if let Some(idx) = self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0) {
+            let atk = self.effective_attack();
+            let edef = self.enemies[idx].defense;
+            let dmg = calc_damage(atk, edef);
+            self.enemies[idx].hp -= dmg;
+            let name = self.enemies[idx].name;
+
+            // Player lunges toward enemy
+            self.bump_anims.push(BumpAnim {
+                is_player: true, enemy_idx: 0,
+                dx: dx as f64 * 0.3, dy: dy as f64 * 0.3,
+                progress: 0.0,
+            });
+            // Enemy recoils
+            self.bump_anims.push(BumpAnim {
+                is_player: false, enemy_idx: idx,
+                dx: dx as f64 * 0.15, dy: dy as f64 * 0.15,
+                progress: 0.0,
+            });
+
+            let mut result;
+            if self.enemies[idx].hp <= 0 {
+                let xp = self.xp_with_diminishing(name);
+                let ex = self.enemies[idx].x;
+                let ey = self.enemies[idx].y;
+                self.player_xp += xp;
+                self.check_level_up();
+                self.messages.push(format!("You slay the {name}! (+{xp} XP)"));
+                // Floating XP text
+                self.floating_texts.push(FloatingText {
+                    world_x: ex, world_y: ey,
+                    text: format!("+{xp} XP"), color: "#ff0", age: 0.0,
+                });
+                if self.world.location == Location::Overworld {
+                    self.overworld_kills += 1;
+                }
+                if let Some(meat) = meat_drop(name) {
+                    self.ground_items.push(GroundItem { x: ex, y: ey, item: meat });
+                    self.messages.push("It dropped some meat.".into());
+                }
+                if self.enemies[idx].glyph == 'D' {
+                    self.won = true;
+                    self.messages.push("You conquered the cave!".into());
+                    return TurnResult::Won;
+                }
+                result = TurnResult::Killed { target_name: name };
+            } else {
+                self.messages.push(format!("You hit {name} for {dmg} damage."));
+                // Floating damage text on enemy
+                self.floating_texts.push(FloatingText {
+                    world_x: tx, world_y: ty,
+                    text: format!("-{dmg}"), color: "#f44", age: 0.0,
+                });
+                result = TurnResult::Attacked { target_name: name, damage: dmg };
+            }
+
+            if self.sprinting {
+                self.enemy_turn_inner(true);
+            } else {
+                self.enemy_turn();
+            }
+            self.tick_survival();
+            self.update_fov();
+
+            if !self.alive {
+                result = TurnResult::PlayerDied;
+            }
+
+            return result;
+        }
+
+        TurnResult::Blocked
+    }
+
+    /// Pick up items at the player's position explicitly. Returns true if any picked up.
+    pub fn pickup_items_explicit(&mut self) -> bool {
+        let px = self.player_x;
+        let py = self.player_y;
+        let mut picked = false;
+        let mut i = 0;
+        while i < self.ground_items.len() {
+            if self.ground_items[i].x == px && self.ground_items[i].y == py {
+                if self.inventory.len() >= MAX_INVENTORY {
+                    self.messages.push("Inventory full!".into());
+                    break;
+                }
+                let gi = self.ground_items.remove(i);
+                self.messages.push(format!("Picked up {}.", gi.item.name));
+                self.inventory.push(gi.item);
+                picked = true;
+            } else {
+                i += 1;
+            }
+        }
+        picked
+    }
+
+    /// Advance the turn without moving (enemies act, survival ticks, FOV).
+    /// Used after consuming items.
+    pub fn advance_turn(&mut self) {
+        if !self.alive || self.won { return; }
+        if self.sprinting {
+            self.enemy_turn_inner(true);
+        } else {
+            self.enemy_turn();
+        }
+        self.tick_survival();
+        self.update_fov();
+    }
+
+    /// Tick all animations forward by one frame. Returns true if any are still active.
+    pub fn tick_animations(&mut self) -> bool {
+        for ft in &mut self.floating_texts {
+            ft.age += 0.025;
+        }
+        self.floating_texts.retain(|ft| ft.age < 1.0);
+
+        for ba in &mut self.bump_anims {
+            ba.progress += 0.12;
+        }
+        self.bump_anims.retain(|ba| ba.progress < 1.0);
+
+        for ve in &mut self.visual_effects {
+            ve.age += 0.035;
+        }
+        self.visual_effects.retain(|ve| ve.age < 1.0);
+
+        !self.floating_texts.is_empty() || !self.bump_anims.is_empty() || !self.visual_effects.is_empty()
     }
 }
 
@@ -1924,9 +2189,9 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 10, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert_eq!(g.enemies[0].hp, 10 - g.player_attack);
-        assert_eq!(g.player_x, gx - 1);
+        assert_eq!(g.player_x, gx - 1); // player didn't move
     }
 
     #[test]
@@ -1936,7 +2201,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 3, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        let result = g.move_player(1, 0);
+        let result = g.attack_adjacent(gx, gy);
         assert!(matches!(result, TurnResult::Killed { .. }));
         assert!(g.enemies[0].hp <= 0);
     }
@@ -1950,7 +2215,7 @@ mod tests {
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
         let hp_before = g.player_hp;
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         // Enemy attacks back during enemy_turn (adjacent, calc_damage(3, 0) = 3)
         assert_eq!(g.player_hp, hp_before - 3);
     }
@@ -1964,7 +2229,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        let result = g.move_player(1, 0);
+        let result = g.attack_adjacent(gx, gy);
         assert!(matches!(result, TurnResult::PlayerDied));
         assert!(!g.alive);
     }
@@ -1986,7 +2251,7 @@ mod tests {
         let dx = g.player_x + 1;
         let dy = g.player_y;
         g.enemies.push(Enemy { x: dx, y: dy, hp: 1, attack: 0, glyph: 'D', name: "Dragon", facing_left: false, defense: 0, is_ranged: false });
-        let result = g.move_player(1, 0);
+        let result = g.attack_adjacent(dx, dy);
         assert!(matches!(result, TurnResult::Won));
         assert!(g.won);
     }
@@ -2017,7 +2282,7 @@ mod tests {
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
         let msg_count_before = g.messages.len();
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.messages.len() > msg_count_before, "combat should generate messages");
     }
 
@@ -2240,13 +2505,14 @@ mod tests {
     fn pickup_item_on_move() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        // Place an item one tile to the right of the player
+        // Place an item one tile to the right of the player, move there, then pick up
         let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         for (dx, dy) in dirs {
             let (nx, ny) = (g.player_x + dx, g.player_y + dy);
             if g.current_map().is_walkable(nx, ny) {
                 g.ground_items.push(GroundItem { x: nx, y: ny, item: health_potion() });
                 g.move_player(dx, dy);
+                g.pickup_items_explicit();
                 assert_eq!(g.inventory.len(), 1);
                 assert_eq!(g.inventory[0].name, "Health Potion");
                 assert!(g.ground_items.is_empty());
@@ -2267,6 +2533,7 @@ mod tests {
                 g.ground_items.push(GroundItem { x: nx, y: ny, item: rusty_sword() });
                 let msg_before = g.messages.len();
                 g.move_player(dx, dy);
+                g.pickup_items_explicit();
                 assert!(g.messages.len() > msg_before);
                 assert!(g.messages.last().unwrap().contains("Picked up"));
                 return;
@@ -2442,7 +2709,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         // Base attack 5 + weapon 2 = 7 damage
         assert_eq!(g.enemies[0].hp, 20 - 7);
     }
@@ -2457,7 +2724,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         // Enemy attacks during enemy_turn: calc_damage(5, 2) = 25/7 = 3
         assert_eq!(g.player_hp, hp_before - 3);
     }
@@ -2476,7 +2743,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         // calc_damage(2, 6) = 4/8 = 0 → max(1) = 1
         assert_eq!(g.player_hp, hp_before - 1);
     }
@@ -2729,7 +2996,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert_eq!(g.player_xp, 4); // goblin = 4 XP
     }
 
@@ -2798,7 +3065,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.messages.iter().any(|m| m.contains("+4 XP")));
     }
 
@@ -3085,7 +3352,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'w', name: "Wolf", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Wolf Meat"),
             "wolf should drop meat");
     }
@@ -3097,7 +3364,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'b', name: "Boar", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Boar Meat"));
     }
 
@@ -3108,7 +3375,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'B', name: "Bear", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Bear Meat"));
     }
 
@@ -3119,7 +3386,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Rat Meat"),
             "giant rat should drop rat meat");
     }
@@ -3131,7 +3398,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Stolen Rations"),
             "goblin should drop stolen rations");
     }
@@ -4112,7 +4379,7 @@ mod tests {
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.move_player(1, 0);
+        g.attack_adjacent(gx, gy);
         // Base attack 5 + strength 3 = 8 damage
         assert_eq!(g.enemies[0].hp, 20 - 8);
     }

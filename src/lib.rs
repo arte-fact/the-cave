@@ -54,10 +54,14 @@ enum DrawerTap {
     ScrollUp,
     /// Scroll the inventory list down.
     ScrollDown,
-    /// Use/Equip button tapped for the selected item.
+    /// Use/Equip button tapped for the selected item (detail bar).
     UseEquip(usize),
-    /// Drop button tapped for the selected item.
+    /// Drop button tapped for the selected item (detail bar).
     Drop(usize),
+    /// Inline Use/Equip button on a list item row.
+    InlineUseEquip(usize),
+    /// Inline Drop button on a list item row.
+    InlineDrop(usize),
     /// Allocate a skill point to the given attribute.
     StatsAllocate(SkillKind),
     /// Toggle glyph rendering mode.
@@ -190,6 +194,29 @@ fn hit_test_drawer(
     }
 
     if css_y >= list_y && item_count > 0 {
+        // Inline button hit-test (Use/Equip and Drop buttons on each row)
+        let inline_btn_w = 36.0;
+        let inline_btn_h = 22.0;
+        let inline_btn_gap = 3.0;
+        let text_right = css_w - pad - scrollbar_w - 4.0;
+        let drop_btn_x = text_right - inline_btn_w;
+        let use_btn_x = drop_btn_x - inline_btn_gap - inline_btn_w;
+
+        let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
+        let abs_idx = inventory_scroll + vis_idx;
+        if abs_idx < end {
+            let row_y = list_y + vis_idx as f64 * slot_h;
+            let btn_y = row_y + (slot_h - inline_btn_h) / 2.0;
+            if css_y >= btn_y && css_y <= btn_y + inline_btn_h {
+                if css_x >= use_btn_x && css_x <= use_btn_x + inline_btn_w {
+                    return Some(DrawerTap::InlineUseEquip(abs_idx));
+                }
+                if css_x >= drop_btn_x && css_x <= drop_btn_x + inline_btn_w {
+                    return Some(DrawerTap::InlineDrop(abs_idx));
+                }
+            }
+        }
+
         // Check if tap is in scrollbar track (right edge of list area)
         let scrollbar_x = css_w - pad - scrollbar_w;
         if css_x >= scrollbar_x && item_count > max_visible {
@@ -300,6 +327,21 @@ fn load_image(src: &str, on_load: impl FnMut() + 'static) -> HtmlImageElement {
     img
 }
 
+/// Load an optional image — calls `on_load` with the element if it succeeds,
+/// silently ignores failures (no error overlay).
+fn load_image_optional(src: &str, mut on_load: impl FnMut(HtmlImageElement) + 'static) -> HtmlImageElement {
+    let img = HtmlImageElement::new().expect("failed to create HtmlImageElement");
+    let img_clone = img.clone();
+    let cb = Closure::<dyn FnMut()>::new(move || {
+        on_load(img_clone.clone());
+    });
+    img.set_onload(Some(cb.as_ref().unchecked_ref()));
+    cb.forget();
+    // Silently ignore load errors for optional sheets
+    img.set_src(src);
+    img
+}
+
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     errors::install_panic_hook();
@@ -333,7 +375,7 @@ pub fn start() -> Result<(), JsValue> {
     // Drawer swipe-scroll base: (base_scroll, start_y) when swipe began
     let drawer_swipe_base: Rc<RefCell<Option<(usize, f64)>>> = Rc::new(RefCell::new(None));
 
-    // Load sprite sheets asynchronously
+    // Load sprite sheets asynchronously (4 core + optional animals)
     {
         let loaded_count: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
         let renderer_for_load = Rc::clone(&renderer);
@@ -359,7 +401,7 @@ pub fn start() -> Result<(), JsValue> {
                     let monsters = m.borrow_mut().take().expect("monsters sprite sheet missing");
                     let rogues = r.borrow_mut().take().expect("rogues sprite sheet missing");
                     let items = i.borrow_mut().take().expect("items sprite sheet missing");
-                    rend.borrow_mut().set_sheets(SpriteSheets { tiles, monsters, rogues, items });
+                    rend.borrow_mut().set_sheets(SpriteSheets { tiles, monsters, rogues, items, animals: None });
                 }
             }
         };
@@ -399,6 +441,15 @@ pub fn start() -> Result<(), JsValue> {
             ),
         );
         *items_img.borrow_mut() = Some(img);
+
+        // Load animals.png optionally — if it fails, animal sprites use glyph fallback
+        {
+            let rend = Rc::clone(&renderer_for_load);
+            let img = load_image_optional("assets/animals.png", move |animals_el| {
+                rend.borrow_mut().set_animals_sheet(animals_el);
+            });
+            std::mem::drop(img);
+        }
     }
 
     // Initial sizing + camera snap
@@ -468,8 +519,19 @@ pub fn start() -> Result<(), JsValue> {
                                 input::Direction::Left => (-1, 0),
                                 input::Direction::Right => (1, 0),
                             };
-                            if matches!(gm.move_player(dx, dy), TurnResult::MapChanged) {
+                            let result = gm.move_player(dx, dy);
+                            if matches!(result, TurnResult::MapChanged) {
                                 map_changed = true;
+                            } else if matches!(result, TurnResult::Blocked) {
+                                // Step blocked by enemy → attack it
+                                let tx = gm.player_x + dx;
+                                let ty = gm.player_y + dy;
+                                if gm.enemies.iter().any(|e| e.x == tx && e.y == ty && e.hp > 0) {
+                                    let atk_result = gm.attack_adjacent(tx, ty);
+                                    if matches!(atk_result, TurnResult::MapChanged) {
+                                        map_changed = true;
+                                    }
+                                }
                             }
                         }
                         InputAction::ExecutePath => {
@@ -524,22 +586,24 @@ pub fn start() -> Result<(), JsValue> {
                                             gm.selected_inventory_item = Some(idx);
                                         }
                                     }
-                                    DrawerTap::UseEquip(idx) => {
+                                    DrawerTap::UseEquip(idx) | DrawerTap::InlineUseEquip(idx) => {
                                         if idx < gm.inventory.len() {
-                                            match &gm.inventory[idx].kind {
-                                                ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                    gm.use_item(idx);
-                                                }
-                                                ItemKind::Weapon | ItemKind::RangedWeapon
-                                                | ItemKind::Armor | ItemKind::Helmet
-                                                | ItemKind::Shield | ItemKind::Boots | ItemKind::Ring => {
-                                                    gm.equip_item(idx);
-                                                }
+                                            let is_consumable = matches!(
+                                                gm.inventory[idx].kind,
+                                                ItemKind::Potion | ItemKind::Scroll | ItemKind::Food
+                                            );
+                                            if is_consumable {
+                                                gm.use_item(idx);
+                                                // Using a consumable costs a turn — close drawer to see it
+                                                gm.drawer = Drawer::None;
+                                                gm.advance_turn();
+                                            } else {
+                                                gm.equip_item(idx);
                                             }
                                             gm.selected_inventory_item = None;
                                         }
                                     }
-                                    DrawerTap::Drop(idx) => {
+                                    DrawerTap::Drop(idx) | DrawerTap::InlineDrop(idx) => {
                                         gm.drop_item(idx);
                                         gm.selected_inventory_item = None;
                                     }
@@ -560,9 +624,19 @@ pub fn start() -> Result<(), JsValue> {
                                     DrawerTap::Consumed => {}
                                 }
                             } else if css_y < css_h - bar_h_css {
-                                // Tap in game area — inspect the tapped tile
+                                // Tap in game area
                                 let r = renderer.borrow();
                                 let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
+                                drop(r);
+                                let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
+                                // Tap adjacent enemy → explicit attack
+                                if dist == 1 && gm.enemies.iter().any(|e| e.x == wx && e.y == wy && e.hp > 0) {
+                                    gm.attack_adjacent(wx, wy);
+                                } else if dist == 0 {
+                                    // Tap on player tile → pick up items
+                                    gm.pickup_items_explicit();
+                                }
+                                // Always inspect the tile
                                 gm.inspected = gm.inspect_tile(wx, wy);
                             }
                         }
@@ -579,6 +653,35 @@ pub fn start() -> Result<(), JsValue> {
                             let mut r = renderer.borrow_mut();
                             r.glyph_mode = !r.glyph_mode;
                             save_glyph_mode(r.glyph_mode);
+                        }
+                        InputAction::Interact => {
+                            if gm.drawer != Drawer::None {
+                                continue;
+                            }
+                            // Try to attack adjacent enemy in facing direction
+                            let (fdx, fdy) = if gm.player_facing_left { (-1, 0) } else { (1, 0) };
+                            let tx = gm.player_x + fdx;
+                            let ty = gm.player_y + fdy;
+                            if gm.enemies.iter().any(|e| e.x == tx && e.y == ty && e.hp > 0) {
+                                gm.attack_adjacent(tx, ty);
+                            } else {
+                                // Try all 4 directions for adjacent enemy
+                                let dirs = [(0, -1), (0, 1), (-1, 0), (1, 0)];
+                                let mut attacked = false;
+                                for (dx, dy) in dirs {
+                                    let ax = gm.player_x + dx;
+                                    let ay = gm.player_y + dy;
+                                    if gm.enemies.iter().any(|e| e.x == ax && e.y == ay && e.hp > 0) {
+                                        gm.attack_adjacent(ax, ay);
+                                        attacked = true;
+                                        break;
+                                    }
+                                }
+                                // No adjacent enemy → pick up items at feet
+                                if !attacked {
+                                    gm.pickup_items_explicit();
+                                }
+                            }
                         }
                     }
                 }
@@ -663,8 +766,13 @@ pub fn start() -> Result<(), JsValue> {
                         let dy = ny - gm.player_y;
                         let result = gm.move_player(dx, dy);
                         ap.remove(0);
-                        // Clear auto-path if player didn't reach expected tile or map changed
-                        if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
+                        if matches!(result, TurnResult::Blocked) {
+                            // Blocked by enemy → attack and stop auto-move
+                            if gm.enemies.iter().any(|e| e.x == nx && e.y == ny && e.hp > 0) {
+                                gm.attack_adjacent(nx, ny);
+                            }
+                            ap.clear();
+                        } else if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
                             ap.clear();
                         }
                     } else {
@@ -684,6 +792,11 @@ pub fn start() -> Result<(), JsValue> {
                 map.width,
                 map.height,
             );
+        }
+
+        // Tick animations (floating texts, bump anims, visual effects)
+        {
+            game.borrow_mut().tick_animations();
         }
 
         // Advance drawer animation + render

@@ -38,6 +38,8 @@ pub enum InputAction {
     ToggleSprint,
     /// Toggle glyph rendering mode.
     ToggleGlyphMode,
+    /// Interact: attack adjacent enemy (facing direction) or pick up items at feet.
+    Interact,
 }
 
 pub struct Input {
@@ -200,6 +202,10 @@ impl Input {
                 "g" => {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::ToggleGlyphMode);
+                }
+                "f" | " " => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Interact);
                 }
                 _ => {}
             }
