@@ -588,17 +588,26 @@ impl Renderer {
         let slot_h = 34.0 * d;
         let icon_size = 28.0 * d;
 
+        // Reserve space at bottom for slot count
+        let footer_h = 20.0 * d;
+        let avail_h = (drawer_y + drawer_h - footer_h) - list_y;
+        let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
+
         if game.inventory.is_empty() {
             ctx.set_fill_style_str("#555");
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("No items", pad + 4.0 * d, list_y + 4.0 * d);
         } else {
-            for (i, item) in game.inventory.iter().enumerate() {
-                let iy = list_y + i as f64 * slot_h;
-                if iy + slot_h > drawer_y + drawer_h - 8.0 * d { break; }
+            let scroll = game.inventory_scroll;
+            let total = game.inventory.len();
+            let end = (scroll + max_visible).min(total);
 
-                if i % 2 == 0 {
+            for (vi, idx) in (scroll..end).enumerate() {
+                let item = &game.inventory[idx];
+                let iy = list_y + vi as f64 * slot_h;
+
+                if vi % 2 == 0 {
                     ctx.set_fill_style_str("rgba(255,255,255,0.03)");
                     ctx.fill_rect(pad, iy, canvas_w - pad * 2.0, slot_h);
                 }
@@ -633,6 +642,37 @@ impl Renderer {
                 ctx.set_fill_style_str("#999");
                 ctx.set_font(&self.font(10.0, ""));
                 let _ = ctx.fill_text(&hint, canvas_w - pad - 4.0 * d, iy + slot_h / 2.0);
+                ctx.set_text_align("left");
+            }
+
+            // Scroll-up arrow
+            if scroll > 0 {
+                let arrow_size = 24.0 * d;
+                let ax = canvas_w - pad - arrow_size;
+                let ay = list_y;
+                ctx.set_fill_style_str("rgba(255,255,255,0.12)");
+                self.fill_rounded_rect(ax, ay, arrow_size, arrow_size, 4.0 * d);
+                ctx.set_font(&self.font(12.0, "bold"));
+                ctx.set_fill_style_str("#aaa");
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text("\u{25B2}", ax + arrow_size / 2.0, ay + arrow_size / 2.0);
+                ctx.set_text_align("left");
+            }
+
+            // Scroll-down arrow
+            if end < total {
+                let arrow_size = 24.0 * d;
+                let ax = canvas_w - pad - arrow_size;
+                let last_slot_bottom = list_y + (end - scroll) as f64 * slot_h;
+                let ay = last_slot_bottom - arrow_size;
+                ctx.set_fill_style_str("rgba(255,255,255,0.12)");
+                self.fill_rounded_rect(ax, ay, arrow_size, arrow_size, 4.0 * d);
+                ctx.set_font(&self.font(12.0, "bold"));
+                ctx.set_fill_style_str("#aaa");
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text("\u{25BC}", ax + arrow_size / 2.0, ay + arrow_size / 2.0);
                 ctx.set_text_align("left");
             }
         }

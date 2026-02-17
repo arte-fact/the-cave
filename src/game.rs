@@ -232,6 +232,8 @@ pub struct Game {
     pub equipped_ring: Option<Item>,
     pub player_defense: i32,
     pub ground_items: Vec<GroundItem>,
+    /// Scroll offset for the inventory item list (first visible item index).
+    pub inventory_scroll: usize,
     pub inventory_open: bool,
     /// Currently open drawer (slides up from bottom).
     pub drawer: Drawer,
@@ -276,6 +278,7 @@ impl Game {
             equipped_ring: None,
             player_defense: 0,
             ground_items: Vec::new(),
+            inventory_scroll: 0,
             inventory_open: false,
             drawer: Drawer::None,
             inspected: None,
@@ -313,6 +316,7 @@ impl Game {
             equipped_ring: None,
             player_defense: 0,
             ground_items: Vec::new(),
+            inventory_scroll: 0,
             inventory_open: false,
             drawer: Drawer::None,
             inspected: None,
@@ -452,6 +456,7 @@ impl Game {
                     let name = item.name;
                     self.messages.push(format!("You drink {name}. Healed {healed} HP."));
                     self.inventory.remove(index);
+                    self.clamp_inventory_scroll();
                     return true;
                 }
                 false
@@ -461,6 +466,7 @@ impl Game {
                     let name = item.name;
                     self.messages.push(format!("You read {name}!"));
                     self.inventory.remove(index);
+                    self.clamp_inventory_scroll();
                     // Damage all enemies within 3 tiles
                     let px = self.player_x;
                     let py = self.player_y;
@@ -506,6 +512,7 @@ impl Game {
         } else {
             self.messages.push(format!("You equip {name}."));
         }
+        self.clamp_inventory_scroll();
         true
     }
 
@@ -522,6 +529,7 @@ impl Game {
             y: self.player_y,
             item,
         });
+        self.clamp_inventory_scroll();
         true
     }
 
@@ -689,10 +697,28 @@ impl Game {
             let name = self.inventory[index].name;
             self.messages.push(format!("You eat {name}. Hunger +{gained}."));
             self.inventory.remove(index);
+            self.clamp_inventory_scroll();
             true
         } else {
             false
         }
+    }
+
+    /// Clamp inventory scroll so it never exceeds the item count.
+    pub fn clamp_inventory_scroll(&mut self) {
+        let len = self.inventory.len();
+        if len == 0 {
+            self.inventory_scroll = 0;
+        } else if self.inventory_scroll >= len {
+            self.inventory_scroll = len - 1;
+        }
+    }
+
+    /// Scroll the inventory list by `delta` items (positive = down, negative = up).
+    pub fn scroll_inventory(&mut self, delta: i32) {
+        let new = self.inventory_scroll as i32 + delta;
+        self.inventory_scroll = new.max(0) as usize;
+        self.clamp_inventory_scroll();
     }
 
     pub fn toggle_drawer(&mut self, drawer: Drawer) {
@@ -2958,5 +2984,92 @@ mod tests {
             .collect();
         let names: std::collections::HashSet<&str> = weapons.iter().map(|i| i.name).collect();
         assert!(names.len() >= 2, "should have at least 2 weapon variants, got: {:?}", names);
+    }
+
+    // === Inventory scroll ===
+
+    #[test]
+    fn scroll_inventory_down_and_up() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..10 {
+            g.inventory.push(health_potion());
+        }
+        assert_eq!(g.inventory_scroll, 0);
+        g.scroll_inventory(3);
+        assert_eq!(g.inventory_scroll, 3);
+        g.scroll_inventory(-1);
+        assert_eq!(g.inventory_scroll, 2);
+    }
+
+    #[test]
+    fn scroll_inventory_clamps_at_zero() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..5 {
+            g.inventory.push(health_potion());
+        }
+        g.scroll_inventory(-10);
+        assert_eq!(g.inventory_scroll, 0);
+    }
+
+    #[test]
+    fn scroll_inventory_clamps_at_max() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..5 {
+            g.inventory.push(health_potion());
+        }
+        g.scroll_inventory(100);
+        assert_eq!(g.inventory_scroll, 4); // last valid index = len - 1
+    }
+
+    #[test]
+    fn scroll_clamps_after_item_removal() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..5 {
+            g.inventory.push(health_potion());
+        }
+        g.inventory_scroll = 4; // pointing at last item
+        g.player_hp = 10; // damage so potion heals
+        g.use_item(4); // removes last item
+        assert_eq!(g.inventory_scroll, 3); // clamped to new last index
+    }
+
+    #[test]
+    fn scroll_resets_when_inventory_empty() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.inventory_scroll = 0;
+        g.player_hp = 10;
+        g.use_item(0);
+        assert_eq!(g.inventory_scroll, 0);
+        assert!(g.inventory.is_empty());
+    }
+
+    #[test]
+    fn drop_item_clamps_scroll() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..3 {
+            g.inventory.push(rusty_sword());
+        }
+        g.inventory_scroll = 2;
+        g.drop_item(2);
+        assert_eq!(g.inventory_scroll, 1);
+    }
+
+    #[test]
+    fn equip_item_clamps_scroll() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        for _ in 0..3 {
+            g.inventory.push(rusty_sword());
+        }
+        g.inventory_scroll = 2;
+        g.equip_item(2); // removes item, pushes nothing back (slot empty)
+        assert_eq!(g.inventory_scroll, 1);
     }
 }
