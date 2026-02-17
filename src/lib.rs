@@ -402,20 +402,20 @@ pub fn start() -> Result<(), JsValue> {
                             if gm.drawer != Drawer::None {
                                 continue;
                             }
-                            if gm.has_ranged_weapon() {
-                                // Ranged mode: fire at the aim target
-                                let pp = preview_path.borrow();
-                                if pp.len() > 1 {
-                                    let target = pp[pp.len() - 1];
+                            let pp = preview_path.borrow();
+                            if pp.len() > 1 {
+                                let target = pp[pp.len() - 1];
+                                let enemy_at_target = gm.has_ranged_weapon()
+                                    && gm.enemies.iter().any(|e| e.x == target.0 && e.y == target.1 && e.hp > 0);
+                                if enemy_at_target {
+                                    // Fire ranged weapon at the targeted enemy
                                     drop(pp);
                                     let result = gm.ranged_attack(target.0, target.1);
                                     if matches!(result, TurnResult::MapChanged) {
                                         map_changed = true;
                                     }
-                                }
-                            } else {
-                                let pp = preview_path.borrow();
-                                if pp.len() > 1 {
+                                } else {
+                                    // Normal pathfinding movement
                                     *auto_path.borrow_mut() = pp[1..].to_vec();
                                 }
                             }
@@ -520,8 +520,10 @@ pub fn start() -> Result<(), JsValue> {
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
                     let dest = (gm.player_x + gdx, gm.player_y + gdy);
                     let map = gm.current_map();
-                    if gm.has_ranged_weapon() {
-                        // Aim mode: show Bresenham line to target
+                    // Aim mode: show Bresenham line only when hovering an enemy
+                    let enemy_at_dest = gm.has_ranged_weapon()
+                        && gm.enemies.iter().any(|e| e.x == dest.0 && e.y == dest.1 && e.hp > 0);
+                    if enemy_at_dest {
                         let line = bresenham_line(gm.player_x, gm.player_y, dest.0, dest.1);
                         *pp = line;
                     } else if map.is_walkable(dest.0, dest.1) {

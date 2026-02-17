@@ -221,7 +221,9 @@ impl Renderer {
 
         // Path preview / Aim line
         if preview_path.len() > 1 {
-            let is_aiming = game.has_ranged_weapon();
+            let aim_target = preview_path[preview_path.len() - 1];
+            let is_aiming = game.has_ranged_weapon()
+                && game.enemies.iter().any(|e| e.x == aim_target.0 && e.y == aim_target.1 && e.hp > 0);
             if is_aiming {
                 // Aim mode: draw line with color based on range/hit chance
                 let max_range = game.ranged_max_range();
