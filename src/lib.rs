@@ -54,6 +54,10 @@ enum DrawerTap {
     ScrollUp,
     /// Scroll the inventory list down.
     ScrollDown,
+    /// Use/Equip button tapped for the selected item.
+    UseEquip(usize),
+    /// Drop button tapped for the selected item.
+    Drop(usize),
     /// Tapped inside the drawer but not on an actionable element.
     Consumed,
 }
@@ -71,6 +75,7 @@ fn hit_test_drawer(
     drawer: Drawer,
     item_count: usize,
     inventory_scroll: usize,
+    selected_item: Option<usize>,
 ) -> Option<DrawerTap> {
     let drawer_frac = match drawer {
         Drawer::None => return None,
@@ -97,12 +102,38 @@ fn hit_test_drawer(
     let eq_gap = 4.0;
     let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0;
     let slot_h = 34.0;
-    let footer_h = 20.0;
-    let avail_h = (drawer_y + drawer_h - footer_h) - list_y;
+    let detail_bar_h = if selected_item.is_some() { 46.0 } else { 20.0 };
+    let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
     let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
     let end = (inventory_scroll + max_visible).min(item_count);
     let pad = 12.0;
     let scrollbar_w = 12.0;
+
+    // Detail bar buttons hit test (when an item is selected)
+    if let Some(sel_idx) = selected_item {
+        let bar_y = drawer_y + drawer_h - detail_bar_h;
+        if css_y >= bar_y {
+            let btn_h = 26.0;
+            let btn_gap = 8.0;
+            let btn_y = bar_y + detail_bar_h - btn_h - 4.0;
+
+            if css_y >= btn_y && css_y <= btn_y + btn_h {
+                // Use/Equip button
+                let action_w = 60.0;
+                let action_x = css_w - pad - action_w - btn_gap - 60.0;
+                if css_x >= action_x && css_x <= action_x + action_w {
+                    return Some(DrawerTap::UseEquip(sel_idx));
+                }
+                // Drop button
+                let drop_w = 60.0;
+                let drop_x = css_w - pad - drop_w;
+                if css_x >= drop_x && css_x <= drop_x + drop_w {
+                    return Some(DrawerTap::Drop(sel_idx));
+                }
+            }
+            return Some(DrawerTap::Consumed);
+        }
+    }
 
     if css_y >= list_y && item_count > 0 {
         // Check if tap is in scrollbar track (right edge of list area)
@@ -128,7 +159,7 @@ fn hit_test_drawer(
             return Some(DrawerTap::Consumed); // tap on thumb itself
         }
 
-        // Regular item tap
+        // Regular item tap (select, not use)
         let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
         let abs_idx = inventory_scroll + vis_idx;
         if abs_idx < end {
@@ -225,6 +256,8 @@ pub fn start() -> Result<(), JsValue> {
     let preview_path: Rc<RefCell<Vec<(i32, i32)>>> = Rc::new(RefCell::new(Vec::new()));
     // Frame counter for throttling auto-move speed
     let auto_move_tick: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+    // Drawer swipe-scroll base: (base_scroll, start_y) when swipe began
+    let drawer_swipe_base: Rc<RefCell<Option<(usize, f64)>>> = Rc::new(RefCell::new(None));
 
     // Load sprite sheets asynchronously
     {
@@ -394,19 +427,35 @@ pub fn start() -> Result<(), JsValue> {
                             } else if let Some(dtap) = hit_test_drawer(
                                 css_x, css_y, css_w, css_h, bar_h_css,
                                 gm.drawer, gm.inventory.len(), gm.inventory_scroll,
+                                gm.selected_inventory_item,
                             ) {
                                 // Tap landed inside an open drawer
                                 match dtap {
                                     DrawerTap::InventoryItem(idx) => {
-                                        match &gm.inventory[idx].kind {
-                                            ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                gm.use_item(idx);
-                                            }
-                                            ItemKind::Weapon | ItemKind::Armor | ItemKind::Helmet
-                                            | ItemKind::Shield | ItemKind::Boots | ItemKind::Ring => {
-                                                gm.equip_item(idx);
-                                            }
+                                        // Tap selects (or deselects if same)
+                                        if gm.selected_inventory_item == Some(idx) {
+                                            gm.selected_inventory_item = None;
+                                        } else {
+                                            gm.selected_inventory_item = Some(idx);
                                         }
+                                    }
+                                    DrawerTap::UseEquip(idx) => {
+                                        if idx < gm.inventory.len() {
+                                            match &gm.inventory[idx].kind {
+                                                ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
+                                                    gm.use_item(idx);
+                                                }
+                                                ItemKind::Weapon | ItemKind::Armor | ItemKind::Helmet
+                                                | ItemKind::Shield | ItemKind::Boots | ItemKind::Ring => {
+                                                    gm.equip_item(idx);
+                                                }
+                                            }
+                                            gm.selected_inventory_item = None;
+                                        }
+                                    }
+                                    DrawerTap::Drop(idx) => {
+                                        gm.drop_item(idx);
+                                        gm.selected_inventory_item = None;
                                     }
                                     DrawerTap::ScrollUp => {
                                         gm.scroll_inventory(-1);
@@ -445,6 +494,7 @@ pub fn start() -> Result<(), JsValue> {
         }
 
         // Compute live preview path from swipe state + inspect hovered tile
+        // OR handle drawer swipe-scrolling if drawer is open
         {
             let mut pp = preview_path.borrow_mut();
             pp.clear();
@@ -462,10 +512,23 @@ pub fn start() -> Result<(), JsValue> {
                     }
                     // Inspect the destination tile during swipe
                     gm.inspected = gm.inspect_tile(dest.0, dest.1);
+                } else if gm.drawer != Drawer::None {
+                    // Swipe-scroll inventory when drawer is open
+                    let slot_h_css = 34.0;
+                    let mut base = drawer_swipe_base.borrow_mut();
+                    if base.is_none() {
+                        *base = Some((gm.inventory_scroll, swipe.start_y));
+                    }
+                    if let Some((base_scroll, start_y)) = *base {
+                        let dy = start_y - swipe.current_y; // positive = scroll down
+                        let delta = (dy / slot_h_css).round() as i32;
+                        let new_scroll = (base_scroll as i32 + delta).max(0) as usize;
+                        gm.set_inventory_scroll(new_scroll);
+                    }
                 }
             } else {
-                // Clear inspection when not swiping (unless tapped)
-                // Only clear if no active swipe — taps persist until next action
+                // Swipe ended — clear drawer swipe base
+                *drawer_swipe_base.borrow_mut() = None;
             }
         }
 
