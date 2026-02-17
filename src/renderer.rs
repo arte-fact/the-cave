@@ -56,7 +56,10 @@ impl Renderer {
 
     pub fn resize(&mut self, width: f64, height: f64, dpr: f64) {
         self.dpr = dpr;
-        self.camera.set_viewport(width, height);
+        let cell = self.camera.set_viewport(width, height);
+        // Pad camera so map content clears HUD overlays at edges.
+        self.camera.pad_top = (self.top_bar_h() + self.detail_strip_h()) / cell;
+        self.camera.pad_bottom = (self.bottom_bar_h() + self.msg_area_h()) / cell;
     }
 
     /// Scaled HUD dimension helpers.
