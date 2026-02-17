@@ -478,8 +478,19 @@ pub fn start() -> Result<(), JsValue> {
                                 input::Direction::Left => (-1, 0),
                                 input::Direction::Right => (1, 0),
                             };
-                            if matches!(gm.move_player(dx, dy), TurnResult::MapChanged) {
+                            let result = gm.move_player(dx, dy);
+                            if matches!(result, TurnResult::MapChanged) {
                                 map_changed = true;
+                            } else if matches!(result, TurnResult::Blocked) {
+                                // Step blocked by enemy → attack it
+                                let tx = gm.player_x + dx;
+                                let ty = gm.player_y + dy;
+                                if gm.enemies.iter().any(|e| e.x == tx && e.y == ty && e.hp > 0) {
+                                    let atk_result = gm.attack_adjacent(tx, ty);
+                                    if matches!(atk_result, TurnResult::MapChanged) {
+                                        map_changed = true;
+                                    }
+                                }
                             }
                         }
                         InputAction::ExecutePath => {
@@ -707,8 +718,13 @@ pub fn start() -> Result<(), JsValue> {
                         let dy = ny - gm.player_y;
                         let result = gm.move_player(dx, dy);
                         ap.remove(0);
-                        // Clear auto-path if player didn't reach expected tile or map changed
-                        if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
+                        if matches!(result, TurnResult::Blocked) {
+                            // Blocked by enemy → attack and stop auto-move
+                            if gm.enemies.iter().any(|e| e.x == nx && e.y == ny && e.hp > 0) {
+                                gm.attack_adjacent(nx, ny);
+                            }
+                            ap.clear();
+                        } else if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
                             ap.clear();
                         }
                     } else {
