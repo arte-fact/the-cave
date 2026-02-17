@@ -234,6 +234,8 @@ pub struct Game {
     pub ground_items: Vec<GroundItem>,
     /// Scroll offset for the inventory item list (first visible item index).
     pub inventory_scroll: usize,
+    /// Currently selected inventory item index (for detail view / drop).
+    pub selected_inventory_item: Option<usize>,
     pub inventory_open: bool,
     /// Currently open drawer (slides up from bottom).
     pub drawer: Drawer,
@@ -279,6 +281,7 @@ impl Game {
             player_defense: 0,
             ground_items: Vec::new(),
             inventory_scroll: 0,
+            selected_inventory_item: None,
             inventory_open: false,
             drawer: Drawer::None,
             inspected: None,
@@ -317,6 +320,7 @@ impl Game {
             player_defense: 0,
             ground_items: Vec::new(),
             inventory_scroll: 0,
+            selected_inventory_item: None,
             inventory_open: false,
             drawer: Drawer::None,
             inspected: None,
@@ -712,6 +716,12 @@ impl Game {
         } else if self.inventory_scroll >= len {
             self.inventory_scroll = len - 1;
         }
+        // Also clamp selection
+        if let Some(sel) = self.selected_inventory_item {
+            if sel >= len {
+                self.selected_inventory_item = None;
+            }
+        }
     }
 
     /// Scroll the inventory list by `delta` items (positive = down, negative = up).
@@ -721,12 +731,24 @@ impl Game {
         self.clamp_inventory_scroll();
     }
 
+    /// Set the inventory scroll position absolutely (clamped).
+    pub fn set_inventory_scroll(&mut self, pos: usize) {
+        self.inventory_scroll = pos;
+        self.clamp_inventory_scroll();
+    }
+
+    /// Get a description string for an inventory item.
+    pub fn inventory_item_desc(&self, index: usize) -> Option<String> {
+        self.inventory.get(index).map(|item| item_info_desc(item))
+    }
+
     pub fn toggle_drawer(&mut self, drawer: Drawer) {
         if self.drawer == drawer {
             self.drawer = Drawer::None;
         } else {
             self.drawer = drawer;
         }
+        self.selected_inventory_item = None;
     }
 
     /// XP required to reach next level: 20 * current_level^1.5 (rounded).
@@ -3089,5 +3111,126 @@ mod tests {
         // Large page-down clamps to max
         g.scroll_inventory(100);
         assert_eq!(g.inventory_scroll, 9);
+    }
+
+    // ── Item selection tests ─────────────────────────────────────────
+
+    #[test]
+    fn selected_item_starts_none() {
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new(map);
+        assert!(g.selected_inventory_item.is_none());
+    }
+
+    #[test]
+    fn selection_cleared_on_drawer_toggle() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        g.selected_inventory_item = Some(0);
+        // Opening inventory clears selection
+        g.toggle_drawer(Drawer::Inventory);
+        assert!(g.selected_inventory_item.is_none());
+        // Re-select and close drawer
+        g.selected_inventory_item = Some(0);
+        g.toggle_drawer(Drawer::Inventory); // toggles off
+        assert!(g.selected_inventory_item.is_none());
+    }
+
+    #[test]
+    fn selection_cleared_when_item_dropped() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        g.inventory.push(health_potion());
+        g.selected_inventory_item = Some(0);
+        g.drop_item(0);
+        // Selection should be cleared because item was removed
+        // (clamp_inventory_scroll clears selection when index >= len)
+        assert_eq!(g.inventory.len(), 1);
+    }
+
+    #[test]
+    fn selection_cleared_when_item_used() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.player_hp = 10;
+        g.selected_inventory_item = Some(0);
+        g.use_item(0);
+        // Item consumed, selection should be cleared (only had 1 item)
+        assert!(g.inventory.is_empty());
+        assert!(g.selected_inventory_item.is_none());
+    }
+
+    #[test]
+    fn selection_survives_when_valid_after_removal() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.inventory.push(rusty_sword());
+        g.inventory.push(health_potion());
+        g.selected_inventory_item = Some(0);
+        // Drop item at index 2 — selection at 0 stays valid
+        g.drop_item(2);
+        assert_eq!(g.selected_inventory_item, Some(0));
+    }
+
+    #[test]
+    fn selection_cleared_when_index_out_of_bounds() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.selected_inventory_item = Some(5); // out of bounds
+        g.clamp_inventory_scroll();
+        assert!(g.selected_inventory_item.is_none());
+    }
+
+    // ── Item description tests ───────────────────────────────────────
+
+    #[test]
+    fn inventory_item_desc_returns_description() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        let desc = g.inventory_item_desc(0).unwrap();
+        assert!(desc.contains("Rusty Sword"));
+        assert!(desc.contains("Attack"));
+    }
+
+    #[test]
+    fn inventory_item_desc_returns_none_for_empty() {
+        let map = Map::generate(30, 20, 42);
+        let g = Game::new(map);
+        assert!(g.inventory_item_desc(0).is_none());
+    }
+
+    #[test]
+    fn inventory_item_desc_potion() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        let desc = g.inventory_item_desc(0).unwrap();
+        assert!(desc.contains("HP"));
+    }
+
+    // ── set_inventory_scroll tests ───────────────────────────────────
+
+    #[test]
+    fn set_inventory_scroll_clamps() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.inventory.push(rusty_sword());
+        g.set_inventory_scroll(100);
+        assert_eq!(g.inventory_scroll, 1); // clamped to len-1
+    }
+
+    #[test]
+    fn set_inventory_scroll_zero_on_empty() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.set_inventory_scroll(5);
+        assert_eq!(g.inventory_scroll, 0);
     }
 }

@@ -641,8 +641,9 @@ impl Renderer {
         let slot_h = 34.0 * d;
         let icon_size = 28.0 * d;
 
-        let footer_h = 20.0 * d;
-        let avail_h = (drawer_y + drawer_h - footer_h) - list_y;
+        // Detail bar at bottom when an item is selected, otherwise just slot count
+        let detail_bar_h = if game.selected_inventory_item.is_some() { 46.0 * d } else { 20.0 * d };
+        let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
 
         // Right edge for item text (before scrollbar)
@@ -657,12 +658,17 @@ impl Renderer {
             let scroll = game.inventory_scroll;
             let total = game.inventory.len();
             let end = (scroll + max_visible).min(total);
+            let selected = game.selected_inventory_item;
 
             for (vi, idx) in (scroll..end).enumerate() {
                 let item = &game.inventory[idx];
                 let iy = list_y + vi as f64 * slot_h;
 
-                if vi % 2 == 0 {
+                // Row background — highlight selected item
+                if selected == Some(idx) {
+                    ctx.set_fill_style_str("rgba(80,130,255,0.18)");
+                    ctx.fill_rect(pad, iy, canvas_w - pad * 2.0 - scrollbar_w, slot_h);
+                } else if vi % 2 == 0 {
                     ctx.set_fill_style_str("rgba(255,255,255,0.03)");
                     ctx.fill_rect(pad, iy, canvas_w - pad * 2.0 - scrollbar_w, slot_h);
                 }
@@ -723,15 +729,77 @@ impl Renderer {
             }
         }
 
-        // Slot count
-        ctx.set_font(&self.font(10.0, ""));
-        ctx.set_fill_style_str("#555");
-        ctx.set_text_align("right");
-        ctx.set_text_baseline("bottom");
-        let _ = ctx.fill_text(
-            &format!("{}/10", game.inventory.len()),
-            canvas_w - pad, drawer_y + drawer_h - 6.0 * d,
-        );
+        // Bottom bar: detail bar if selected, slot count otherwise
+        let bar_y = drawer_y + drawer_h - detail_bar_h;
+        if let Some(sel_idx) = game.selected_inventory_item {
+            if sel_idx < game.inventory.len() {
+                let item = &game.inventory[sel_idx];
+
+                // Detail bar background
+                ctx.set_fill_style_str("rgba(40,40,60,0.95)");
+                ctx.fill_rect(0.0, bar_y, canvas_w, detail_bar_h);
+                ctx.set_fill_style_str("rgba(80,130,255,0.15)");
+                ctx.fill_rect(0.0, bar_y, canvas_w, 1.0 * d);
+
+                // Description text
+                let desc = game.inventory_item_desc(sel_idx).unwrap_or_default();
+                ctx.set_font(&self.font(10.0, ""));
+                ctx.set_fill_style_str("#ccc");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(&desc, pad, bar_y + detail_bar_h * 0.35);
+
+                // Action buttons
+                let btn_h = 26.0 * d;
+                let btn_y = bar_y + detail_bar_h - btn_h - 4.0 * d;
+                let btn_gap = 8.0 * d;
+
+                // Use/Equip button
+                let action_label = match item.kind {
+                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => "Use",
+                    _ => "Equip",
+                };
+                let action_w = 60.0 * d;
+                let action_x = canvas_w - pad - action_w - btn_gap - 60.0 * d;
+                ctx.set_fill_style_str("rgba(80,200,120,0.25)");
+                self.fill_rounded_rect(action_x, btn_y, action_w, btn_h, 4.0 * d);
+                ctx.set_font(&self.font(11.0, "bold"));
+                ctx.set_fill_style_str("#8f8");
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(action_label, action_x + action_w / 2.0, btn_y + btn_h / 2.0);
+
+                // Drop button
+                let drop_w = 60.0 * d;
+                let drop_x = canvas_w - pad - drop_w;
+                ctx.set_fill_style_str("rgba(200,80,80,0.25)");
+                self.fill_rounded_rect(drop_x, btn_y, drop_w, btn_h, 4.0 * d);
+                ctx.set_font(&self.font(11.0, "bold"));
+                ctx.set_fill_style_str("#f88");
+                ctx.set_text_align("center");
+                let _ = ctx.fill_text("Drop", drop_x + drop_w / 2.0, btn_y + btn_h / 2.0);
+
+                // Slot count (small, left side)
+                ctx.set_font(&self.font(9.0, ""));
+                ctx.set_fill_style_str("#555");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(
+                    &format!("{}/10", game.inventory.len()),
+                    pad, btn_y + btn_h / 2.0,
+                );
+            }
+        } else {
+            // Slot count only
+            ctx.set_font(&self.font(10.0, ""));
+            ctx.set_fill_style_str("#555");
+            ctx.set_text_align("right");
+            ctx.set_text_baseline("bottom");
+            let _ = ctx.fill_text(
+                &format!("{}/10", game.inventory.len()),
+                canvas_w - pad, drawer_y + drawer_h - 6.0 * d,
+            );
+        }
 
         ctx.restore(); // pop clip
     }
