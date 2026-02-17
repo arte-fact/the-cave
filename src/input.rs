@@ -36,6 +36,8 @@ pub enum InputAction {
     ToggleStats,
     /// Toggle sprint mode.
     ToggleSprint,
+    /// Interact: attack adjacent enemy (facing direction) or pick up items at feet.
+    Interact,
 }
 
 pub struct Input {
@@ -194,6 +196,10 @@ impl Input {
                 "s" => {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::ToggleSprint);
+                }
+                "f" | " " => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Interact);
                 }
                 _ => {}
             }
