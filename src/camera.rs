@@ -11,6 +11,9 @@ pub struct Camera {
     /// Raw canvas dimensions in pixels (stored to avoid precision loss).
     canvas_w: f64,
     canvas_h: f64,
+    /// Extra padding in tile units so map content clears HUD overlays at edges.
+    pub pad_top: f64,
+    pub pad_bottom: f64,
 }
 
 /// How many tiles should be visible across the screen width.
@@ -27,6 +30,8 @@ impl Camera {
             cell_size: 1.0,
             canvas_w: 0.0,
             canvas_h: 0.0,
+            pad_top: 0.0,
+            pad_bottom: 0.0,
         }
     }
 
@@ -99,7 +104,17 @@ impl Camera {
         if self.viewport_h >= mh {
             self.y = mh / 2.0;
         } else {
-            self.y = self.y.clamp(half_h, mh - half_h);
+            // Allow camera to shift so map content clears HUD overlays at edges.
+            // pad_top: extra tiles visible above the map (pushes map below top HUD).
+            // pad_bottom: extra tiles visible below the map (pushes map above bottom HUD).
+            let min_y = half_h - self.pad_top;
+            let max_y = mh - half_h + self.pad_bottom;
+            if min_y < max_y {
+                self.y = self.y.clamp(min_y, max_y);
+            } else {
+                // Padding exceeds map size — just center vertically
+                self.y = mh / 2.0;
+            }
         }
     }
 
@@ -363,5 +378,73 @@ mod tests {
         let (gx, gy) = cam.css_delta_to_grid(44.0, 0.0, 2.0);
         assert_eq!(gx, 2);
         assert_eq!(gy, 0);
+    }
+
+    // --- Padding ---
+
+    #[test]
+    fn pad_top_allows_camera_above_map_edge() {
+        let mut cam = Camera::new();
+        cam.set_viewport(200.0, 200.0);
+        cam.pad_top = 3.0;
+        cam.snap(40.0, -100.0, 80, 50);
+        let half_h = cam.viewport_h() / 2.0;
+        // Camera allowed 3 tiles above normal limit
+        assert!((cam.y - (half_h - 3.0)).abs() < 0.01,
+            "should clamp to half_h - pad_top, got {}", cam.y);
+    }
+
+    #[test]
+    fn pad_bottom_allows_camera_below_map_edge() {
+        let mut cam = Camera::new();
+        cam.set_viewport(200.0, 200.0);
+        cam.pad_bottom = 2.0;
+        cam.snap(40.0, 999.0, 80, 50);
+        let half_h = cam.viewport_h() / 2.0;
+        // Camera allowed 2 tiles below normal limit
+        assert!((cam.y - (50.0 - half_h + 2.0)).abs() < 0.01,
+            "should clamp to mh - half_h + pad_bottom, got {}", cam.y);
+    }
+
+    #[test]
+    fn pad_both_directions() {
+        let mut cam = Camera::new();
+        cam.set_viewport(200.0, 200.0);
+        cam.pad_top = 2.0;
+        cam.pad_bottom = 3.0;
+        let half_h = cam.viewport_h() / 2.0;
+
+        // At top edge
+        cam.snap(40.0, -100.0, 80, 50);
+        assert!((cam.y - (half_h - 2.0)).abs() < 0.01);
+
+        // At bottom edge
+        cam.snap(40.0, 999.0, 80, 50);
+        assert!((cam.y - (50.0 - half_h + 3.0)).abs() < 0.01);
+    }
+
+    #[test]
+    fn padding_centers_when_exceeding_map() {
+        let mut cam = Camera::new();
+        cam.set_viewport(660.0, 440.0); // ~14.7 tiles high
+        cam.pad_top = 10.0;
+        cam.pad_bottom = 10.0;
+        // Small map (10 tiles) — padding exceeds map, should center
+        cam.snap(5.0, 5.0, 20, 10);
+        assert!((cam.y - 5.0).abs() < 0.01, "should center on small map, got {}", cam.y);
+    }
+
+    #[test]
+    fn no_padding_same_as_before() {
+        let mut cam = Camera::new();
+        cam.set_viewport(200.0, 200.0);
+        // pad_top=0, pad_bottom=0 (defaults)
+        let half_h = cam.viewport_h() / 2.0;
+
+        cam.snap(40.0, -100.0, 80, 50);
+        assert!((cam.y - half_h).abs() < 0.01, "top clamp unchanged without padding");
+
+        cam.snap(40.0, 999.0, 80, 50);
+        assert!((cam.y - (50.0 - half_h)).abs() < 0.01, "bottom clamp unchanged without padding");
     }
 }

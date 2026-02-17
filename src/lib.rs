@@ -48,8 +48,12 @@ fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css
 
 /// Result of tapping inside a drawer.
 enum DrawerTap {
-    /// Tapped an inventory item at the given index.
+    /// Tapped an inventory item at the given index (absolute, not visual).
     InventoryItem(usize),
+    /// Scroll the inventory list up.
+    ScrollUp,
+    /// Scroll the inventory list down.
+    ScrollDown,
     /// Tapped inside the drawer but not on an actionable element.
     Consumed,
 }
@@ -59,13 +63,14 @@ enum DrawerTap {
 /// Layout constants here mirror `renderer::draw_inventory_drawer` / `draw_stats_drawer`
 /// (which use `base * dpr` in canvas pixels — dividing by dpr gives CSS points).
 fn hit_test_drawer(
-    _css_x: f64,
+    css_x: f64,
     css_y: f64,
-    _css_w: f64,
+    css_w: f64,
     css_h: f64,
     bar_h_css: f64,
     drawer: Drawer,
     item_count: usize,
+    inventory_scroll: usize,
 ) -> Option<DrawerTap> {
     let drawer_frac = match drawer {
         Drawer::None => return None,
@@ -86,21 +91,51 @@ fn hit_test_drawer(
     }
 
     // Inventory drawer: match layout from renderer::draw_inventory_drawer
-    // eq_y = drawer_y + 32, eq_h = 36, list_y = eq_y + eq_h + 8, slot_h = 34
+    // Equipment: 3 rows × 2 cols, eq_h=30, eq_gap=4
     let eq_y = drawer_y + 32.0;
-    let eq_h = 36.0;
-    let list_y = eq_y + eq_h + 8.0;
+    let eq_h = 30.0;
+    let eq_gap = 4.0;
+    let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0;
     let slot_h = 34.0;
+    let footer_h = 20.0;
+    let avail_h = (drawer_y + drawer_h - footer_h) - list_y;
+    let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
+    let end = (inventory_scroll + max_visible).min(item_count);
+    let pad = 12.0;
+    let arrow_size = 24.0;
 
     if css_y >= list_y && item_count > 0 {
-        let idx = ((css_y - list_y) / slot_h).floor() as usize;
-        if idx < item_count {
-            return Some(DrawerTap::InventoryItem(idx));
+        let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
+
+        // Check scroll-up arrow zone (top-right of first visible slot)
+        if inventory_scroll > 0 && vis_idx == 0 {
+            let ax = css_w - pad - arrow_size;
+            if css_x >= ax {
+                return Some(DrawerTap::ScrollUp);
+            }
+        }
+
+        // Check scroll-down arrow zone (bottom-right of last visible slot)
+        if end < item_count {
+            let visible_count = end - inventory_scroll;
+            if visible_count > 0 && vis_idx == visible_count - 1 {
+                let ax = css_w - pad - arrow_size;
+                if css_x >= ax {
+                    return Some(DrawerTap::ScrollDown);
+                }
+            }
+        }
+
+        // Regular item tap
+        let abs_idx = inventory_scroll + vis_idx;
+        if abs_idx < end {
+            return Some(DrawerTap::InventoryItem(abs_idx));
         }
     }
 
     Some(DrawerTap::Consumed)
 }
+
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     if let Err(e) = window.request_animation_frame(f.as_ref().unchecked_ref()) {
@@ -349,7 +384,7 @@ pub fn start() -> Result<(), JsValue> {
                                 }
                             } else if let Some(dtap) = hit_test_drawer(
                                 css_x, css_y, css_w, css_h, bar_h_css,
-                                gm.drawer, gm.inventory.len(),
+                                gm.drawer, gm.inventory.len(), gm.inventory_scroll,
                             ) {
                                 // Tap landed inside an open drawer
                                 match dtap {
@@ -363,6 +398,12 @@ pub fn start() -> Result<(), JsValue> {
                                                 gm.equip_item(idx);
                                             }
                                         }
+                                    }
+                                    DrawerTap::ScrollUp => {
+                                        gm.scroll_inventory(-1);
+                                    }
+                                    DrawerTap::ScrollDown => {
+                                        gm.scroll_inventory(1);
                                     }
                                     DrawerTap::Consumed => {}
                                 }
