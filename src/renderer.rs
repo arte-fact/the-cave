@@ -1,7 +1,7 @@
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::camera::Camera;
-use crate::game::{Drawer, Game, Item, ItemKind};
+use crate::game::{BumpAnim, Drawer, EffectKind, Game, Item, ItemKind};
 use crate::map::{Tile, Visibility};
 use crate::sprites::{self, Sheet, SpriteRef};
 
@@ -11,6 +11,7 @@ pub struct SpriteSheets {
     pub monsters: HtmlImageElement,
     pub rogues: HtmlImageElement,
     pub items: HtmlImageElement,
+    pub animals: HtmlImageElement,
 }
 
 impl SpriteSheets {
@@ -20,7 +21,8 @@ impl SpriteSheets {
             Sheet::Monsters => &self.monsters,
             Sheet::Rogues => &self.rogues,
             Sheet::Items => &self.items,
-            // Animals and AnimatedTiles sheets not yet loaded
+            Sheet::Animals => &self.animals,
+            // AnimatedTiles sheet not yet loaded
             _ => &self.tiles,
         }
     }
@@ -283,15 +285,20 @@ impl Renderer {
             }
         }
 
-        // Enemies
+        // Enemies (with bump animation offsets)
         let map = game.current_map();
-        for e in &game.enemies {
+        for (ei, e) in game.enemies.iter().enumerate() {
             if e.hp <= 0 { continue; }
             if e.x < min_x || e.x >= max_x || e.y < min_y || e.y >= max_y { continue; }
             if map.get_visibility(e.x, e.y) != Visibility::Visible { continue; }
             let (ex, ey) = cam.world_to_screen(e.x, e.y);
+            let (bx, by) = bump_offset(&game.bump_anims, false, ei, cell);
+            let rx = ex + bx;
+            let ry = ey + by;
+            // Color flash when taking damage (bump active)
+            let has_bump = game.bump_anims.iter().any(|b| !b.is_player && b.enemy_idx == ei);
             let sprite = sprites::enemy_sprite(e.glyph);
-            if !self.draw_sprite_ex(sprite, ex, ey, cell, cell, !e.facing_left) {
+            if !self.draw_sprite_ex(sprite, rx, ry, cell, cell, !e.facing_left) {
                 let font_size = (cell * 0.8).round();
                 ctx.set_font(&format!("{font_size}px monospace"));
                 ctx.set_text_align("center");
@@ -302,7 +309,12 @@ impl Renderer {
                     _ => "#4f4",
                 };
                 ctx.set_fill_style_str(color);
-                let _ = ctx.fill_text(&e.glyph.to_string(), ex + cell / 2.0, ey + cell / 2.0);
+                let _ = ctx.fill_text(&e.glyph.to_string(), rx + cell / 2.0, ry + cell / 2.0);
+            }
+            // Red flash overlay when hit
+            if has_bump {
+                ctx.set_fill_style_str("rgba(255,60,60,0.35)");
+                ctx.fill_rect(rx, ry, cell, cell);
             }
         }
 
@@ -322,16 +334,134 @@ impl Renderer {
             }
         }
 
-        // Player
+        // Player (with bump animation offset)
         let (px, py) = cam.world_to_screen(game.player_x, game.player_y);
+        let (pbx, pby) = bump_offset(&game.bump_anims, true, 0, cell);
+        let prx = px + pbx;
+        let pry = py + pby;
         let player_sprite = sprites::player_sprite();
-        if !self.draw_sprite_ex(player_sprite, px, py, cell, cell, !game.player_facing_left) {
+        if !self.draw_sprite_ex(player_sprite, prx, pry, cell, cell, !game.player_facing_left) {
             let font_size = (cell * 0.8).round();
             ctx.set_font(&format!("{font_size}px monospace"));
             ctx.set_text_align("center");
             ctx.set_text_baseline("middle");
             ctx.set_fill_style_str("#fff");
-            let _ = ctx.fill_text("@", px + cell / 2.0, py + cell / 2.0);
+            let _ = ctx.fill_text("@", prx + cell / 2.0, pry + cell / 2.0);
+        }
+        // Red flash on player when taking damage
+        let player_taking_damage = game.bump_anims.iter().any(|b| b.is_player && (b.dx * b.dx + b.dy * b.dy) > 0.001);
+        if player_taking_damage {
+            ctx.set_fill_style_str("rgba(255,60,60,0.3)");
+            ctx.fill_rect(prx, pry, cell, cell);
+        }
+
+        // Visual effects
+        self.draw_visual_effects(game, cam, cell);
+
+        // Floating texts
+        self.draw_floating_texts(game, cam, cell);
+    }
+
+    /// Render active floating text indicators.
+    fn draw_floating_texts(&self, game: &Game, cam: &Camera, cell: f64) {
+        let ctx = &self.ctx;
+        for ft in &game.floating_texts {
+            let (sx, sy) = cam.world_to_screen(ft.world_x, ft.world_y);
+            let rise = ft.age * cell * 0.8;
+            let alpha = (1.0 - ft.age).max(0.0);
+            let font_size = (cell * 0.35).round().max(10.0);
+            ctx.set_font(&format!("bold {font_size}px monospace"));
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            // Shadow
+            ctx.set_fill_style_str(&format!("rgba(0,0,0,{:.2})", alpha * 0.7));
+            let _ = ctx.fill_text(&ft.text, sx + cell / 2.0 + 1.0, sy + cell * 0.3 - rise + 1.0);
+            // Text
+            ctx.set_fill_style_str(&format_color_alpha(ft.color, alpha));
+            let _ = ctx.fill_text(&ft.text, sx + cell / 2.0, sy + cell * 0.3 - rise);
+        }
+    }
+
+    /// Render active visual effects (AOE blasts, heal glow, etc.).
+    fn draw_visual_effects(&self, game: &Game, cam: &Camera, cell: f64) {
+        let ctx = &self.ctx;
+        for ve in &game.visual_effects {
+            let (sx, sy) = cam.world_to_screen(ve.x, ve.y);
+            let cx = sx + cell / 2.0;
+            let cy = sy + cell / 2.0;
+            match ve.kind {
+                EffectKind::AoeBlast => {
+                    // Expanding fire ring
+                    let max_r = cell * 3.5;
+                    let r = ve.age * max_r;
+                    let alpha = (1.0 - ve.age) * 0.6;
+                    ctx.begin_path();
+                    let _ = ctx.arc(cx, cy, r, 0.0, std::f64::consts::TAU);
+                    ctx.set_stroke_style_str(&format!("rgba(255,120,30,{:.2})", alpha));
+                    ctx.set_line_width(cell * 0.15);
+                    ctx.stroke();
+                    // Inner glow
+                    let inner_alpha = (1.0 - ve.age) * 0.25;
+                    ctx.set_fill_style_str(&format!("rgba(255,80,20,{:.2})", inner_alpha));
+                    ctx.begin_path();
+                    let _ = ctx.arc(cx, cy, r * 0.7, 0.0, std::f64::consts::TAU);
+                    ctx.fill();
+                }
+                EffectKind::HealGlow => {
+                    // Green glow that expands and fades
+                    let r = cell * 0.5 + ve.age * cell * 0.3;
+                    let alpha = (1.0 - ve.age) * 0.5;
+                    ctx.set_fill_style_str(&format!("rgba(80,255,80,{:.2})", alpha));
+                    ctx.begin_path();
+                    let _ = ctx.arc(cx, cy, r, 0.0, std::f64::consts::TAU);
+                    ctx.fill();
+                    // Rising plus sign
+                    let rise = ve.age * cell * 0.4;
+                    let t_alpha = (1.0 - ve.age).max(0.0);
+                    ctx.set_fill_style_str(&format!("rgba(120,255,120,{:.2})", t_alpha));
+                    let cross_sz = cell * 0.08;
+                    ctx.fill_rect(cx - cross_sz, cy - cross_sz * 3.0 - rise, cross_sz * 2.0, cross_sz * 6.0);
+                    ctx.fill_rect(cx - cross_sz * 3.0, cy - cross_sz - rise, cross_sz * 6.0, cross_sz * 2.0);
+                }
+                EffectKind::PoisonCloud => {
+                    // Purple poison cloud
+                    let r = cell * 0.4 + ve.age * cell * 0.4;
+                    let alpha = (1.0 - ve.age) * 0.45;
+                    ctx.set_fill_style_str(&format!("rgba(160,60,220,{:.2})", alpha));
+                    ctx.begin_path();
+                    let _ = ctx.arc(cx, cy, r, 0.0, std::f64::consts::TAU);
+                    ctx.fill();
+                    // Bubbles
+                    let bubble_alpha = (1.0 - ve.age) * 0.6;
+                    ctx.set_fill_style_str(&format!("rgba(200,100,255,{:.2})", bubble_alpha));
+                    let br = cell * 0.06;
+                    let phase = ve.age * 8.0;
+                    for j in 0..3 {
+                        let angle = phase + j as f64 * 2.1;
+                        let bx = cx + angle.cos() * r * 0.5;
+                        let by = cy + angle.sin() * r * 0.5 - ve.age * cell * 0.3;
+                        ctx.begin_path();
+                        let _ = ctx.arc(bx, by, br, 0.0, std::f64::consts::TAU);
+                        ctx.fill();
+                    }
+                }
+                EffectKind::EnergizeEffect => {
+                    // Blue-cyan sparkles
+                    let alpha = (1.0 - ve.age) * 0.6;
+                    ctx.set_fill_style_str(&format!("rgba(80,200,255,{:.2})", alpha));
+                    let phase = ve.age * 12.0;
+                    for j in 0..5 {
+                        let angle = phase + j as f64 * 1.26;
+                        let dist = cell * 0.3 * (1.0 + ve.age * 0.5);
+                        let bx = cx + angle.cos() * dist;
+                        let by = cy + angle.sin() * dist - ve.age * cell * 0.2;
+                        let sr = cell * 0.04 * (1.0 - ve.age);
+                        ctx.begin_path();
+                        let _ = ctx.arc(bx, by, sr, 0.0, std::f64::consts::TAU);
+                        ctx.fill();
+                    }
+                }
+            }
         }
     }
 
@@ -711,6 +841,10 @@ impl Renderer {
             let end = (scroll + max_visible).min(total);
             let selected = game.selected_inventory_item;
 
+            let inline_btn_w = 36.0 * d;
+            let inline_btn_h = 22.0 * d;
+            let inline_btn_gap = 3.0 * d;
+
             for (vi, idx) in (scroll..end).enumerate() {
                 let item = &game.inventory[idx];
                 let iy = list_y + vi as f64 * slot_h;
@@ -739,22 +873,31 @@ impl Renderer {
                     ItemKind::Food => "#fa8",
                     ItemKind::Ring => "#ff8",
                 };
-                ctx.set_font(&self.font(12.0, ""));
+                ctx.set_font(&self.font(11.0, ""));
                 ctx.set_fill_style_str(color);
                 ctx.set_text_baseline("middle");
                 let _ = ctx.fill_text(item.name, pad + icon_size + 8.0 * d, iy + slot_h / 2.0);
 
-                let hint = match &item.effect {
-                    crate::game::ItemEffect::Heal(n) => format!("+{} HP", n),
-                    crate::game::ItemEffect::DamageAoe(n) => format!("{} DMG", n),
-                    crate::game::ItemEffect::BuffAttack(n) => format!("+{} ATK", n),
-                    crate::game::ItemEffect::BuffDefense(n) => format!("+{} DEF", n),
-                    crate::game::ItemEffect::Feed(n, _) => format!("+{} FOOD", n),
+                // Inline Use/Equip button
+                let btn_y = iy + (slot_h - inline_btn_h) / 2.0;
+                let drop_x = text_right - inline_btn_w;
+                let use_x = drop_x - inline_btn_gap - inline_btn_w;
+                let action_label = match item.kind {
+                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => "Use",
+                    _ => "Eq",
                 };
-                ctx.set_text_align("right");
-                ctx.set_fill_style_str("#999");
-                ctx.set_font(&self.font(10.0, ""));
-                let _ = ctx.fill_text(&hint, text_right, iy + slot_h / 2.0);
+                ctx.set_fill_style_str("rgba(80,200,120,0.2)");
+                self.fill_rounded_rect(use_x, btn_y, inline_btn_w, inline_btn_h, 3.0 * d);
+                ctx.set_font(&self.font(9.0, "bold"));
+                ctx.set_fill_style_str("#8f8");
+                ctx.set_text_align("center");
+                let _ = ctx.fill_text(action_label, use_x + inline_btn_w / 2.0, btn_y + inline_btn_h / 2.0);
+
+                // Inline Drop button
+                ctx.set_fill_style_str("rgba(200,80,80,0.2)");
+                self.fill_rounded_rect(drop_x, btn_y, inline_btn_w, inline_btn_h, 3.0 * d);
+                ctx.set_fill_style_str("#f88");
+                let _ = ctx.fill_text("Del", drop_x + inline_btn_w / 2.0, btn_y + inline_btn_h / 2.0);
                 ctx.set_text_align("left");
             }
 
@@ -1108,4 +1251,39 @@ impl Renderer {
             }
         }
     }
+}
+
+/// Compute pixel offset for a bump animation. Returns (dx, dy) in canvas pixels.
+fn bump_offset(anims: &[BumpAnim], is_player: bool, enemy_idx: usize, cell: f64) -> (f64, f64) {
+    for ba in anims {
+        if ba.is_player == is_player && (is_player || ba.enemy_idx == enemy_idx) {
+            // Triangle wave: go out then back
+            let t = if ba.progress < 0.5 {
+                ba.progress * 2.0
+            } else {
+                (1.0 - ba.progress) * 2.0
+            };
+            return (ba.dx * t * cell, ba.dy * t * cell);
+        }
+    }
+    (0.0, 0.0)
+}
+
+/// Format a hex color string with alpha (e.g., "#f44" → "rgba(255,68,68,0.5)").
+fn format_color_alpha(hex: &str, alpha: f64) -> String {
+    let hex = hex.trim_start_matches('#');
+    let (r, g, b) = if hex.len() == 3 {
+        let r = u8::from_str_radix(&hex[0..1], 16).unwrap_or(0);
+        let g = u8::from_str_radix(&hex[1..2], 16).unwrap_or(0);
+        let b = u8::from_str_radix(&hex[2..3], 16).unwrap_or(0);
+        (r * 17, g * 17, b * 17)
+    } else if hex.len() == 6 {
+        let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
+        let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
+        let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
+        (r, g, b)
+    } else {
+        (255, 255, 255)
+    };
+    format!("rgba({},{},{},{:.2})", r, g, b, alpha)
 }
