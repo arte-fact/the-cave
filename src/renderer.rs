@@ -469,7 +469,7 @@ impl Renderer {
 
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
-            let _ = ctx.fill_text(&format!("HP {} ATK {}", ei.hp, ei.attack), text_x, line2_y);
+            let _ = ctx.fill_text(&format!("HP {} ATK {} DEF {}", ei.hp, ei.attack, ei.defense), text_x, line2_y);
 
             ctx.set_fill_style_str("#999");
             let _ = ctx.fill_text(ei.desc, text_x, line3_y);
