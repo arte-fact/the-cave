@@ -67,6 +67,190 @@ fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css
     }
 }
 
+/// Hit-test the landscape side panel. Returns Some(BarTap) if a button was hit,
+/// or None if the tap didn't land on a button (but may still be in the panel area).
+/// Coordinates are in CSS pixels.
+fn hit_test_side_panel_buttons(
+    css_x: f64,
+    css_y: f64,
+    css_w: f64,
+    panel_css_w: f64,
+) -> Option<BarTap> {
+    let panel_x = css_w - panel_css_w;
+    if css_x < panel_x {
+        return None;
+    }
+
+    // Button layout mirrors draw_side_panel: 2×2 grid
+    // Location at: panel_x + pad, y offset depends on bars + stats drawn above.
+    // The buttons start roughly after: location(16) + 3 bars(3×14) + stats(2×14) + gap + separator
+    // Approximate: ~130 CSS px from top of panel (tuned to match renderer).
+    let pad = 10.0;
+    let x = panel_x + pad;
+    let inner_w = panel_css_w - pad * 2.0;
+    let btn_h = 30.0;
+    let btn_gap = 4.0;
+    let btn_w = (inner_w - btn_gap) / 2.0;
+
+    // We need to find the button area. The y-offset of buttons in the side panel
+    // is variable (depends on whether tile detail is showing). Scan a reasonable range.
+    // The buttons are: pad(10) + location(16) + 3 bars(3*(10+4)) + stats_text(14+18) + sep(6+1+6)
+    // = 10 + 16 + 42 + 32 + 13 = ~113 CSS px. Without detail strip.
+    // With detail: add ~50 CSS px. We can't know exactly, so use a generous range.
+    // Actually, let's compute from known CSS values matching the renderer.
+    let base_y = pad + 16.0 + 3.0 * (10.0 + 4.0) + 4.0 + 14.0 + 18.0 + 1.0 + 6.0;
+    // base_y is approx 101 CSS px. The detail strip adds ~50px if present.
+    // We'll check the tap against button positions at base_y and base_y+50.
+    // For simplicity, just check if tap is within any of the 4 button cells.
+
+    // Try without detail offset first, then with
+    for detail_offset in &[0.0_f64, 50.0] {
+        let by = base_y + detail_offset;
+        for i in 0..4 {
+            let col = i % 2;
+            let row = i / 2;
+            let bx = x + col as f64 * (btn_w + btn_gap);
+            let button_y = by + row as f64 * (btn_h + btn_gap);
+
+            if css_x >= bx && css_x <= bx + btn_w
+                && css_y >= button_y && css_y <= button_y + btn_h
+            {
+                return match i {
+                    0 => Some(BarTap::OpenDrawer(Drawer::Inventory)),
+                    1 => Some(BarTap::OpenDrawer(Drawer::Stats)),
+                    2 => Some(BarTap::Sprint),
+                    3 => Some(BarTap::OpenDrawer(Drawer::Settings)),
+                    _ => None,
+                };
+            }
+        }
+    }
+    None
+}
+
+/// Hit-test the landscape side panel drawer area. Returns Some(DrawerTap) if
+/// the tap landed on an actionable element, None if outside the panel.
+fn hit_test_side_panel_drawer(
+    css_x: f64,
+    css_y: f64,
+    css_w: f64,
+    css_h: f64,
+    panel_css_w: f64,
+    drawer: Drawer,
+    item_count: usize,
+    inventory_scroll: usize,
+    selected_item: Option<usize>,
+    skill_points: u32,
+    _has_ranged_weapon: bool,
+) -> Option<DrawerTap> {
+    let panel_x = css_w - panel_css_w;
+    if css_x < panel_x {
+        return None;
+    }
+
+    if drawer == Drawer::None {
+        return None;
+    }
+
+    let pad = 10.0;
+    let x = panel_x + pad;
+    let inner_w = panel_css_w - pad * 2.0;
+
+    // The drawer content starts below the buttons area.
+    // Buttons end at approximately: base_y + 2*(btn_h+gap) + gap = ~101 + 68 + 6 = 175 CSS px
+    // With detail offset: +50. We use a conservative drawer_start.
+    let btn_h = 30.0;
+    let btn_gap = 4.0;
+    let base_y = pad + 16.0 + 3.0 * (10.0 + 4.0) + 4.0 + 14.0 + 18.0 + 1.0 + 6.0;
+    let drawer_start = base_y + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
+    // drawer_start is approximately 181 CSS px from top of panel.
+
+    // Settings drawer
+    if drawer == Drawer::Settings {
+        // Glyph toggle: at drawer_start + 18 (title) + row_h area
+        let row_y = drawer_start + 18.0;
+        let row_h = 30.0;
+        let toggle_w = 50.0;
+        let toggle_h = 22.0;
+        let toggle_x = x + inner_w - toggle_w;
+        let toggle_y = row_y + (row_h - toggle_h) / 2.0;
+        if css_x >= toggle_x && css_x <= toggle_x + toggle_w
+            && css_y >= toggle_y && css_y <= toggle_y + toggle_h
+        {
+            return Some(DrawerTap::ToggleGlyphMode);
+        }
+        // Main menu button
+        let menu_y = row_y + row_h + 8.0 + 20.0;
+        let menu_w = inner_w * 0.8;
+        let menu_x = x + (inner_w - menu_w) / 2.0;
+        let menu_h = 28.0;
+        if css_x >= menu_x && css_x <= menu_x + menu_w
+            && css_y >= menu_y && css_y <= menu_y + menu_h
+        {
+            return Some(DrawerTap::MainMenu);
+        }
+        return Some(DrawerTap::Consumed);
+    }
+
+    // Stats drawer: skill allocation buttons
+    if drawer == Drawer::Stats && skill_points > 0 {
+        // Skills start after: drawer_start + title(16) + icon+level(36) + stat rows(~5*18) + gap(6) + header(14)
+        let skill_start = drawer_start + 16.0 + 36.0 + 5.0 * 18.0 + 6.0 + 14.0;
+        let skill_row_h = 24.0;
+        let btn_sz = 18.0;
+        let skills = [SkillKind::Strength, SkillKind::Vitality, SkillKind::Dexterity, SkillKind::Stamina];
+        for (i, skill) in skills.iter().enumerate() {
+            let row_y = skill_start + i as f64 * skill_row_h;
+            let btn_x = x + inner_w - btn_sz;
+            let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
+            if css_x >= btn_x && css_x <= btn_x + btn_sz
+                && css_y >= btn_y && css_y <= btn_y + btn_sz
+            {
+                return Some(DrawerTap::StatsAllocate(*skill));
+            }
+        }
+        return Some(DrawerTap::Consumed);
+    }
+
+    // Inventory drawer
+    if drawer == Drawer::Inventory {
+        // Items start after: drawer_start + title(16) + 6 eq slots(6*24) + gap(4)
+        let eq_h = 22.0;
+        let eq_gap = 2.0;
+        let list_start = drawer_start + 16.0 + 6.0 * (eq_h + eq_gap) + 4.0;
+        let slot_h = 26.0;
+        let avail_h = css_h - list_start - 16.0;
+        let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
+        let end = (inventory_scroll + max_visible).min(item_count);
+
+        if css_y >= list_start && item_count > 0 {
+            let vis_idx = ((css_y - list_start) / slot_h).floor() as usize;
+            let abs_idx = inventory_scroll + vis_idx;
+            if abs_idx < end {
+                // Check inline buttons (Use/Equip and Drop)
+                let btn_w = 24.0;
+                let btn_h_i = 16.0;
+                let drop_x = x + inner_w - btn_w - 2.0;
+                let use_x = drop_x - btn_w - 2.0;
+                let row_y = list_start + vis_idx as f64 * slot_h;
+                let btn_y = row_y + (slot_h - btn_h_i) / 2.0;
+                if css_y >= btn_y && css_y <= btn_y + btn_h_i {
+                    if css_x >= use_x && css_x <= use_x + btn_w {
+                        return Some(DrawerTap::InlineUseEquip(abs_idx));
+                    }
+                    if css_x >= drop_x && css_x <= drop_x + btn_w {
+                        return Some(DrawerTap::InlineDrop(abs_idx));
+                    }
+                }
+                return Some(DrawerTap::InventoryItem(abs_idx));
+            }
+        }
+        return Some(DrawerTap::Consumed);
+    }
+
+    Some(DrawerTap::Consumed)
+}
+
 /// Result of tapping inside a drawer.
 enum DrawerTap {
     /// Tapped an inventory item at the given index (absolute, not visual).
@@ -482,6 +666,63 @@ fn handle_menu_tap(
     }
 }
 
+/// Handle a drawer tap result — shared between portrait and landscape modes.
+fn handle_drawer_tap(
+    gm: &mut Game,
+    renderer: &Rc<RefCell<Renderer>>,
+    go_to_menu: &mut bool,
+    dtap: DrawerTap,
+) {
+    match dtap {
+        DrawerTap::InventoryItem(idx) => {
+            if gm.selected_inventory_item == Some(idx) {
+                gm.selected_inventory_item = None;
+            } else {
+                gm.selected_inventory_item = Some(idx);
+            }
+        }
+        DrawerTap::UseEquip(idx) | DrawerTap::InlineUseEquip(idx) => {
+            if idx < gm.inventory.len() {
+                let is_consumable = matches!(
+                    gm.inventory[idx].kind,
+                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food
+                );
+                if is_consumable {
+                    gm.use_item(idx);
+                    gm.drawer = Drawer::None;
+                    gm.advance_turn();
+                } else {
+                    gm.equip_item(idx);
+                }
+                gm.selected_inventory_item = None;
+            }
+        }
+        DrawerTap::Drop(idx) | DrawerTap::InlineDrop(idx) => {
+            gm.drop_item(idx);
+            gm.selected_inventory_item = None;
+        }
+        DrawerTap::ScrollUp => {
+            gm.scroll_inventory(-1);
+        }
+        DrawerTap::ScrollDown => {
+            gm.scroll_inventory(1);
+        }
+        DrawerTap::StatsAllocate(skill) => {
+            gm.allocate_skill_point(skill);
+        }
+        DrawerTap::ToggleGlyphMode => {
+            let mut r = renderer.borrow_mut();
+            r.glyph_mode = !r.glyph_mode;
+            save_glyph_mode(r.glyph_mode);
+        }
+        DrawerTap::MainMenu => {
+            gm.drawer = Drawer::None;
+            *go_to_menu = true;
+        }
+        DrawerTap::Consumed => {}
+    }
+}
+
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
     if let Err(e) = window.request_animation_frame(f.as_ref().unchecked_ref()) {
         errors::report_error(&format!("requestAnimationFrame failed: {:?}", e));
@@ -833,90 +1074,72 @@ pub fn start() -> Result<(), JsValue> {
                         }
                         InputAction::Tap(css_x, css_y) => {
                             let (css_w, css_h) = window_css_size();
-                            let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+                            let is_landscape = renderer.borrow().landscape;
+                            let panel_w = renderer.borrow().side_panel_css_w();
 
-                            // Bottom bar hit test first
-                            if let Some(tap) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
-                                match tap {
-                                    BarTap::OpenDrawer(drawer) => {
-                                        gm.toggle_drawer(drawer);
-                                    }
-                                    BarTap::Sprint => {
-                                        gm.toggle_sprint();
-                                    }
-                                }
-                            } else if let Some(dtap) = hit_test_drawer(
-                                css_x, css_y, css_w, css_h, bar_h_css,
-                                gm.drawer, gm.inventory.len(), gm.inventory_scroll,
-                                gm.selected_inventory_item, gm.skill_points,
-                                gm.stats_scroll, gm.has_ranged_weapon(),
-                            ) {
-                                // Tap landed inside an open drawer
-                                match dtap {
-                                    DrawerTap::InventoryItem(idx) => {
-                                        // Tap selects (or deselects if same)
-                                        if gm.selected_inventory_item == Some(idx) {
-                                            gm.selected_inventory_item = None;
-                                        } else {
-                                            gm.selected_inventory_item = Some(idx);
+                            if is_landscape {
+                                // Landscape mode: side panel on right
+                                let panel_x = css_w - panel_w;
+                                if css_x >= panel_x {
+                                    // Tap in side panel — check buttons first, then drawer
+                                    if let Some(tap) = hit_test_side_panel_buttons(css_x, css_y, css_w, panel_w) {
+                                        match tap {
+                                            BarTap::OpenDrawer(drawer) => gm.toggle_drawer(drawer),
+                                            BarTap::Sprint => gm.toggle_sprint(),
+                                        }
+                                    } else if gm.drawer != Drawer::None {
+                                        if let Some(dtap) = hit_test_side_panel_drawer(
+                                            css_x, css_y, css_w, css_h, panel_w,
+                                            gm.drawer, gm.inventory.len(), gm.inventory_scroll,
+                                            gm.selected_inventory_item, gm.skill_points,
+                                            gm.has_ranged_weapon(),
+                                        ) {
+                                            handle_drawer_tap(&mut *gm, &renderer, &mut go_to_menu, dtap);
                                         }
                                     }
-                                    DrawerTap::UseEquip(idx) | DrawerTap::InlineUseEquip(idx) => {
-                                        if idx < gm.inventory.len() {
-                                            let is_consumable = matches!(
-                                                gm.inventory[idx].kind,
-                                                ItemKind::Potion | ItemKind::Scroll | ItemKind::Food
-                                            );
-                                            if is_consumable {
-                                                gm.use_item(idx);
-                                                // Using a consumable costs a turn — close drawer to see it
-                                                gm.drawer = Drawer::None;
-                                                gm.advance_turn();
-                                            } else {
-                                                gm.equip_item(idx);
-                                            }
-                                            gm.selected_inventory_item = None;
-                                        }
+                                    // Side panel taps always consumed
+                                } else {
+                                    // Tap in game area (left of panel)
+                                    let r = renderer.borrow();
+                                    let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
+                                    drop(r);
+                                    let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
+                                    if dist == 1 && gm.enemies.iter().any(|e| e.x == wx && e.y == wy && e.hp > 0) {
+                                        gm.attack_adjacent(wx, wy);
+                                    } else if dist == 0 {
+                                        gm.pickup_items_explicit();
                                     }
-                                    DrawerTap::Drop(idx) | DrawerTap::InlineDrop(idx) => {
-                                        gm.drop_item(idx);
-                                        gm.selected_inventory_item = None;
-                                    }
-                                    DrawerTap::ScrollUp => {
-                                        gm.scroll_inventory(-1);
-                                    }
-                                    DrawerTap::ScrollDown => {
-                                        gm.scroll_inventory(1);
-                                    }
-                                    DrawerTap::StatsAllocate(skill) => {
-                                        gm.allocate_skill_point(skill);
-                                    }
-                                    DrawerTap::ToggleGlyphMode => {
-                                        let mut r = renderer.borrow_mut();
-                                        r.glyph_mode = !r.glyph_mode;
-                                        save_glyph_mode(r.glyph_mode);
-                                    }
-                                    DrawerTap::MainMenu => {
-                                        gm.drawer = Drawer::None;
-                                        go_to_menu = true;
-                                    }
-                                    DrawerTap::Consumed => {}
+                                    gm.inspected = gm.inspect_tile(wx, wy);
                                 }
-                            } else if css_y < css_h - bar_h_css {
-                                // Tap in game area
-                                let r = renderer.borrow();
-                                let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
-                                drop(r);
-                                let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
-                                // Tap adjacent enemy → explicit attack
-                                if dist == 1 && gm.enemies.iter().any(|e| e.x == wx && e.y == wy && e.hp > 0) {
-                                    gm.attack_adjacent(wx, wy);
-                                } else if dist == 0 {
-                                    // Tap on player tile → pick up items
-                                    gm.pickup_items_explicit();
+                            } else {
+                                // Portrait mode: original bottom bar + drawer
+                                let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+
+                                if let Some(tap) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
+                                    match tap {
+                                        BarTap::OpenDrawer(drawer) => gm.toggle_drawer(drawer),
+                                        BarTap::Sprint => gm.toggle_sprint(),
+                                    }
+                                } else if let Some(dtap) = hit_test_drawer(
+                                    css_x, css_y, css_w, css_h, bar_h_css,
+                                    gm.drawer, gm.inventory.len(), gm.inventory_scroll,
+                                    gm.selected_inventory_item, gm.skill_points,
+                                    gm.stats_scroll, gm.has_ranged_weapon(),
+                                ) {
+                                    handle_drawer_tap(&mut *gm, &renderer, &mut go_to_menu, dtap);
+                                } else if css_y < css_h - bar_h_css {
+                                    // Tap in game area
+                                    let r = renderer.borrow();
+                                    let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
+                                    drop(r);
+                                    let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
+                                    if dist == 1 && gm.enemies.iter().any(|e| e.x == wx && e.y == wy && e.hp > 0) {
+                                        gm.attack_adjacent(wx, wy);
+                                    } else if dist == 0 {
+                                        gm.pickup_items_explicit();
+                                    }
+                                    gm.inspected = gm.inspect_tile(wx, wy);
                                 }
-                                // Always inspect the tile
-                                gm.inspected = gm.inspect_tile(wx, wy);
                             }
                         }
                         InputAction::ToggleInventory => {
