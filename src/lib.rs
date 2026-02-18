@@ -139,7 +139,6 @@ fn hit_test_side_panel_drawer(
     drawer: Drawer,
     item_count: usize,
     inventory_scroll: usize,
-    selected_item: Option<usize>,
     skill_points: u32,
     _has_ranged_weapon: bool,
 ) -> Option<DrawerTap> {
@@ -561,7 +560,6 @@ fn handle_menu_tap(
                 && cy >= settings_y && cy <= settings_y + btn_h
             {
                 ms.app_state = AppState::Settings;
-                return;
             }
         }
         AppState::NewGame { selected_difficulty, seed } => {
@@ -631,7 +629,6 @@ fn handle_menu_tap(
                 auto_path.borrow_mut().clear();
                 ms.app_state = AppState::Playing;
                 ms.has_save = true;
-                return;
             }
         }
         AppState::Settings => {
@@ -659,7 +656,6 @@ fn handle_menu_tap(
                 let mut r = renderer.borrow_mut();
                 r.glyph_mode = !r.glyph_mode;
                 save_glyph_mode(r.glyph_mode);
-                return;
             }
         }
         AppState::Playing => {} // shouldn't be called
@@ -1091,10 +1087,10 @@ pub fn start() -> Result<(), JsValue> {
                                         if let Some(dtap) = hit_test_side_panel_drawer(
                                             css_x, css_y, css_w, css_h, panel_w,
                                             gm.drawer, gm.inventory.len(), gm.inventory_scroll,
-                                            gm.selected_inventory_item, gm.skill_points,
+                                            gm.skill_points,
                                             gm.has_ranged_weapon(),
                                         ) {
-                                            handle_drawer_tap(&mut *gm, &renderer, &mut go_to_menu, dtap);
+                                            handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
                                         }
                                     }
                                     // Side panel taps always consumed
@@ -1126,7 +1122,7 @@ pub fn start() -> Result<(), JsValue> {
                                     gm.selected_inventory_item, gm.skill_points,
                                     gm.stats_scroll, gm.has_ranged_weapon(),
                                 ) {
-                                    handle_drawer_tap(&mut *gm, &renderer, &mut go_to_menu, dtap);
+                                    handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
                                 } else if css_y < css_h - bar_h_css {
                                     // Tap in game area
                                     let r = renderer.borrow();

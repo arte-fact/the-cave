@@ -19,10 +19,8 @@ impl Game {
     /// Player's total defense: base + armor + helmet + shield + boots + ring.
     pub fn effective_defense(&self) -> i32 {
         let mut total = self.player_defense;
-        for slot in [&self.equipped_armor, &self.equipped_helmet, &self.equipped_shield, &self.equipped_boots] {
-            if let Some(item) = slot {
-                if let ItemEffect::BuffDefense(bonus) = item.effect { total += bonus; }
-            }
+        for item in [&self.equipped_armor, &self.equipped_helmet, &self.equipped_shield, &self.equipped_boots].into_iter().flatten() {
+            if let ItemEffect::BuffDefense(bonus) = item.effect { total += bonus; }
         }
         if let Some(ring) = &self.equipped_ring {
             if let ItemEffect::BuffDefense(bonus) = ring.effect { total += bonus; }
@@ -163,7 +161,7 @@ impl Game {
             let dist = (ex - px).abs() + (ey - py).abs();
 
             // Ranged enemies: shoot if within 2-4 tiles and have line of sight
-            if self.enemies[i].is_ranged && dist >= 2 && dist <= 4
+            if self.enemies[i].is_ranged && (2..=4).contains(&dist)
                 && self.world.current_map().has_line_of_sight(ex, ey, px, py)
             {
                 self.enemy_ranged_attack(i, pdef);
@@ -239,7 +237,7 @@ impl Game {
             }
         }
         // Cardinal fallbacks (randomized order)
-        if xorshift64(seed) % 2 == 0 {
+        if xorshift64(seed).is_multiple_of(2) {
             if dx != 0 { cands.push((ex + dx, ey)); }
             if dy != 0 { cands.push((ex, ey + dy)); }
         } else {

@@ -4,7 +4,6 @@
 /// The canonical sprite catalog lives in `crate::sprite_atlas`. This module
 /// re-exports `Sheet` and `SpriteRef` for convenience, and provides the
 /// game-specific mapping functions (`tile_sprite`, `player_sprite`, etc.).
-
 pub use crate::sprite_atlas::{Sheet, SpriteRef};
 
 use crate::map::Tile;

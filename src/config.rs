@@ -1,6 +1,5 @@
 /// Centralized game configuration. All gameplay constants live here
 /// so they can be tuned per-difficulty or exposed in settings.
-
 /// Top-level config holding all sub-configs.
 #[derive(Clone, Debug)]
 pub struct GameConfig {
@@ -53,8 +52,6 @@ pub struct ProgressionConfig {
 
 #[derive(Clone, Debug)]
 pub struct CombatConfig {
-    /// Ranged weapon max range (tiles).
-    pub ranged_range: i32,
     /// Overworld kill thresholds for XP diminishing returns.
     pub xp_diminish_half: u32,
     pub xp_diminish_quarter: u32,
@@ -151,7 +148,6 @@ impl GameConfig {
                 hp_per_level: 2,
             },
             combat: CombatConfig {
-                ranged_range: 8,
                 xp_diminish_half: 50,
                 xp_diminish_quarter: 100,
             },
@@ -255,7 +251,6 @@ mod tests {
         assert_eq!(cfg.survival.regen_hunger_cost, 2);
         assert_eq!(cfg.fov.overworld_radius, 8);
         assert_eq!(cfg.fov.dungeon_radius, 6);
-        assert_eq!(cfg.combat.ranged_range, 8);
         assert_eq!(cfg.spawn.overworld_enemy_pct, 3);
     }
 

@@ -175,10 +175,10 @@ impl Map {
                     continue;
                 }
                 // Prevent diagonal movement through walls (corner-cutting)
-                if dx != 0 && dy != 0 {
-                    if !self.is_walkable(x + dx, y) || !self.is_walkable(x, y + dy) {
-                        continue;
-                    }
+                if dx != 0 && dy != 0
+                    && (!self.is_walkable(x + dx, y) || !self.is_walkable(x, y + dy))
+                {
+                    continue;
                 }
                 let step_cost = if dx != 0 && dy != 0 { DIAGONAL } else { CARDINAL };
                 let ng = g + step_cost;

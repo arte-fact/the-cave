@@ -561,13 +561,13 @@ mod tests {
 
     #[test]
     fn dungeon_has_correct_level_count() {
-        let d = Dungeon::generate((50, 50), 3, 42, false);
+        let d = Dungeon::generate(3, 42, false);
         assert_eq!(d.levels.len(), 3);
     }
 
     #[test]
     fn dungeon_level_sizes_scale_with_depth() {
-        let d = Dungeon::generate((50, 50), 3, 42, false);
+        let d = Dungeon::generate(3, 42, false);
         assert_eq!((d.levels[0].width, d.levels[0].height), (40, 30));
         assert_eq!((d.levels[1].width, d.levels[1].height), (50, 35));
         assert_eq!((d.levels[2].width, d.levels[2].height), (60, 40));
@@ -575,7 +575,7 @@ mod tests {
 
     #[test]
     fn dungeon_levels_have_stairs() {
-        let d = Dungeon::generate((50, 50), 3, 42, false);
+        let d = Dungeon::generate(3, 42, false);
         for (i, level) in d.levels.iter().enumerate() {
             let has_up = (0..level.height)
                 .flat_map(|y| (0..level.width).map(move |x| (x, y)))
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn dungeon_deepest_level_has_no_stairs_down() {
-        let d = Dungeon::generate((50, 50), 3, 42, false);
+        let d = Dungeon::generate(3, 42, false);
         let last = &d.levels[2];
         let has_down = (0..last.height)
             .flat_map(|y| (0..last.width).map(move |x| (x, y)))
@@ -603,7 +603,7 @@ mod tests {
 
     #[test]
     fn dungeon_rooms_reachable_from_stairs() {
-        let d = Dungeon::generate((50, 50), 3, 42, false);
+        let d = Dungeon::generate(3, 42, false);
         for (i, level) in d.levels.iter().enumerate() {
             // Find StairsUp as the starting point
             let stairs_up = (0..level.height)
@@ -651,7 +651,7 @@ mod tests {
 
     #[test]
     fn dungeon_bsp_produces_valid_rooms() {
-        let d = Dungeon::generate((50, 50), 1, 42, false);
+        let d = Dungeon::generate(1, 42, false);
         let level = &d.levels[0];
         let floor_count = (0..level.height)
             .flat_map(|y| (0..level.width).map(move |x| (x, y)))
@@ -735,7 +735,7 @@ mod tests {
 
     #[test]
     fn dungeon_with_cave_has_4_levels() {
-        let d = Dungeon::generate((50, 50), 3, 42, true);
+        let d = Dungeon::generate(3, 42, true);
         assert_eq!(d.levels.len(), 4, "dragon dungeon should have 4 levels");
         // Cave level is 80x60
         assert_eq!((d.levels[3].width, d.levels[3].height), (80, 60));
@@ -743,14 +743,14 @@ mod tests {
 
     #[test]
     fn dungeon_without_cave_has_3_levels() {
-        let d = Dungeon::generate((50, 50), 3, 42, false);
+        let d = Dungeon::generate(3, 42, false);
         assert_eq!(d.levels.len(), 3);
     }
 
     #[test]
     fn cave_dungeon_level2_has_stairs_down() {
         // With a cave, level 2 (the last BSP level) should have StairsDown connecting to cave
-        let d = Dungeon::generate((50, 50), 3, 42, true);
+        let d = Dungeon::generate(3, 42, true);
         let level2 = &d.levels[2];
         let has_down = (0..level2.height)
             .flat_map(|y| (0..level2.width).map(move |x| (x, y)))

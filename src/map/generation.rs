@@ -38,6 +38,7 @@ impl Map {
 
     /// Generate a cave using cellular automata.
     /// `seed` drives the initial random fill so caves are reproducible in tests.
+    #[cfg(test)]
     pub fn generate(width: i32, height: i32, seed: u64) -> Self {
         let tiles = Self::cellular_automata_cave(width, height, seed);
         let len = tiles.len();
@@ -153,8 +154,8 @@ impl Map {
             .unwrap_or(1);
 
         // Fill non-largest regions
-        for i in 0..len {
-            if self.tiles[i] == target && region_id[i] != largest {
+        for (i, rid) in region_id.iter().enumerate().take(len) {
+            if self.tiles[i] == target && *rid != largest {
                 self.tiles[i] = fill;
             }
         }
@@ -452,7 +453,6 @@ impl Map {
 /// A dungeon complex with multiple levels, each a self-contained Map.
 pub struct Dungeon {
     pub levels: Vec<Map>,
-    pub entrance: (i32, i32), // overworld position
 }
 
 impl Dungeon {
@@ -460,7 +460,7 @@ impl Dungeon {
     /// Level 0 = 40x30, level 1 = 50x35, level 2 = 60x40.
     /// If `has_cave` is true, appends a cellular automata cave (80x60)
     /// as the deepest level — the dragon's lair.
-    pub fn generate(entrance: (i32, i32), depth: usize, seed: u64, has_cave: bool) -> Self {
+    pub fn generate(depth: usize, seed: u64, has_cave: bool) -> Self {
         let mut levels = Vec::new();
         let mut rng = seed;
 
@@ -485,7 +485,7 @@ impl Dungeon {
             levels.push(cave);
         }
 
-        Dungeon { levels, entrance }
+        Dungeon { levels }
     }
 }
 
@@ -511,7 +511,7 @@ fn bsp_rooms(x: i32, y: i32, w: i32, h: i32, min_room: i32, rng: &mut u64) -> Ve
     } else if h < min_split {
         true
     } else {
-        (*rng % 2) == 0
+        (*rng).is_multiple_of(2)
     };
 
     *rng = xorshift64(*rng);
@@ -545,7 +545,7 @@ fn bsp_subdivide(x: i32, y: i32, w: i32, h: i32, min_size: i32, rng: &mut u64) -
     } else if h < min_size * 2 {
         true
     } else {
-        (*rng % 2) == 0
+        (*rng).is_multiple_of(2)
     };
 
     *rng = xorshift64(*rng);
