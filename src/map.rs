@@ -652,8 +652,15 @@ impl Map {
         let len = (self.width * self.height) as usize;
         let mut g_score = vec![i32::MAX; len];
         let mut came_from: Vec<(i32, i32)> = vec![(-1, -1); len];
-        // Chebyshev distance: consistent heuristic for 8-directional movement
-        let heuristic = |x: i32, y: i32| (x - goal.0).abs().max((y - goal.1).abs());
+        // Cost: cardinal=10, diagonal=14 (≈10×√2). Octile distance heuristic
+        // to match, so straight lines are preferred over zigzags.
+        const CARDINAL: i32 = 10;
+        const DIAGONAL: i32 = 14;
+        let heuristic = |x: i32, y: i32| {
+            let dx = (x - goal.0).abs();
+            let dy = (y - goal.1).abs();
+            CARDINAL * (dx + dy) + (DIAGONAL - 2 * CARDINAL) * dx.min(dy)
+        };
 
         g_score[idx(start.0, start.1)] = 0;
         // (f_score, g, x, y) — Reverse for min-heap
@@ -688,7 +695,8 @@ impl Map {
                         continue;
                     }
                 }
-                let ng = g + 1;
+                let step_cost = if dx != 0 && dy != 0 { DIAGONAL } else { CARDINAL };
+                let ng = g + step_cost;
                 let ni = idx(nx, ny);
                 if ng < g_score[ni] {
                     g_score[ni] = ng;
