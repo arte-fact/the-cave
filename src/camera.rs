@@ -14,6 +14,7 @@ pub struct Camera {
     /// Extra padding in tile units so map content clears HUD overlays at edges.
     pub pad_top: f64,
     pub pad_bottom: f64,
+    pub pad_right: f64,
 }
 
 /// How many tiles should be visible across the screen width.
@@ -32,6 +33,7 @@ impl Camera {
             canvas_h: 0.0,
             pad_top: 0.0,
             pad_bottom: 0.0,
+            pad_right: 0.0,
         }
     }
 
@@ -99,7 +101,15 @@ impl Camera {
         if self.viewport_w >= mw {
             self.x = mw / 2.0; // viewport bigger than map → center
         } else {
-            self.x = self.x.clamp(half_w, mw - half_w);
+            // pad_right shifts the visible center leftward so map content
+            // clears the side panel in landscape mode.
+            let max_x = mw - half_w + self.pad_right;
+            let min_x = half_w - self.pad_right;
+            if min_x < max_x {
+                self.x = self.x.clamp(min_x, max_x);
+            } else {
+                self.x = mw / 2.0;
+            }
         }
         if self.viewport_h >= mh {
             self.y = mh / 2.0;

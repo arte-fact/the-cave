@@ -37,6 +37,9 @@ const MSG_AREA_BASE: f64 = 42.0;
 /// Speed of drawer slide animation (fraction per frame at 60fps).
 const DRAWER_ANIM_SPEED: f64 = 0.15;
 
+/// Width of the right-side panel in landscape mode (CSS pixels).
+const SIDE_PANEL_CSS_W: f64 = 220.0;
+
 pub struct Renderer {
     ctx: CanvasRenderingContext2d,
     pub camera: Camera,
@@ -49,6 +52,8 @@ pub struct Renderer {
     last_drawer: Drawer,
     /// When true, render ASCII glyphs instead of sprite sheets.
     pub glyph_mode: bool,
+    /// True when the canvas is in landscape orientation (width > height).
+    pub landscape: bool,
 }
 
 impl Renderer {
@@ -61,6 +66,7 @@ impl Renderer {
             drawer_anim: 0.0,
             last_drawer: Drawer::None,
             glyph_mode: false,
+            landscape: false,
         }
     }
 
@@ -77,10 +83,25 @@ impl Renderer {
 
     pub fn resize(&mut self, width: f64, height: f64, dpr: f64) {
         self.dpr = dpr;
+        // Detect landscape: canvas is wider than tall (typical mobile landscape).
+        self.landscape = width > height;
         let cell = self.camera.set_viewport(width, height);
-        // Pad camera so map content clears HUD overlays at edges.
-        self.camera.pad_top = (self.top_bar_h() + self.detail_strip_h()) / cell;
-        self.camera.pad_bottom = (self.bottom_bar_h() + self.msg_area_h()) / cell;
+        if self.landscape {
+            // In landscape: no top/bottom bars, pad right for side panel.
+            self.camera.pad_top = 0.0;
+            self.camera.pad_bottom = 0.0;
+            self.camera.pad_right = self.side_panel_w() / cell / 2.0;
+        } else {
+            // Portrait: original top/bottom bar layout.
+            self.camera.pad_top = (self.top_bar_h() + self.detail_strip_h()) / cell;
+            self.camera.pad_bottom = (self.bottom_bar_h() + self.msg_area_h()) / cell;
+            self.camera.pad_right = 0.0;
+        }
+    }
+
+    /// Side panel width in canvas pixels (landscape mode).
+    fn side_panel_w(&self) -> f64 {
+        SIDE_PANEL_CSS_W * self.dpr
     }
 
     /// Scaled HUD dimension helpers.
@@ -183,20 +204,612 @@ impl Renderer {
         // ---- World rendering (tiles, entities) ----
         self.draw_world(game, preview_path);
 
-        // ---- UI overlay (all use self.dpr-scaled sizes) ----
-        let top_h = self.top_bar_h();
-        let bottom_h = self.bottom_bar_h();
-        let msg_h = self.msg_area_h();
-        self.draw_top_bar(game, canvas_w, top_h);
-        self.draw_tile_detail(game, canvas_w, top_h);
-        self.draw_messages(game, canvas_w, canvas_h, bottom_h, msg_h);
-        self.draw_bottom_bar(game, canvas_w, canvas_h, bottom_h);
-        self.draw_drawer(game, canvas_w, canvas_h, bottom_h);
+        if self.landscape {
+            // Landscape: full-height game view + permanent side panel on right
+            let panel_w = self.side_panel_w();
+            let panel_x = canvas_w - panel_w;
+            self.draw_side_panel(game, panel_x, panel_w, canvas_h);
+        } else {
+            // Portrait: original top/bottom bar layout
+            let top_h = self.top_bar_h();
+            let bottom_h = self.bottom_bar_h();
+            let msg_h = self.msg_area_h();
+            self.draw_top_bar(game, canvas_w, top_h);
+            self.draw_tile_detail(game, canvas_w, top_h);
+            self.draw_messages(game, canvas_w, canvas_h, bottom_h, msg_h);
+            self.draw_bottom_bar(game, canvas_w, canvas_h, bottom_h);
+            self.draw_drawer(game, canvas_w, canvas_h, bottom_h);
+        }
 
         // Death / Victory overlay (on top of everything)
         if !game.alive || game.won {
             self.draw_end_overlay(game, canvas_w, canvas_h);
         }
+    }
+
+    // ---- Landscape side panel (permanent right drawer) ----
+
+    fn draw_side_panel(&self, game: &Game, panel_x: f64, panel_w: f64, canvas_h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let pad = 10.0 * d;
+        let inner_w = panel_w - pad * 2.0;
+
+        // Panel background
+        ctx.set_fill_style_str("rgba(8,8,16,0.94)");
+        ctx.fill_rect(panel_x, 0.0, panel_w, canvas_h);
+        // Left border accent
+        ctx.set_fill_style_str("rgba(80,130,255,0.2)");
+        ctx.fill_rect(panel_x, 0.0, 1.0 * d, canvas_h);
+
+        let mut y = pad;
+        let x = panel_x + pad;
+        let bar_h = 10.0 * d;
+        let bar_gap = 4.0 * d;
+        let bar_r = 3.0 * d;
+        let text_inset = 4.0 * d;
+
+        // --- Location name ---
+        ctx.set_font(&self.font(11.0, "bold"));
+        ctx.set_fill_style_str("#c8e0ff");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text(&game.location_name(), panel_x + panel_w / 2.0, y);
+        y += 16.0 * d;
+
+        // --- HP bar ---
+        let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
+        ctx.set_fill_style_str("#2a0a0a");
+        self.fill_rounded_rect(x, y, inner_w, bar_h, bar_r);
+        let hp_color = if hp_frac > 0.5 { "#2a2" }
+            else if hp_frac > 0.25 { "#aa2" }
+            else { "#a22" };
+        ctx.set_fill_style_str(hp_color);
+        self.fill_rounded_rect(x, y, inner_w * hp_frac.max(0.0), bar_h, bar_r);
+        ctx.set_font(&self.font(8.0, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("middle");
+        let _ = ctx.fill_text(
+            &format!("HP {}/{}", game.player_hp, game.player_max_hp),
+            x + text_inset, y + bar_h / 2.0,
+        );
+        y += bar_h + bar_gap;
+
+        // --- Stamina bar ---
+        let stam_frac = game.stamina as f64 / game.max_stamina as f64;
+        ctx.set_fill_style_str("#0a0a2a");
+        self.fill_rounded_rect(x, y, inner_w, bar_h, bar_r);
+        let stam_color = if game.sprinting { "#4af" } else { "#28a" };
+        ctx.set_fill_style_str(stam_color);
+        self.fill_rounded_rect(x, y, inner_w * stam_frac.max(0.0), bar_h, bar_r);
+        ctx.set_font(&self.font(8.0, ""));
+        ctx.set_fill_style_str("#fff");
+        let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
+        let _ = ctx.fill_text(
+            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
+            x + text_inset, y + bar_h / 2.0,
+        );
+        y += bar_h + bar_gap;
+
+        // --- Hunger bar ---
+        let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
+        ctx.set_fill_style_str("#2a1a0a");
+        self.fill_rounded_rect(x, y, inner_w, bar_h, bar_r);
+        let hunger_color = if hunger_frac > 0.3 { "#a82" }
+            else if hunger_frac > 0.1 { "#a52" }
+            else { "#a22" };
+        ctx.set_fill_style_str(hunger_color);
+        self.fill_rounded_rect(x, y, inner_w * hunger_frac.max(0.0), bar_h, bar_r);
+        ctx.set_font(&self.font(8.0, ""));
+        ctx.set_fill_style_str("#fff");
+        let _ = ctx.fill_text(
+            &format!("FOOD {}/{}", game.hunger, game.max_hunger),
+            x + text_inset, y + bar_h / 2.0,
+        );
+        y += bar_h + bar_gap * 2.0;
+
+        // --- Combat stats ---
+        let atk = game.effective_attack();
+        let def = game.effective_defense();
+        ctx.set_font(&self.font(9.0, ""));
+        ctx.set_fill_style_str("#8cf");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text(
+            &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
+            x, y,
+        );
+        y += 14.0 * d;
+
+        let xp_needed = game.xp_to_next_level();
+        ctx.set_fill_style_str("#a8f");
+        let _ = ctx.fill_text(&format!("XP {}/{}", game.player_xp, xp_needed), x, y);
+        y += 18.0 * d;
+
+        // --- Separator ---
+        ctx.set_fill_style_str("rgba(255,255,255,0.08)");
+        ctx.fill_rect(x, y, inner_w, 1.0 * d);
+        y += 6.0 * d;
+
+        // --- Tile detail (if inspecting) ---
+        if let Some(ref info) = game.inspected {
+            let detail_h = 44.0 * d;
+            ctx.set_fill_style_str("rgba(0,180,255,0.08)");
+            self.fill_rounded_rect(x, y, inner_w, detail_h, 4.0 * d);
+
+            let icon_size = 24.0 * d;
+            let text_x = x + icon_size + 6.0 * d;
+
+            if let Some(ref ei) = info.enemy {
+                let e_glyph = game.enemies.iter()
+                    .find(|e| e.name == ei.name && e.hp > 0)
+                    .map(|e| e.glyph)
+                    .unwrap_or('?');
+                let sprite = sprites::enemy_sprite(e_glyph);
+                self.draw_sprite(sprite, x + 2.0 * d, y + (detail_h - icon_size) / 2.0, icon_size, icon_size);
+
+                ctx.set_font(&self.font(10.0, "bold"));
+                ctx.set_fill_style_str("#f88");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("top");
+                let _ = ctx.fill_text(ei.name, text_x, y + 4.0 * d);
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str("#ccc");
+                let _ = ctx.fill_text(&format!("HP {} ATK {}", ei.hp, ei.attack), text_x, y + 18.0 * d);
+            } else if let Some(ref ii) = info.item {
+                if let Some(gi) = game.ground_items.iter().find(|gi| gi.item.name == ii.name) {
+                    let sprite = sprites::item_sprite(gi.item.name);
+                    self.draw_sprite(sprite, x + 2.0 * d, y + (detail_h - icon_size) / 2.0, icon_size, icon_size);
+                }
+                ctx.set_font(&self.font(10.0, "bold"));
+                ctx.set_fill_style_str("#ff0");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("top");
+                let _ = ctx.fill_text(ii.name, text_x, y + 4.0 * d);
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str("#ccc");
+                let _ = ctx.fill_text(&ii.desc, text_x, y + 18.0 * d);
+            } else if info.is_player {
+                ctx.set_font(&self.font(10.0, "bold"));
+                ctx.set_fill_style_str("#fff");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("top");
+                let _ = ctx.fill_text("You", text_x, y + 4.0 * d);
+            } else {
+                ctx.set_font(&self.font(10.0, "bold"));
+                ctx.set_fill_style_str("#ccc");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("top");
+                let _ = ctx.fill_text(info.tile_name, x + 4.0 * d, y + 4.0 * d);
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str("#888");
+                let _ = ctx.fill_text(info.tile_desc, x + 4.0 * d, y + 18.0 * d);
+            }
+            y += detail_h + 6.0 * d;
+        }
+
+        // --- Action buttons (2×2 grid) ---
+        let btn_h = 30.0 * d;
+        let btn_gap = 4.0 * d;
+        let btn_w = (inner_w - btn_gap) / 2.0;
+
+        let sprint_color = if game.sprinting { "#4ef" } else { "#48a" };
+        let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
+
+        let buttons: [(&str, &str, bool); 4] = [
+            ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
+            ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
+            (sprint_label, sprint_color, game.sprinting),
+            ("Settings", if game.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.drawer == Drawer::Settings),
+        ];
+
+        for (i, (label, color, active)) in buttons.iter().enumerate() {
+            let col = i % 2;
+            let row = i / 2;
+            let bx = x + col as f64 * (btn_w + btn_gap);
+            let by = y + row as f64 * (btn_h + btn_gap);
+
+            if *active {
+                ctx.set_fill_style_str("rgba(255,255,255,0.12)");
+            } else {
+                ctx.set_fill_style_str("rgba(255,255,255,0.05)");
+            }
+            self.fill_rounded_rect(bx, by, btn_w, btn_h, 4.0 * d);
+
+            ctx.set_font(&self.font(10.0, "bold"));
+            ctx.set_fill_style_str(color);
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text(label, bx + btn_w / 2.0, by + btn_h / 2.0);
+        }
+        y += (btn_h + btn_gap) * 2.0 + 6.0 * d;
+
+        // --- Separator ---
+        ctx.set_fill_style_str("rgba(255,255,255,0.08)");
+        ctx.fill_rect(x, y, inner_w, 1.0 * d);
+        y += 6.0 * d;
+
+        // --- Drawer content (if open) ---
+        let which = if game.drawer != Drawer::None {
+            game.drawer
+        } else if self.drawer_anim > 0.0 {
+            self.last_drawer
+        } else {
+            Drawer::None
+        };
+
+        if which != Drawer::None && self.drawer_anim > 0.0 {
+            let remaining_h = canvas_h - y;
+            let alpha = self.drawer_anim;
+            ctx.save();
+            ctx.set_global_alpha(alpha);
+            match which {
+                Drawer::Inventory => self.draw_side_inventory(game, x, y, inner_w, remaining_h),
+                Drawer::Stats => self.draw_side_stats(game, x, y, inner_w, remaining_h),
+                Drawer::Settings => self.draw_side_settings(game, x, y, inner_w, remaining_h),
+                Drawer::None => {}
+            }
+            ctx.restore();
+            return; // drawer takes remaining space
+        }
+
+        // --- Messages (when no drawer open) ---
+        let msg_count = game.messages.len();
+        let show = msg_count.min(5);
+        ctx.set_font(&self.font(8.0, ""));
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let line_h = 12.0 * d;
+        for i in 0..show {
+            let msg = &game.messages[msg_count - show + i];
+            let alpha_val = if i == show - 1 { "#ccc" }
+                else if i == show - 2 { "#888" }
+                else { "#555" };
+            ctx.set_fill_style_str(alpha_val);
+            let _ = ctx.fill_text(msg, x, y + i as f64 * line_h);
+        }
+    }
+
+    /// Draw inventory content inside the landscape side panel.
+    fn draw_side_inventory(&self, game: &Game, x: f64, y: f64, w: f64, h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let pad = 4.0 * d;
+        let mut cy = y;
+
+        // Title
+        ctx.set_font(&self.font(10.0, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("INVENTORY", x + w / 2.0, cy);
+        cy += 16.0 * d;
+
+        // Equipment slots (compact vertical list)
+        let eq_icon = 18.0 * d;
+        let eq_h = 22.0 * d;
+        let eq_gap = 2.0 * d;
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("middle");
+
+        let eq_slots: [(&Option<Item>, &str, &str); 6] = [
+            (&game.equipped_weapon,  "#8af", "No weapon"),
+            (&game.equipped_armor,   "#afa", "No armor"),
+            (&game.equipped_helmet,  "#fc8", "No helmet"),
+            (&game.equipped_shield,  "#adf", "No shield"),
+            (&game.equipped_boots,   "#da8", "No boots"),
+            (&game.equipped_ring,    "#ff8", "No ring"),
+        ];
+        for &(slot, color, empty_label) in &eq_slots {
+            ctx.set_fill_style_str("rgba(255,255,255,0.04)");
+            self.fill_rounded_rect(x, cy, w, eq_h, 3.0 * d);
+            if let Some(ref item) = slot {
+                let sprite = sprites::item_sprite(item.name);
+                self.draw_sprite(sprite, x + pad, cy + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str(color);
+                let _ = ctx.fill_text(item.name, x + eq_icon + pad * 2.0, cy + eq_h / 2.0);
+            } else {
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str("#444");
+                let _ = ctx.fill_text(empty_label, x + pad, cy + eq_h / 2.0);
+            }
+            cy += eq_h + eq_gap;
+        }
+
+        cy += 4.0 * d;
+
+        // Item list
+        let slot_h = 26.0 * d;
+        let icon_size = 20.0 * d;
+        let avail_h = y + h - cy - 16.0 * d;
+        let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
+
+        if game.inventory.is_empty() {
+            ctx.set_fill_style_str("#555");
+            ctx.set_font(&self.font(9.0, ""));
+            ctx.set_text_baseline("top");
+            let _ = ctx.fill_text("No items", x + pad, cy);
+        } else {
+            let scroll = game.inventory_scroll;
+            let total = game.inventory.len();
+            let end = (scroll + max_visible).min(total);
+
+            for (vi, idx) in (scroll..end).enumerate() {
+                let item = &game.inventory[idx];
+                let iy = cy + vi as f64 * slot_h;
+
+                if game.selected_inventory_item == Some(idx) {
+                    ctx.set_fill_style_str("rgba(80,130,255,0.18)");
+                    ctx.fill_rect(x, iy, w, slot_h);
+                } else if vi % 2 == 0 {
+                    ctx.set_fill_style_str("rgba(255,255,255,0.03)");
+                    ctx.fill_rect(x, iy, w, slot_h);
+                }
+
+                let sprite = sprites::item_sprite(item.name);
+                self.draw_sprite(sprite, x + pad, iy + (slot_h - icon_size) / 2.0, icon_size, icon_size);
+
+                let color = match item.kind {
+                    ItemKind::Potion => "#f88",
+                    ItemKind::Scroll => "#88f",
+                    ItemKind::Weapon => "#aaf",
+                    ItemKind::RangedWeapon => "#8df",
+                    ItemKind::Armor => "#afa",
+                    ItemKind::Helmet => "#fc8",
+                    ItemKind::Shield => "#adf",
+                    ItemKind::Boots => "#da8",
+                    ItemKind::Food => "#fa8",
+                    ItemKind::Ring => "#ff8",
+                };
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str(color);
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(item.name, x + icon_size + pad * 2.0, iy + slot_h / 2.0);
+
+                // Inline action buttons
+                let btn_w = 24.0 * d;
+                let btn_h = 16.0 * d;
+                let btn_y = iy + (slot_h - btn_h) / 2.0;
+                let drop_x = x + w - btn_w - 2.0 * d;
+                let use_x = drop_x - btn_w - 2.0 * d;
+
+                let action_label = match item.kind {
+                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => "U",
+                    _ => "E",
+                };
+                ctx.set_fill_style_str("rgba(80,200,120,0.2)");
+                self.fill_rounded_rect(use_x, btn_y, btn_w, btn_h, 2.0 * d);
+                ctx.set_font(&self.font(7.0, "bold"));
+                ctx.set_fill_style_str("#8f8");
+                ctx.set_text_align("center");
+                let _ = ctx.fill_text(action_label, use_x + btn_w / 2.0, iy + slot_h / 2.0);
+
+                ctx.set_fill_style_str("rgba(200,80,80,0.2)");
+                self.fill_rounded_rect(drop_x, btn_y, btn_w, btn_h, 2.0 * d);
+                ctx.set_fill_style_str("#f88");
+                let _ = ctx.fill_text("X", drop_x + btn_w / 2.0, iy + slot_h / 2.0);
+
+                ctx.set_text_align("left");
+            }
+
+            // Slot count
+            ctx.set_font(&self.font(8.0, ""));
+            ctx.set_fill_style_str("#555");
+            ctx.set_text_align("right");
+            ctx.set_text_baseline("bottom");
+            let _ = ctx.fill_text(&format!("{}/10", total), x + w, y + h - 2.0 * d);
+        }
+    }
+
+    /// Draw stats content inside the landscape side panel.
+    fn draw_side_stats(&self, game: &Game, x: f64, y: f64, w: f64, h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let mut cy = y;
+
+        // Title
+        ctx.set_font(&self.font(10.0, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("CHARACTER", x + w / 2.0, cy);
+        cy += 16.0 * d;
+
+        // Player sprite + level
+        let icon_sz = 28.0 * d;
+        let sprite = sprites::player_sprite();
+        self.draw_sprite(sprite, x, cy, icon_sz, icon_sz);
+        ctx.set_font(&self.font(10.0, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text(&format!("Level {}", game.player_level), x + icon_sz + 6.0 * d, cy + 2.0 * d);
+        ctx.set_font(&self.font(8.0, ""));
+        ctx.set_fill_style_str("#a8f");
+        let _ = ctx.fill_text(
+            &format!("XP {}/{}", game.player_xp, game.xp_to_next_level()),
+            x + icon_sz + 6.0 * d, cy + 14.0 * d,
+        );
+        cy += icon_sz + 8.0 * d;
+
+        // Stat rows
+        let line_h = 18.0 * d;
+        let mut stats: Vec<(&str, String, &str)> = vec![
+            ("HP", format!("{}/{}", game.player_hp, game.player_max_hp), "#4c4"),
+            ("Attack", format!("{}", game.effective_attack()), "#8cf"),
+            ("Defense", format!("{}", game.effective_defense()), "#fc8"),
+            ("Dexterity", format!("{}", game.player_dexterity), "#adf"),
+        ];
+        if game.has_ranged_weapon() {
+            stats.push(("Range", format!("{}", game.ranged_max_range()), "#fa8"));
+        }
+
+        for (label, value, color) in &stats {
+            ctx.set_font(&self.font(9.0, ""));
+            ctx.set_fill_style_str("#888");
+            ctx.set_text_align("left");
+            ctx.set_text_baseline("top");
+            let _ = ctx.fill_text(label, x, cy);
+            ctx.set_fill_style_str(color);
+            ctx.set_text_align("right");
+            let _ = ctx.fill_text(value, x + w, cy);
+            cy += line_h;
+        }
+
+        cy += 6.0 * d;
+
+        // Skill points
+        if game.skill_points > 0 {
+            ctx.set_font(&self.font(9.0, "bold"));
+            ctx.set_fill_style_str("#ff0");
+            ctx.set_text_align("left");
+            ctx.set_text_baseline("top");
+            let _ = ctx.fill_text(&format!("{} skill pts", game.skill_points), x, cy);
+            cy += 14.0 * d;
+
+            let skill_row_h = 24.0 * d;
+            let btn_sz = 18.0 * d;
+            let skills: [(&str, &str, String, &str); 4] = [
+                ("STR", "Strength", format!("{}", game.strength), "#f84"),
+                ("VIT", "Vitality", format!("{}", game.vitality), "#4f4"),
+                ("DEX", "Dexterity", format!("{}", game.player_dexterity), "#adf"),
+                ("STA", "Stamina", format!("{}", game.max_stamina), "#8df"),
+            ];
+            for (abbr, _label, value, color) in &skills {
+                ctx.set_font(&self.font(8.0, "bold"));
+                ctx.set_fill_style_str(color);
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("middle");
+                let row_mid = cy + skill_row_h / 2.0;
+                let _ = ctx.fill_text(abbr, x, row_mid);
+
+                ctx.set_font(&self.font(9.0, "bold"));
+                ctx.set_text_align("right");
+                let _ = ctx.fill_text(value, x + w - btn_sz - 6.0 * d, row_mid);
+
+                // + button
+                let btn_x = x + w - btn_sz;
+                let btn_y = cy + (skill_row_h - btn_sz) / 2.0;
+                ctx.set_fill_style_str("rgba(100,200,100,0.25)");
+                self.fill_rounded_rect(btn_x, btn_y, btn_sz, btn_sz, 3.0 * d);
+                ctx.set_font(&self.font(12.0, "bold"));
+                ctx.set_fill_style_str("#4f4");
+                ctx.set_text_align("center");
+                let _ = ctx.fill_text("+", btn_x + btn_sz / 2.0, cy + skill_row_h / 2.0);
+
+                cy += skill_row_h;
+            }
+        }
+
+        cy += 6.0 * d;
+
+        // Equipment
+        ctx.set_font(&self.font(9.0, "bold"));
+        ctx.set_fill_style_str("#666");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("Equipment", x, cy);
+        cy += 14.0 * d;
+
+        let eq_icon = 18.0 * d;
+        let eq_slots: [(&Option<Item>, &str, &str); 6] = [
+            (&game.equipped_weapon,  "#8af", "- No weapon"),
+            (&game.equipped_armor,   "#afa", "- No armor"),
+            (&game.equipped_helmet,  "#fc8", "- No helmet"),
+            (&game.equipped_shield,  "#adf", "- No shield"),
+            (&game.equipped_boots,   "#da8", "- No boots"),
+            (&game.equipped_ring,    "#ff8", "- No ring"),
+        ];
+        for &(slot, color, empty_label) in &eq_slots {
+            if cy + eq_icon > y + h { break; }
+            if let Some(ref item) = slot {
+                let sprite = sprites::item_sprite(item.name);
+                self.draw_sprite(sprite, x, cy, eq_icon, eq_icon);
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str(color);
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(item.name, x + eq_icon + 4.0 * d, cy + eq_icon / 2.0);
+            } else {
+                ctx.set_font(&self.font(8.0, ""));
+                ctx.set_fill_style_str("#444");
+                ctx.set_text_baseline("top");
+                let _ = ctx.fill_text(empty_label, x, cy);
+            }
+            cy += eq_icon + 4.0 * d;
+        }
+    }
+
+    /// Draw settings content inside the landscape side panel.
+    fn draw_side_settings(&self, game: &Game, x: f64, y: f64, w: f64, _h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let mut cy = y;
+
+        // Title
+        ctx.set_font(&self.font(10.0, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("top");
+        let _ = ctx.fill_text("SETTINGS", x + w / 2.0, cy);
+        cy += 18.0 * d;
+
+        // Glyph mode toggle
+        ctx.set_font(&self.font(10.0, ""));
+        ctx.set_fill_style_str("#ccc");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("middle");
+        let row_h = 30.0 * d;
+        let _ = ctx.fill_text("Glyph Mode", x, cy + row_h / 2.0);
+
+        let toggle_w = 50.0 * d;
+        let toggle_h = 22.0 * d;
+        let toggle_x = x + w - toggle_w;
+        let toggle_y = cy + (row_h - toggle_h) / 2.0;
+        let toggle_r = toggle_h / 2.0;
+
+        if self.glyph_mode {
+            ctx.set_fill_style_str("rgba(80,200,120,0.35)");
+            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
+            ctx.set_font(&self.font(9.0, "bold"));
+            ctx.set_fill_style_str("#8f8");
+            ctx.set_text_align("center");
+            let _ = ctx.fill_text("ON", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
+        } else {
+            ctx.set_fill_style_str("rgba(100,100,100,0.25)");
+            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
+            ctx.set_font(&self.font(9.0, "bold"));
+            ctx.set_fill_style_str("#888");
+            ctx.set_text_align("center");
+            let _ = ctx.fill_text("OFF", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
+        }
+        cy += row_h + 8.0 * d;
+
+        // Difficulty
+        ctx.set_font(&self.font(9.0, ""));
+        ctx.set_fill_style_str("#667");
+        ctx.set_text_align("left");
+        let diff_label = crate::config::Difficulty::from_config(&game.config).label();
+        let _ = ctx.fill_text(&format!("Difficulty: {diff_label}"), x, cy);
+        cy += 20.0 * d;
+
+        // Main menu button
+        let btn_w = w * 0.8;
+        let btn_h = 28.0 * d;
+        let btn_x = x + (w - btn_w) / 2.0;
+        ctx.set_fill_style_str("rgba(120,60,60,0.35)");
+        self.fill_rounded_rect(btn_x, cy, btn_w, btn_h, 4.0 * d);
+        ctx.set_font(&self.font(10.0, "bold"));
+        ctx.set_fill_style_str("#f88");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        let _ = ctx.fill_text("Main Menu", btn_x + btn_w / 2.0, cy + btn_h / 2.0);
+    }
+
+    /// Width of the side panel in CSS pixels (for hit-testing from lib.rs).
+    pub fn side_panel_css_w(&self) -> f64 {
+        if self.landscape { SIDE_PANEL_CSS_W } else { 0.0 }
     }
 
     // ---- World layer ----
