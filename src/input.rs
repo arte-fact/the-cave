@@ -9,6 +9,10 @@ pub enum Direction {
     Down,
     Left,
     Right,
+    UpLeft,
+    UpRight,
+    DownLeft,
+    DownRight,
 }
 
 /// Represents current swipe state for path preview.
@@ -149,8 +153,21 @@ impl Input {
                         if dist > 40.0 && has_swipe {
                             queue.borrow_mut().push(InputAction::ExecutePath);
                         } else {
-                            // Short swipe = single step
-                            let dir = if dx.abs() > dy.abs() {
+                            // Short swipe = single step (supports diagonals)
+                            let adx = dx.abs();
+                            let ady = dy.abs();
+                            // Diagonal when both axes exceed threshold and
+                            // the ratio between them is within 3:1
+                            let diagonal = adx > threshold && ady > threshold
+                                && adx < ady * 3.0 && ady < adx * 3.0;
+                            let dir = if diagonal {
+                                match (dx > 0.0, dy > 0.0) {
+                                    (true, false) => Direction::UpRight,
+                                    (false, false) => Direction::UpLeft,
+                                    (true, true) => Direction::DownRight,
+                                    (false, true) => Direction::DownLeft,
+                                }
+                            } else if adx > ady {
                                 if dx > 0.0 { Direction::Right } else { Direction::Left }
                             } else {
                                 if dy > 0.0 { Direction::Down } else { Direction::Up }
@@ -186,6 +203,22 @@ impl Input {
                 "ArrowRight" | "l" => {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::Step(Direction::Right));
+                }
+                "y" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::UpLeft));
+                }
+                "u" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::UpRight));
+                }
+                "b" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::DownLeft));
+                }
+                "n" => {
+                    e.prevent_default();
+                    queue.borrow_mut().push(InputAction::Step(Direction::DownRight));
                 }
                 "i" => {
                     e.prevent_default();

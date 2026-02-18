@@ -652,7 +652,8 @@ impl Map {
         let len = (self.width * self.height) as usize;
         let mut g_score = vec![i32::MAX; len];
         let mut came_from: Vec<(i32, i32)> = vec![(-1, -1); len];
-        let heuristic = |x: i32, y: i32| (x - goal.0).abs() + (y - goal.1).abs();
+        // Chebyshev distance: consistent heuristic for 8-directional movement
+        let heuristic = |x: i32, y: i32| (x - goal.0).abs().max((y - goal.1).abs());
 
         g_score[idx(start.0, start.1)] = 0;
         // (f_score, g, x, y) — Reverse for min-heap
@@ -676,10 +677,16 @@ impl Map {
                 continue; // stale entry
             }
 
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)] {
                 let (nx, ny) = (x + dx, y + dy);
                 if !self.is_walkable(nx, ny) {
                     continue;
+                }
+                // Prevent diagonal movement through walls (corner-cutting)
+                if dx != 0 && dy != 0 {
+                    if !self.is_walkable(x + dx, y) || !self.is_walkable(x, y + dy) {
+                        continue;
+                    }
                 }
                 let ng = g + 1;
                 let ni = idx(nx, ny);
@@ -1182,10 +1189,10 @@ mod tests {
                     for &(px, py) in &path {
                         assert!(map.is_walkable(px, py), "path tile ({px},{py}) not walkable");
                     }
-                    // Each step should be adjacent (manhattan dist 1)
+                    // Each step should be adjacent (Chebyshev dist 1, includes diagonals)
                     for w in path.windows(2) {
-                        let dist = (w[0].0 - w[1].0).abs() + (w[0].1 - w[1].1).abs();
-                        assert_eq!(dist, 1, "steps must be adjacent");
+                        let cdist = (w[0].0 - w[1].0).abs().max((w[0].1 - w[1].1).abs());
+                        assert_eq!(cdist, 1, "steps must be adjacent (Chebyshev)");
                     }
                     return;
                 }
@@ -1268,9 +1275,15 @@ mod tests {
 
         while let Some((x, y)) = queue.pop_front() {
             reachable += 1;
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)] {
                 let (nx, ny) = (x + dx, y + dy);
                 if nx >= 0 && ny >= 0 && nx < map.width && ny < map.height {
+                    // Corner-cutting prevention for diagonals
+                    if dx != 0 && dy != 0 {
+                        if map.get(x + dx, y) != Tile::Grass || map.get(x, y + dy) != Tile::Grass {
+                            continue;
+                        }
+                    }
                     let ni = (ny * map.width + nx) as usize;
                     if !visited[ni] && map.get(nx, ny) == Tile::Grass {
                         visited[ni] = true;
@@ -1466,8 +1479,14 @@ mod tests {
 
             while let Some((x, y)) = queue.pop_front() {
                 reachable += 1;
-                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)] {
                     let (nx, ny) = (x + dx, y + dy);
+                    // Corner-cutting prevention for diagonals
+                    if dx != 0 && dy != 0 {
+                        if !level.is_walkable(x + dx, y) || !level.is_walkable(x, y + dy) {
+                            continue;
+                        }
+                    }
                     if level.is_walkable(nx, ny) {
                         let ni = (ny * level.width + nx) as usize;
                         if !visited[ni] {
@@ -1535,8 +1554,14 @@ mod tests {
         let mut reachable = 0;
         while let Some((x, y)) = queue.pop_front() {
             reachable += 1;
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)] {
                 let (nx, ny) = (x + dx, y + dy);
+                // Corner-cutting prevention for diagonals
+                if dx != 0 && dy != 0 {
+                    if !cave.is_walkable(x + dx, y) || !cave.is_walkable(x, y + dy) {
+                        continue;
+                    }
+                }
                 if cave.is_walkable(nx, ny) {
                     let ni = (ny * cave.width + nx) as usize;
                     if !visited[ni] {
@@ -1776,5 +1801,44 @@ mod tests {
     fn los_same_tile() {
         let map = Map::new_filled(10, 10, Tile::Floor);
         assert!(map.has_line_of_sight(5, 5, 5, 5));
+    }
+
+    // === Diagonal pathfinding tests ===
+
+    #[test]
+    fn path_uses_diagonals() {
+        // On open floor, path from (1,1) to (4,4) should use diagonals (length 4, not 7)
+        let map = Map::new_filled(10, 10, Tile::Floor);
+        let path = map.find_path((1, 1), (4, 4));
+        assert!(!path.is_empty());
+        // Diagonal path should be 4 steps: (1,1)->(2,2)->(3,3)->(4,4)
+        assert_eq!(path.len(), 4);
+    }
+
+    #[test]
+    fn path_avoids_corner_cutting() {
+        // Map layout (5x5):
+        // F F F F F
+        // F F W F F
+        // F W F F F
+        // F F F F F
+        // F F F F F
+        // Path from (1,1) to (2,2) should NOT cut through (2,1)/(1,2) walls
+        let mut map = Map::new_filled(5, 5, Tile::Floor);
+        map.set(2, 1, Tile::Wall);
+        map.set(1, 2, Tile::Wall);
+        let path = map.find_path((1, 1), (2, 2));
+        assert!(!path.is_empty(), "path should exist via alternate route");
+        // Verify no step cuts a corner
+        for w in path.windows(2) {
+            let (x1, y1) = w[0];
+            let (x2, y2) = w[1];
+            let dx = x2 - x1;
+            let dy = y2 - y1;
+            if dx != 0 && dy != 0 {
+                assert!(map.is_walkable(x1 + dx, y1), "corner-cutting at ({},{})->({},{})", x1, y1, x2, y2);
+                assert!(map.is_walkable(x1, y1 + dy), "corner-cutting at ({},{})->({},{})", x1, y1, x2, y2);
+            }
+        }
     }
 }
