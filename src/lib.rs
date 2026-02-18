@@ -789,6 +789,10 @@ pub fn start() -> Result<(), JsValue> {
                                 input::Direction::Down => (0, 1),
                                 input::Direction::Left => (-1, 0),
                                 input::Direction::Right => (1, 0),
+                                input::Direction::UpLeft => (-1, -1),
+                                input::Direction::UpRight => (1, -1),
+                                input::Direction::DownLeft => (-1, 1),
+                                input::Direction::DownRight => (1, 1),
                             };
                             let result = gm.move_player(dx, dy);
                             if matches!(result, TurnResult::MapChanged) {
@@ -940,8 +944,9 @@ pub fn start() -> Result<(), JsValue> {
                             if gm.enemies.iter().any(|e| e.x == tx && e.y == ty && e.hp > 0) {
                                 gm.attack_adjacent(tx, ty);
                             } else {
-                                // Try all 4 directions for adjacent enemy
-                                let dirs = [(0, -1), (0, 1), (-1, 0), (1, 0)];
+                                // Try all 8 directions for adjacent enemy (including diagonals)
+                                let dirs = [(0, -1), (0, 1), (-1, 0), (1, 0),
+                                            (-1, -1), (1, -1), (-1, 1), (1, 1)];
                                 let mut attacked = false;
                                 for (dx, dy) in dirs {
                                     let ax = gm.player_x + dx;
