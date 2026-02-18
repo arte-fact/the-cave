@@ -30,11 +30,11 @@ impl World {
         } else {
             (seed % dungeon_entrances.len() as u64) as usize
         };
-        for (i, &entrance) in dungeon_entrances.iter().enumerate() {
+        for i in 0..dungeon_entrances.len() {
             rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
             let depth = 3;
             let has_cave = i == cave_index;
-            dungeons.push(Dungeon::generate(entrance, depth, rng, has_cave));
+            dungeons.push(Dungeon::generate(depth, rng, has_cave));
         }
         Self {
             overworld,
@@ -48,6 +48,7 @@ impl World {
     }
 
     /// Minimal world for tests: just a single map, no dungeons.
+    #[cfg(test)]
     pub fn from_single_map(map: Map) -> Self {
         Self {
             overworld: map,

@@ -130,7 +130,6 @@ impl Input {
         {
             let start = Rc::clone(&start);
             let swipe = Rc::clone(&swipe);
-            let queue = queue;
             let cb = Closure::<dyn FnMut(TouchEvent)>::new(move |e: TouchEvent| {
                 e.prevent_default();
                 let has_swipe = swipe.borrow().is_some();
@@ -169,9 +168,7 @@ impl Input {
                                 }
                             } else if adx > ady {
                                 if dx > 0.0 { Direction::Right } else { Direction::Left }
-                            } else {
-                                if dy > 0.0 { Direction::Down } else { Direction::Up }
-                            };
+                            } else if dy > 0.0 { Direction::Down } else { Direction::Up };
                             queue.borrow_mut().push(InputAction::Step(dir));
                         }
                     }

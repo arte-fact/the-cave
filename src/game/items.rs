@@ -364,11 +364,7 @@ impl Game {
 
     /// Get a description string for an inventory item.
     pub fn inventory_item_desc(&self, index: usize) -> Option<String> {
-        self.inventory.get(index).map(|item| item_info_desc(item))
-    }
-
-    pub fn toggle_inventory(&mut self) {
-        self.inventory_open = !self.inventory_open;
+        self.inventory.get(index).map(item_info_desc)
     }
 
     pub fn toggle_drawer(&mut self, drawer: Drawer) {

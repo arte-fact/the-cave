@@ -3,9 +3,9 @@ mod items;
 mod combat;
 
 pub use types::*;
-#[allow(unused_imports)]
+#[cfg(test)]
 use items::{random_item, meat_drop};
-#[allow(unused_imports)]
+#[cfg(test)]
 use types::{tile_name, tile_desc, enemy_desc, xp_for_enemy, item_info_desc};
 
 use crate::config::GameConfig;
@@ -41,7 +41,6 @@ pub struct Game {
     pub inventory_scroll: usize,
     /// Currently selected inventory item index (for detail view / drop).
     pub selected_inventory_item: Option<usize>,
-    pub inventory_open: bool,
     /// Currently open drawer (slides up from bottom).
     pub drawer: Drawer,
     /// Tile currently being inspected (shown in HUD detail strip).
@@ -80,10 +79,12 @@ pub struct Game {
 }
 
 impl Game {
+    #[cfg(test)]
     pub fn new(map: Map) -> Self {
         Self::new_with_config(map, GameConfig::normal())
     }
 
+    #[cfg(test)]
     pub fn new_with_config(map: Map, config: GameConfig) -> Self {
         let (px, py) = map.find_spawn();
         let p = &config.player;
@@ -112,7 +113,7 @@ impl Game {
             ground_items: Vec::new(),
             inventory_scroll: 0,
             selected_inventory_item: None,
-            inventory_open: false,
+
             drawer: Drawer::None,
             inspected: None,
             player_xp: 0,
@@ -136,6 +137,7 @@ impl Game {
         }
     }
 
+    #[cfg(test)]
     pub fn new_overworld(world: World) -> Self {
         Self::new_overworld_with_config(world, GameConfig::normal())
     }
@@ -168,7 +170,7 @@ impl Game {
             ground_items: Vec::new(),
             inventory_scroll: 0,
             selected_inventory_item: None,
-            inventory_open: false,
+
             drawer: Drawer::None,
             inspected: None,
             player_xp: 0,
@@ -275,13 +277,13 @@ impl Game {
 
         // Hunger: drain rate scales with depth
         let interval = self.hunger_interval();
-        if self.turn % interval == 0 {
+        if self.turn.is_multiple_of(interval) {
             self.hunger -= surv.hunger_drain;
             if self.hunger < 0 { self.hunger = 0; }
         }
 
         // Health regen: when well-fed and injured, heal 1 HP per interval, costs food
-        if self.turn % interval == 0
+        if self.turn.is_multiple_of(interval)
             && self.hunger > surv.regen_hunger_threshold
             && self.player_hp < self.player_max_hp
         {
@@ -293,7 +295,7 @@ impl Game {
         // Starvation damage
         if self.hunger == 0 {
             self.player_hp -= surv.starvation_damage;
-            if self.turn % 5 == 0 {
+            if self.turn.is_multiple_of(5) {
                 self.messages.push("You are starving!".into());
             }
             if self.player_hp <= 0 {
@@ -1305,19 +1307,6 @@ mod tests {
         rng = 42;
         let items: Vec<_> = (0..50).map(|_| random_item(2, &mut rng)).collect();
         assert!(items.iter().any(|i| i.name == "Superior Health Potion" || i.name == "Enchanted Blade" || i.name == "Dragon Scale"));
-    }
-
-    // --- Inventory toggle ---
-
-    #[test]
-    fn toggle_inventory() {
-        let map = Map::generate(30, 20, 42);
-        let mut g = Game::new(map);
-        assert!(!g.inventory_open);
-        g.toggle_inventory();
-        assert!(g.inventory_open);
-        g.toggle_inventory();
-        assert!(!g.inventory_open);
     }
 
     // --- Ground items persist across dungeon transitions ---

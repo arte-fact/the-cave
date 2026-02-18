@@ -41,9 +41,3 @@ pub fn install_panic_hook() {
         web_sys::console::error_1(&msg.into());
     }));
 }
-
-/// Convenience: log a non-fatal warning to the error overlay.
-pub fn report_warning(msg: &str) {
-    js_report_error(msg, "warn");
-    web_sys::console::warn_1(&msg.into());
-}

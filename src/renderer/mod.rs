@@ -42,8 +42,6 @@ impl SpriteSheets {
             Sheet::Rogues => Some(&self.rogues),
             Sheet::Items => Some(&self.items),
             Sheet::Animals => self.animals.as_ref(),
-            // AnimatedTiles sheet not yet loaded
-            _ => Some(&self.tiles),
         }
     }
 }
