@@ -1,46 +1,9 @@
 use super::{Map, Tile, Visibility};
 
 impl Map {
-    /// Generate a cave using cellular automata.
-    /// `seed` drives the initial random fill so caves are reproducible in tests.
-    pub fn generate(width: i32, height: i32, seed: u64) -> Self {
-        let len = (width * height) as usize;
-        let mut tiles = vec![Tile::Wall; len];
-        let mut rng = seed;
-
-        // Step 1: random fill — ~45% walls for interior cells
-        for y in 1..height - 1 {
-            for x in 1..width - 1 {
-                rng = xorshift64(rng);
-                if (rng % 100) >= 45 {
-                    tiles[(y * width + x) as usize] = Tile::Floor;
-                }
-            }
-        }
-
-        // Step 2: cellular automata smoothing (5 passes)
-        for _ in 0..5 {
-            let prev = tiles.clone();
-            for y in 1..height - 1 {
-                for x in 1..width - 1 {
-                    let walls = count_neighbors(&prev, width, x, y);
-                    tiles[(y * width + x) as usize] = if walls >= 5 {
-                        Tile::Wall
-                    } else {
-                        Tile::Floor
-                    };
-                }
-            }
-        }
-
-        let len = tiles.len();
-        Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] }
-    }
-
-    /// Generate a dragon's lair cave using cellular automata.
-    /// Similar to `generate()` but ensures floor connectivity and places StairsUp.
-    /// No StairsDown — this is the deepest level.
-    pub fn generate_cave(width: i32, height: i32, seed: u64) -> Self {
+    /// Build cave tiles via cellular automata: random fill + smoothing passes.
+    /// Used by both `generate` (simple cave) and `generate_cave` (dragon lair).
+    fn cellular_automata_cave(width: i32, height: i32, seed: u64) -> Vec<Tile> {
         let len = (width * height) as usize;
         let mut tiles = vec![Tile::Wall; len];
         let mut rng = seed;
@@ -60,7 +23,7 @@ impl Map {
             let prev = tiles.clone();
             for y in 1..height - 1 {
                 for x in 1..width - 1 {
-                    let walls = count_neighbors(&prev, width, x, y);
+                    let walls = count_neighbors_of(&prev, width, x, y, Tile::Wall);
                     tiles[(y * width + x) as usize] = if walls >= 5 {
                         Tile::Wall
                     } else {
@@ -70,6 +33,22 @@ impl Map {
             }
         }
 
+        tiles
+    }
+
+    /// Generate a cave using cellular automata.
+    /// `seed` drives the initial random fill so caves are reproducible in tests.
+    pub fn generate(width: i32, height: i32, seed: u64) -> Self {
+        let tiles = Self::cellular_automata_cave(width, height, seed);
+        let len = tiles.len();
+        Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] }
+    }
+
+    /// Generate a dragon's lair cave using cellular automata.
+    /// Ensures floor connectivity and places StairsUp. No StairsDown.
+    pub fn generate_cave(width: i32, height: i32, seed: u64) -> Self {
+        let tiles = Self::cellular_automata_cave(width, height, seed);
+        let len = tiles.len();
         let mut map = Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] };
 
         // Keep only the largest connected floor region
@@ -596,25 +575,6 @@ fn count_neighbors_of(tiles: &[Tile], width: i32, x: i32, y: i32, target: Tile) 
             if nx < 0 || ny < 0 || nx >= width || ny >= height {
                 count += 1; // out-of-bounds counts as match
             } else if tiles[(ny * width + nx) as usize] == target {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
-fn count_neighbors(tiles: &[Tile], width: i32, x: i32, y: i32) -> i32 {
-    let mut count = 0;
-    for dy in -1..=1 {
-        for dx in -1..=1 {
-            if dx == 0 && dy == 0 {
-                continue;
-            }
-            let nx = x + dx;
-            let ny = y + dy;
-            if nx < 0 || ny < 0 || nx >= width || ny >= (tiles.len() as i32 / width) {
-                count += 1; // out-of-bounds counts as wall
-            } else if tiles[(ny * width + nx) as usize] == Tile::Wall {
                 count += 1;
             }
         }

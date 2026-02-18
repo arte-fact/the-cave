@@ -6,8 +6,24 @@ mod menus;
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::camera::Camera;
-use crate::game::{Drawer, Game};
+use crate::game::{Drawer, Game, ItemKind};
 use crate::sprites::{Sheet, SpriteRef};
+
+/// Map an ItemKind to its display color (used across HUD panels).
+pub(super) fn item_kind_color(kind: &ItemKind) -> &'static str {
+    match kind {
+        ItemKind::Potion => "#f88",
+        ItemKind::Scroll => "#88f",
+        ItemKind::Weapon => "#aaf",
+        ItemKind::RangedWeapon => "#8df",
+        ItemKind::Armor => "#afa",
+        ItemKind::Helmet => "#fc8",
+        ItemKind::Shield => "#adf",
+        ItemKind::Boots => "#da8",
+        ItemKind::Food => "#fa8",
+        ItemKind::Ring => "#ff8",
+    }
+}
 
 /// Loaded sprite sheet images, indexed by Sheet enum.
 pub struct SpriteSheets {
@@ -174,8 +190,8 @@ impl Renderer {
         false
     }
 
-    /// Helper: draw a rounded-rect filled region.
-    pub(super) fn fill_rounded_rect(&self, x: f64, y: f64, w: f64, h: f64, r: f64) {
+    /// Trace a rounded-rect path (shared by fill and stroke helpers).
+    fn trace_rounded_rect(&self, x: f64, y: f64, w: f64, h: f64, r: f64) {
         let ctx = &self.ctx;
         ctx.begin_path();
         ctx.move_to(x + r, y);
@@ -188,7 +204,59 @@ impl Renderer {
         ctx.line_to(x, y + r);
         let _ = ctx.arc_to(x, y, x + r, y, r);
         ctx.close_path();
-        ctx.fill();
+    }
+
+    /// Helper: draw a rounded-rect filled region.
+    pub(super) fn fill_rounded_rect(&self, x: f64, y: f64, w: f64, h: f64, r: f64) {
+        self.trace_rounded_rect(x, y, w, h, r);
+        self.ctx.fill();
+    }
+
+    /// Helper: stroke a rounded-rect border (set stroke style + line width before calling).
+    pub(super) fn stroke_rounded_rect(&self, x: f64, y: f64, w: f64, h: f64, r: f64) {
+        self.trace_rounded_rect(x, y, w, h, r);
+        self.ctx.stroke();
+    }
+
+    /// Draw a toggle button (ON/OFF pill). Used in settings panels.
+    pub(super) fn draw_toggle(&self, x: f64, y: f64, w: f64, h: f64, on: bool, font_size: f64) {
+        let ctx = &self.ctx;
+        let r = h / 2.0;
+        if on {
+            ctx.set_fill_style_str("rgba(80,200,120,0.35)");
+            self.fill_rounded_rect(x, y, w, h, r);
+            ctx.set_font(&self.font(font_size, "bold"));
+            ctx.set_fill_style_str("#8f8");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text("ON", x + w / 2.0, y + h / 2.0);
+        } else {
+            ctx.set_fill_style_str("rgba(100,100,100,0.25)");
+            self.fill_rounded_rect(x, y, w, h, r);
+            ctx.set_font(&self.font(font_size, "bold"));
+            ctx.set_fill_style_str("#888");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text("OFF", x + w / 2.0, y + h / 2.0);
+        }
+    }
+
+    /// Draw a stat bar (HP, stamina, hunger style). Sets fill style and renders.
+    pub(super) fn draw_stat_bar(
+        &self, x: f64, y: f64, w: f64, h: f64, r: f64,
+        frac: f64, bg_color: &str, fill_color: &str,
+        label: &str, font_size: f64, text_inset: f64,
+    ) {
+        let ctx = &self.ctx;
+        ctx.set_fill_style_str(bg_color);
+        self.fill_rounded_rect(x, y, w, h, r);
+        ctx.set_fill_style_str(fill_color);
+        self.fill_rounded_rect(x, y, w * frac.max(0.0), h, r);
+        ctx.set_font(&self.font(font_size, "bold"));
+        ctx.set_fill_style_str("#fff");
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("middle");
+        let _ = ctx.fill_text(label, x + text_inset, y + h / 2.0);
     }
 
     pub fn draw(&self, game: &Game, preview_path: &[(i32, i32)]) {

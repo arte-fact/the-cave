@@ -1,7 +1,7 @@
 use crate::game::{Drawer, Game, Item, ItemKind};
 use crate::sprites;
 
-use super::Renderer;
+use super::{item_kind_color, Renderer};
 
 impl Renderer {
     // ---- Landscape side panel (permanent right drawer) ----
@@ -36,54 +36,24 @@ impl Renderer {
 
         // --- HP bar ---
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
-        ctx.set_fill_style_str("#2a0a0a");
-        self.fill_rounded_rect(x, y, inner_w, bar_h, bar_r);
-        let hp_color = if hp_frac > 0.5 { "#2a2" }
-            else if hp_frac > 0.25 { "#aa2" }
-            else { "#a22" };
-        ctx.set_fill_style_str(hp_color);
-        self.fill_rounded_rect(x, y, inner_w * hp_frac.max(0.0), bar_h, bar_r);
-        ctx.set_font(&self.font(8.0, "bold"));
-        ctx.set_fill_style_str("#fff");
-        ctx.set_text_align("left");
-        ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text(
-            &format!("HP {}/{}", game.player_hp, game.player_max_hp),
-            x + text_inset, y + bar_h / 2.0,
-        );
+        let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
+        self.draw_stat_bar(x, y, inner_w, bar_h, bar_r, hp_frac, "#2a0a0a", hp_color,
+            &format!("HP {}/{}", game.player_hp, game.player_max_hp), 8.0, text_inset);
         y += bar_h + bar_gap;
 
         // --- Stamina bar ---
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
-        ctx.set_fill_style_str("#0a0a2a");
-        self.fill_rounded_rect(x, y, inner_w, bar_h, bar_r);
         let stam_color = if game.sprinting { "#4af" } else { "#28a" };
-        ctx.set_fill_style_str(stam_color);
-        self.fill_rounded_rect(x, y, inner_w * stam_frac.max(0.0), bar_h, bar_r);
-        ctx.set_font(&self.font(8.0, ""));
-        ctx.set_fill_style_str("#fff");
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
-        let _ = ctx.fill_text(
-            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
-            x + text_inset, y + bar_h / 2.0,
-        );
+        self.draw_stat_bar(x, y, inner_w, bar_h, bar_r, stam_frac, "#0a0a2a", stam_color,
+            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina), 8.0, text_inset);
         y += bar_h + bar_gap;
 
         // --- Hunger bar ---
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
-        ctx.set_fill_style_str("#2a1a0a");
-        self.fill_rounded_rect(x, y, inner_w, bar_h, bar_r);
-        let hunger_color = if hunger_frac > 0.3 { "#a82" }
-            else if hunger_frac > 0.1 { "#a52" }
-            else { "#a22" };
-        ctx.set_fill_style_str(hunger_color);
-        self.fill_rounded_rect(x, y, inner_w * hunger_frac.max(0.0), bar_h, bar_r);
-        ctx.set_font(&self.font(8.0, ""));
-        ctx.set_fill_style_str("#fff");
-        let _ = ctx.fill_text(
-            &format!("FOOD {}/{}", game.hunger, game.max_hunger),
-            x + text_inset, y + bar_h / 2.0,
-        );
+        let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
+        self.draw_stat_bar(x, y, inner_w, bar_h, bar_r, hunger_frac, "#2a1a0a", hunger_color,
+            &format!("FOOD {}/{}", game.hunger, game.max_hunger), 8.0, text_inset);
         y += bar_h + bar_gap * 2.0;
 
         // --- Combat stats ---
@@ -328,20 +298,8 @@ impl Renderer {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, x + pad, iy + (slot_h - icon_size) / 2.0, icon_size, icon_size);
 
-                let color = match item.kind {
-                    ItemKind::Potion => "#f88",
-                    ItemKind::Scroll => "#88f",
-                    ItemKind::Weapon => "#aaf",
-                    ItemKind::RangedWeapon => "#8df",
-                    ItemKind::Armor => "#afa",
-                    ItemKind::Helmet => "#fc8",
-                    ItemKind::Shield => "#adf",
-                    ItemKind::Boots => "#da8",
-                    ItemKind::Food => "#fa8",
-                    ItemKind::Ring => "#ff8",
-                };
                 ctx.set_font(&self.font(8.0, ""));
-                ctx.set_fill_style_str(color);
+                ctx.set_fill_style_str(item_kind_color(&item.kind));
                 ctx.set_text_baseline("middle");
                 let _ = ctx.fill_text(item.name, x + icon_size + pad * 2.0, iy + slot_h / 2.0);
 
@@ -544,23 +502,7 @@ impl Renderer {
         let toggle_h = 22.0 * d;
         let toggle_x = x + w - toggle_w;
         let toggle_y = cy + (row_h - toggle_h) / 2.0;
-        let toggle_r = toggle_h / 2.0;
-
-        if self.glyph_mode {
-            ctx.set_fill_style_str("rgba(80,200,120,0.35)");
-            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
-            ctx.set_font(&self.font(9.0, "bold"));
-            ctx.set_fill_style_str("#8f8");
-            ctx.set_text_align("center");
-            let _ = ctx.fill_text("ON", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
-        } else {
-            ctx.set_fill_style_str("rgba(100,100,100,0.25)");
-            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
-            ctx.set_font(&self.font(9.0, "bold"));
-            ctx.set_fill_style_str("#888");
-            ctx.set_text_align("center");
-            let _ = ctx.fill_text("OFF", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
-        }
+        self.draw_toggle(toggle_x, toggle_y, toggle_w, toggle_h, self.glyph_mode, 9.0);
         cy += row_h + 8.0 * d;
 
         // Difficulty
@@ -605,54 +547,24 @@ impl Renderer {
         // Row 1: HP bar — left
         let row1_y = 5.0 * d;
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
-        ctx.set_fill_style_str("#2a0a0a");
-        self.fill_rounded_rect(bar_x, row1_y, bar_w, bar_h, bar_r);
-        let hp_color = if hp_frac > 0.5 { "#2a2" }
-            else if hp_frac > 0.25 { "#aa2" }
-            else { "#a22" };
-        ctx.set_fill_style_str(hp_color);
-        self.fill_rounded_rect(bar_x, row1_y, bar_w * hp_frac.max(0.0), bar_h, bar_r);
-        ctx.set_font(&self.font(10.0, "bold"));
-        ctx.set_fill_style_str("#fff");
-        ctx.set_text_align("left");
-        ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text(
-            &format!("HP {}/{}", game.player_hp, game.player_max_hp),
-            bar_x + text_inset, row1_y + bar_h / 2.0,
-        );
+        let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
+        self.draw_stat_bar(bar_x, row1_y, bar_w, bar_h, bar_r, hp_frac, "#2a0a0a", hp_color,
+            &format!("HP {}/{}", game.player_hp, game.player_max_hp), 10.0, text_inset);
 
         // Row 2: Stamina bar
         let row2_y = row1_y + bar_h + bar_gap;
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
-        ctx.set_fill_style_str("#0a0a2a");
-        self.fill_rounded_rect(bar_x, row2_y, bar_w, bar_h, bar_r);
         let stam_color = if game.sprinting { "#4af" } else { "#28a" };
-        ctx.set_fill_style_str(stam_color);
-        self.fill_rounded_rect(bar_x, row2_y, bar_w * stam_frac.max(0.0), bar_h, bar_r);
-        ctx.set_font(&self.font(10.0, ""));
-        ctx.set_fill_style_str("#fff");
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
-        let _ = ctx.fill_text(
-            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
-            bar_x + text_inset, row2_y + bar_h / 2.0,
-        );
+        self.draw_stat_bar(bar_x, row2_y, bar_w, bar_h, bar_r, stam_frac, "#0a0a2a", stam_color,
+            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina), 10.0, text_inset);
 
         // Row 3: Hunger bar
         let row3_y = row2_y + bar_h + bar_gap;
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
-        ctx.set_fill_style_str("#2a1a0a");
-        self.fill_rounded_rect(bar_x, row3_y, bar_w, bar_h, bar_r);
-        let hunger_color = if hunger_frac > 0.3 { "#a82" }
-            else if hunger_frac > 0.1 { "#a52" }
-            else { "#a22" };
-        ctx.set_fill_style_str(hunger_color);
-        self.fill_rounded_rect(bar_x, row3_y, bar_w * hunger_frac.max(0.0), bar_h, bar_r);
-        ctx.set_font(&self.font(10.0, ""));
-        ctx.set_fill_style_str("#fff");
-        let _ = ctx.fill_text(
-            &format!("FOOD {}/{}", game.hunger, game.max_hunger),
-            bar_x + text_inset, row3_y + bar_h / 2.0,
-        );
+        let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
+        self.draw_stat_bar(bar_x, row3_y, bar_w, bar_h, bar_r, hunger_frac, "#2a1a0a", hunger_color,
+            &format!("FOOD {}/{}", game.hunger, game.max_hunger), 10.0, text_inset);
 
         // Right column: location + stats + XP
         ctx.set_text_align("right");
