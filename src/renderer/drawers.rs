@@ -1,7 +1,7 @@
 use crate::game::{Drawer, Game, Item, ItemKind};
 use crate::sprites;
 
-use super::Renderer;
+use super::{item_kind_color, Renderer};
 
 impl Renderer {
     // ---- Drawer: slide-up panel ----
@@ -143,20 +143,8 @@ impl Renderer {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, pad + 4.0 * d, iy + (slot_h - icon_size) / 2.0, icon_size, icon_size);
 
-                let color = match item.kind {
-                    ItemKind::Potion => "#f88",
-                    ItemKind::Scroll => "#88f",
-                    ItemKind::Weapon => "#aaf",
-                    ItemKind::RangedWeapon => "#8df",
-                    ItemKind::Armor => "#afa",
-                    ItemKind::Helmet => "#fc8",
-                    ItemKind::Shield => "#adf",
-                    ItemKind::Boots => "#da8",
-                    ItemKind::Food => "#fa8",
-                    ItemKind::Ring => "#ff8",
-                };
                 ctx.set_font(&self.font(11.0, ""));
-                ctx.set_fill_style_str(color);
+                ctx.set_fill_style_str(item_kind_color(&item.kind));
                 ctx.set_text_baseline("middle");
                 let _ = ctx.fill_text(item.name, pad + icon_size + 8.0 * d, iy + slot_h / 2.0);
 
@@ -520,25 +508,7 @@ impl Renderer {
         let toggle_h = 30.0 * d;
         let toggle_x = canvas_w - pad - toggle_w;
         let toggle_y = row_y + (row_h - toggle_h) / 2.0;
-        let toggle_r = toggle_h / 2.0;
-
-        if self.glyph_mode {
-            ctx.set_fill_style_str("rgba(80,200,120,0.35)");
-            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
-            ctx.set_font(&self.font(12.0, "bold"));
-            ctx.set_fill_style_str("#8f8");
-            ctx.set_text_align("center");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text("ON", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
-        } else {
-            ctx.set_fill_style_str("rgba(100,100,100,0.25)");
-            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_r);
-            ctx.set_font(&self.font(12.0, "bold"));
-            ctx.set_fill_style_str("#888");
-            ctx.set_text_align("center");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text("OFF", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
-        }
+        self.draw_toggle(toggle_x, toggle_y, toggle_w, toggle_h, self.glyph_mode, 12.0);
 
         // Description text
         ctx.set_font(&self.font(10.0, ""));
@@ -562,23 +532,12 @@ impl Renderer {
         let menu_btn_x = (canvas_w - menu_btn_w) / 2.0;
         let menu_btn_y = diff_y + 32.0 * d;
 
+        let r = 6.0 * d;
         ctx.set_fill_style_str("rgba(120,60,60,0.35)");
-        self.fill_rounded_rect(menu_btn_x, menu_btn_y, menu_btn_w, menu_btn_h, 6.0 * d);
+        self.fill_rounded_rect(menu_btn_x, menu_btn_y, menu_btn_w, menu_btn_h, r);
         ctx.set_stroke_style_str("rgba(180,80,80,0.4)");
         ctx.set_line_width(1.0 * d);
-        ctx.begin_path();
-        let r = 6.0 * d;
-        ctx.move_to(menu_btn_x + r, menu_btn_y);
-        ctx.line_to(menu_btn_x + menu_btn_w - r, menu_btn_y);
-        let _ = ctx.arc_to(menu_btn_x + menu_btn_w, menu_btn_y, menu_btn_x + menu_btn_w, menu_btn_y + r, r);
-        ctx.line_to(menu_btn_x + menu_btn_w, menu_btn_y + menu_btn_h - r);
-        let _ = ctx.arc_to(menu_btn_x + menu_btn_w, menu_btn_y + menu_btn_h, menu_btn_x + menu_btn_w - r, menu_btn_y + menu_btn_h, r);
-        ctx.line_to(menu_btn_x + r, menu_btn_y + menu_btn_h);
-        let _ = ctx.arc_to(menu_btn_x, menu_btn_y + menu_btn_h, menu_btn_x, menu_btn_y + menu_btn_h - r, r);
-        ctx.line_to(menu_btn_x, menu_btn_y + r);
-        let _ = ctx.arc_to(menu_btn_x, menu_btn_y, menu_btn_x + r, menu_btn_y, r);
-        ctx.close_path();
-        ctx.stroke();
+        self.stroke_rounded_rect(menu_btn_x, menu_btn_y, menu_btn_w, menu_btn_h, r);
         ctx.set_font(&self.font(12.0, "bold"));
         ctx.set_fill_style_str("#f88");
         ctx.set_text_align("center");

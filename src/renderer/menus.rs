@@ -98,40 +98,21 @@ impl Renderer {
         let d = self.dpr;
         let r = 6.0 * d;
 
-        if enabled {
-            ctx.set_fill_style_str("rgba(60,80,120,0.4)");
+        let (bg, border, fg) = if enabled {
+            ("rgba(60,80,120,0.4)", "rgba(100,140,200,0.5)", "#dde8ff")
         } else {
-            ctx.set_fill_style_str("rgba(40,40,50,0.3)");
-        }
-        self.fill_rounded_rect(x, y, w, h, r);
+            ("rgba(40,40,50,0.3)", "rgba(60,60,70,0.3)", "#445")
+        };
 
-        // Border
-        if enabled {
-            ctx.set_stroke_style_str("rgba(100,140,200,0.5)");
-        } else {
-            ctx.set_stroke_style_str("rgba(60,60,70,0.3)");
-        }
+        ctx.set_fill_style_str(bg);
+        self.fill_rounded_rect(x, y, w, h, r);
+        ctx.set_stroke_style_str(border);
         ctx.set_line_width(1.0 * d);
-        ctx.begin_path();
-        ctx.move_to(x + r, y);
-        ctx.line_to(x + w - r, y);
-        let _ = ctx.arc_to(x + w, y, x + w, y + r, r);
-        ctx.line_to(x + w, y + h - r);
-        let _ = ctx.arc_to(x + w, y + h, x + w - r, y + h, r);
-        ctx.line_to(x + r, y + h);
-        let _ = ctx.arc_to(x, y + h, x, y + h - r, r);
-        ctx.line_to(x, y + r);
-        let _ = ctx.arc_to(x, y, x + r, y, r);
-        ctx.close_path();
-        ctx.stroke();
+        self.stroke_rounded_rect(x, y, w, h, r);
 
         let font_size = (14.0 * d).round();
         ctx.set_font(&format!("bold {font_size}px monospace"));
-        if enabled {
-            ctx.set_fill_style_str("#dde8ff");
-        } else {
-            ctx.set_fill_style_str("#445");
-        }
+        ctx.set_fill_style_str(fg);
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
         let _ = ctx.fill_text(label, x + w / 2.0, y + h / 2.0);
@@ -197,19 +178,7 @@ impl Renderer {
             if selected {
                 ctx.set_stroke_style_str("#8af");
                 ctx.set_line_width(2.0 * d);
-                ctx.begin_path();
-                let r = 6.0 * d;
-                ctx.move_to(btn_x + r, y);
-                ctx.line_to(btn_x + btn_w - r, y);
-                let _ = ctx.arc_to(btn_x + btn_w, y, btn_x + btn_w, y + r, r);
-                ctx.line_to(btn_x + btn_w, y + btn_h - r);
-                let _ = ctx.arc_to(btn_x + btn_w, y + btn_h, btn_x + btn_w - r, y + btn_h, r);
-                ctx.line_to(btn_x + r, y + btn_h);
-                let _ = ctx.arc_to(btn_x, y + btn_h, btn_x, y + btn_h - r, r);
-                ctx.line_to(btn_x, y + r);
-                let _ = ctx.arc_to(btn_x, y, btn_x + r, y, r);
-                ctx.close_path();
-                ctx.stroke();
+                self.stroke_rounded_rect(btn_x, y, btn_w, btn_h, 6.0 * d);
             }
 
             // Difficulty name
@@ -253,19 +222,7 @@ impl Renderer {
         self.fill_rounded_rect(start_x, start_y, start_w, start_h, 8.0 * d);
         ctx.set_stroke_style_str("rgba(80,200,120,0.6)");
         ctx.set_line_width(2.0 * d);
-        ctx.begin_path();
-        let r = 8.0 * d;
-        ctx.move_to(start_x + r, start_y);
-        ctx.line_to(start_x + start_w - r, start_y);
-        let _ = ctx.arc_to(start_x + start_w, start_y, start_x + start_w, start_y + r, r);
-        ctx.line_to(start_x + start_w, start_y + start_h - r);
-        let _ = ctx.arc_to(start_x + start_w, start_y + start_h, start_x + start_w - r, start_y + start_h, r);
-        ctx.line_to(start_x + r, start_y + start_h);
-        let _ = ctx.arc_to(start_x, start_y + start_h, start_x, start_y + start_h - r, r);
-        ctx.line_to(start_x, start_y + r);
-        let _ = ctx.arc_to(start_x, start_y, start_x + r, start_y, r);
-        ctx.close_path();
-        ctx.stroke();
+        self.stroke_rounded_rect(start_x, start_y, start_w, start_h, 8.0 * d);
 
         let start_font = (16.0 * d).round();
         ctx.set_font(&format!("bold {start_font}px monospace"));
@@ -325,23 +282,7 @@ impl Renderer {
         let toggle_h = 28.0 * d;
         let toggle_x = row_x + row_w - pad - toggle_w;
         let toggle_y = row_y + (row_h - toggle_h) / 2.0;
-        if self.glyph_mode {
-            ctx.set_fill_style_str("rgba(80,200,120,0.35)");
-            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_h / 2.0);
-            ctx.set_font(&self.font(11.0, "bold"));
-            ctx.set_fill_style_str("#8f8");
-            ctx.set_text_align("center");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text("ON", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
-        } else {
-            ctx.set_fill_style_str("rgba(100,100,100,0.25)");
-            self.fill_rounded_rect(toggle_x, toggle_y, toggle_w, toggle_h, toggle_h / 2.0);
-            ctx.set_font(&self.font(11.0, "bold"));
-            ctx.set_fill_style_str("#888");
-            ctx.set_text_align("center");
-            ctx.set_text_baseline("middle");
-            let _ = ctx.fill_text("OFF", toggle_x + toggle_w / 2.0, toggle_y + toggle_h / 2.0);
-        }
+        self.draw_toggle(toggle_x, toggle_y, toggle_w, toggle_h, self.glyph_mode, 11.0);
 
         // Description
         ctx.set_font(&self.font(9.0, ""));

@@ -1,9 +1,9 @@
 use crate::camera::Camera;
-use crate::game::{BumpAnim, EffectKind, Game, ItemKind};
+use crate::game::{BumpAnim, EffectKind, Game};
 use crate::map::{Tile, Visibility};
 use crate::sprites;
 
-use super::Renderer;
+use super::{item_kind_color, Renderer};
 
 impl Renderer {
     // ---- World layer ----
@@ -48,61 +48,9 @@ impl Renderer {
             let is_aiming = game.has_ranged_weapon()
                 && game.enemies.iter().any(|e| e.x == aim_target.0 && e.y == aim_target.1 && e.hp > 0);
             if is_aiming {
-                // Aim mode: draw line with color based on range/hit chance
-                let max_range = game.ranged_max_range();
-                for (i, &(tx, ty)) in preview_path.iter().enumerate() {
-                    if i == 0 { continue; } // skip player tile
-                    let (px, py) = cam.world_to_screen(tx, ty);
-                    let dist = ((tx - game.player_x).abs()).max((ty - game.player_y).abs());
-                    let is_last = i == preview_path.len() - 1;
-
-                    if dist > max_range {
-                        // Out of range: red
-                        ctx.set_fill_style_str("rgba(255,50,50,0.35)");
-                    } else {
-                        let hit_chance = game.ranged_hit_chance(dist);
-                        if is_last {
-                            // Target tile: brighter based on hit chance
-                            if hit_chance >= 70 {
-                                ctx.set_fill_style_str("rgba(50,255,50,0.5)");
-                            } else if hit_chance >= 40 {
-                                ctx.set_fill_style_str("rgba(255,200,50,0.5)");
-                            } else {
-                                ctx.set_fill_style_str("rgba(255,100,50,0.5)");
-                            }
-                        } else {
-                            // Line body: amber
-                            ctx.set_fill_style_str("rgba(255,180,50,0.25)");
-                        }
-                    }
-                    ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
-
-                    // Draw hit chance on target tile
-                    if is_last && dist <= max_range && dist > 0 {
-                        let hit_chance = game.ranged_hit_chance(dist);
-                        let font_size = (cell * 0.35).round().max(8.0);
-                        ctx.set_font(&format!("{font_size}px monospace"));
-                        ctx.set_text_align("center");
-                        ctx.set_text_baseline("middle");
-                        ctx.set_fill_style_str("#fff");
-                        let _ = ctx.fill_text(
-                            &format!("{hit_chance}%"),
-                            px + cell / 2.0,
-                            py + cell / 2.0,
-                        );
-                    }
-                }
+                self.draw_aim_preview(game, cam, cell, preview_path);
             } else {
-                // Normal movement preview: blue
-                for (i, &(tx, ty)) in preview_path.iter().enumerate() {
-                    let (px, py) = cam.world_to_screen(tx, ty);
-                    if i == preview_path.len() - 1 {
-                        ctx.set_fill_style_str("rgba(0,180,255,0.4)");
-                    } else {
-                        ctx.set_fill_style_str("rgba(0,180,255,0.2)");
-                    }
-                    ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
-                }
+                self.draw_move_preview(cam, cell, preview_path);
             }
         }
 
@@ -152,23 +100,12 @@ impl Renderer {
         let (pbx, pby) = bump_offset(&game.bump_anims, true, 0, cell);
         let prx = px + pbx;
         let pry = py + pby;
-        if self.glyph_mode {
-            let font_size = (cell * 0.8).round();
-            ctx.set_font(&format!("{font_size}px monospace"));
-            ctx.set_text_align("center");
-            ctx.set_text_baseline("middle");
-            ctx.set_fill_style_str("#fff");
-            let _ = ctx.fill_text("@", prx + cell / 2.0, pry + cell / 2.0);
-        } else {
+        let drew_sprite = !self.glyph_mode && {
             let player_sprite = sprites::player_sprite();
-            if !self.draw_sprite_ex(player_sprite, prx, pry, cell, cell, !game.player_facing_left) {
-                let font_size = (cell * 0.8).round();
-                ctx.set_font(&format!("{font_size}px monospace"));
-                ctx.set_text_align("center");
-                ctx.set_text_baseline("middle");
-                ctx.set_fill_style_str("#fff");
-                let _ = ctx.fill_text("@", prx + cell / 2.0, pry + cell / 2.0);
-            }
+            self.draw_sprite_ex(player_sprite, prx, pry, cell, cell, !game.player_facing_left)
+        };
+        if !drew_sprite {
+            self.draw_player_glyph(prx, pry, cell);
         }
         // Red flash on player when taking damage
         let player_taking_damage = game.bump_anims.iter().any(|b| b.is_player && (b.dx * b.dx + b.dy * b.dy) > 0.001);
@@ -287,30 +224,89 @@ impl Renderer {
         }
     }
 
+    /// Draw ranged aim line overlay with hit chance coloring.
+    fn draw_aim_preview(&self, game: &Game, cam: &Camera, cell: f64, path: &[(i32, i32)]) {
+        let ctx = &self.ctx;
+        let max_range = game.ranged_max_range();
+        let last = path.len() - 1;
+
+        for (i, &(tx, ty)) in path.iter().enumerate() {
+            if i == 0 { continue; } // skip player tile
+            let (px, py) = cam.world_to_screen(tx, ty);
+            let dist = ((tx - game.player_x).abs()).max((ty - game.player_y).abs());
+            let is_target = i == last;
+
+            let color = if dist > max_range {
+                "rgba(255,50,50,0.35)"
+            } else if is_target {
+                let chance = game.ranged_hit_chance(dist);
+                if chance >= 70 { "rgba(50,255,50,0.5)" }
+                else if chance >= 40 { "rgba(255,200,50,0.5)" }
+                else { "rgba(255,100,50,0.5)" }
+            } else {
+                "rgba(255,180,50,0.25)"
+            };
+            ctx.set_fill_style_str(color);
+            ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+
+            // Draw hit chance label on target tile
+            if is_target && dist <= max_range && dist > 0 {
+                let hit_chance = game.ranged_hit_chance(dist);
+                let font_size = (cell * 0.35).round().max(8.0);
+                ctx.set_font(&format!("{font_size}px monospace"));
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                ctx.set_fill_style_str("#fff");
+                let _ = ctx.fill_text(&format!("{hit_chance}%"), px + cell / 2.0, py + cell / 2.0);
+            }
+        }
+    }
+
+    /// Draw blue movement preview path overlay.
+    fn draw_move_preview(&self, cam: &Camera, cell: f64, path: &[(i32, i32)]) {
+        let ctx = &self.ctx;
+        let last = path.len() - 1;
+        for (i, &(tx, ty)) in path.iter().enumerate() {
+            let (px, py) = cam.world_to_screen(tx, ty);
+            let alpha = if i == last { "0.4" } else { "0.2" };
+            ctx.set_fill_style_str(&format!("rgba(0,180,255,{alpha})"));
+            ctx.fill_rect(px + 1.0, py + 1.0, cell - 2.0, cell - 2.0);
+        }
+    }
+
+    /// Draw the player "@" glyph (used in glyph mode and as sprite fallback).
+    fn draw_player_glyph(&self, x: f64, y: f64, cell: f64) {
+        let ctx = &self.ctx;
+        let font_size = (cell * 0.8).round();
+        ctx.set_font(&format!("{font_size}px monospace"));
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        ctx.set_fill_style_str("#fff");
+        let _ = ctx.fill_text("@", x + cell / 2.0, y + cell / 2.0);
+    }
+
     /// Glyph-mode tile rendering: colored background + ASCII character.
     fn draw_tile_glyph(&self, tile: Tile, px: f64, py: f64, cell: f64) {
         let ctx = &self.ctx;
-        // Background fill
         ctx.set_fill_style_str(tile.color());
         ctx.fill_rect(px, py, cell, cell);
-        // Foreground glyph (skip for wall/floor/grass — background is enough)
-        let ch = tile.glyph();
-        let fg = match tile {
-            Tile::Wall => return, // solid block, no glyph needed
-            Tile::Floor => { ctx.set_fill_style_str("#333"); "." }
-            Tile::Tree => { ctx.set_fill_style_str("#0a0"); "T" }
-            Tile::Grass => { ctx.set_fill_style_str("#2a2"); "." }
-            Tile::Road => { ctx.set_fill_style_str("#a86"); "=" }
-            Tile::DungeonEntrance => { ctx.set_fill_style_str("#fa0"); ">" }
-            Tile::StairsDown => { ctx.set_fill_style_str("#aaf"); ">" }
-            Tile::StairsUp => { ctx.set_fill_style_str("#aaf"); "<" }
+        // Foreground glyph (wall is solid block — no glyph needed)
+        let (fg_color, fg_char) = match tile {
+            Tile::Wall => return,
+            Tile::Floor => ("#333", "."),
+            Tile::Tree => ("#0a0", "T"),
+            Tile::Grass => ("#2a2", "."),
+            Tile::Road => ("#a86", "="),
+            Tile::DungeonEntrance => ("#fa0", ">"),
+            Tile::StairsDown => ("#aaf", ">"),
+            Tile::StairsUp => ("#aaf", "<"),
         };
-        let _ = ch; // glyph already matched above
+        ctx.set_fill_style_str(fg_color);
         let font_size = (cell * 0.7).round();
         ctx.set_font(&format!("{font_size}px monospace"));
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text(fg, px + cell / 2.0, py + cell / 2.0);
+        let _ = ctx.fill_text(fg_char, px + cell / 2.0, py + cell / 2.0);
     }
 
     /// Glyph-mode enemy rendering.
@@ -336,21 +332,13 @@ impl Renderer {
     }
 
     /// Glyph-mode item rendering.
-    fn draw_item_glyph(&self, glyph: char, kind: &ItemKind, ix: f64, iy: f64, cell: f64) {
+    fn draw_item_glyph(&self, glyph: char, kind: &crate::game::ItemKind, ix: f64, iy: f64, cell: f64) {
         let ctx = &self.ctx;
         let font_size = (cell * 0.6).round();
         ctx.set_font(&format!("{font_size}px monospace"));
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        let color = match kind {
-            ItemKind::Potion => "#f88",
-            ItemKind::Scroll => "#88f",
-            ItemKind::Weapon | ItemKind::RangedWeapon => "#aaf",
-            ItemKind::Armor | ItemKind::Helmet | ItemKind::Shield | ItemKind::Boots => "#afa",
-            ItemKind::Food => "#fa8",
-            ItemKind::Ring => "#ff8",
-        };
-        ctx.set_fill_style_str(color);
+        ctx.set_fill_style_str(item_kind_color(kind));
         let _ = ctx.fill_text(&glyph.to_string(), ix + cell / 2.0, iy + cell / 2.0);
     }
 
