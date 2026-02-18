@@ -39,9 +39,9 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
                 Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1) }
             } else {
                 match sub {
-                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(8, FoodSideEffect::None) },
-                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(6, FoodSideEffect::None) },
-                    _ => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(8, FoodSideEffect::Heal(2)) },
+                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None) },
+                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(12, FoodSideEffect::None) },
+                    _ => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::Heal(2)) },
                 }
             }
         }
@@ -76,8 +76,8 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
                 }
             } else {
                 match sub {
-                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None) },
-                    _ => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(12, FoodSideEffect::Sicken(10)) },
+                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None) },
+                    _ => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Sicken(10)) },
                 }
             }
         }
@@ -122,11 +122,11 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
     match enemy_name {
         "Giant Rat" => Some(Item {
             kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
-            effect: ItemEffect::Feed(5, FoodSideEffect::Sicken(5)),
+            effect: ItemEffect::Feed(10, FoodSideEffect::Sicken(5)),
         }),
         "Wolf" => Some(Item {
             kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
-            effect: ItemEffect::Feed(15, FoodSideEffect::Energize(10)),
+            effect: ItemEffect::Feed(20, FoodSideEffect::Energize(10)),
         }),
         "Boar" => Some(Item {
             kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
@@ -141,7 +141,7 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
             // but for simplicity we always drop for goblins here)
             Some(Item {
                 kind: ItemKind::Food, name: "Stolen Rations", glyph: '%',
-                effect: ItemEffect::Feed(10, FoodSideEffect::None),
+                effect: ItemEffect::Feed(18, FoodSideEffect::None),
             })
         }
         _ => None,
@@ -489,40 +489,40 @@ impl Game {
                 let roll = rng % 100;
                 let food = if roll < 12 {
                     Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::Heal(2)) }
+                        effect: ItemEffect::Feed(14, FoodSideEffect::Heal(2)) }
                 } else if roll < 22 {
                     Item { kind: ItemKind::Food, name: "Wild Mushrooms", glyph: '%',
-                        effect: ItemEffect::Feed(10, FoodSideEffect::Poison(2)) }
+                        effect: ItemEffect::Feed(16, FoodSideEffect::Poison(2)) }
                 } else if roll < 30 {
                     Item { kind: ItemKind::Food, name: "Clean Water", glyph: '~',
-                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None) }
                 } else if roll < 40 {
                     Item { kind: ItemKind::Food, name: "Wild Wheat", glyph: '%',
-                        effect: ItemEffect::Feed(6, FoodSideEffect::None) }
+                        effect: ItemEffect::Feed(10, FoodSideEffect::None) }
                 } else if roll < 48 {
                     Item { kind: ItemKind::Food, name: "Wild Rice", glyph: '%',
-                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None) }
                 } else if roll < 56 {
                     Item { kind: ItemKind::Food, name: "Wild Corn", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(5)) }
+                        effect: ItemEffect::Feed(14, FoodSideEffect::Energize(5)) }
                 } else if roll < 64 {
                     Item { kind: ItemKind::Food, name: "Quinoa Seeds", glyph: '%',
-                        effect: ItemEffect::Feed(7, FoodSideEffect::Heal(2)) }
+                        effect: ItemEffect::Feed(12, FoodSideEffect::Heal(2)) }
                 } else if roll < 72 {
                     Item { kind: ItemKind::Food, name: "Amaranth", glyph: '%',
-                        effect: ItemEffect::Feed(6, FoodSideEffect::Heal(1)) }
+                        effect: ItemEffect::Feed(10, FoodSideEffect::Heal(1)) }
                 } else if roll < 80 {
                     Item { kind: ItemKind::Food, name: "Red Spinach", glyph: '%',
-                        effect: ItemEffect::Feed(4, FoodSideEffect::Energize(3)) }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(3)) }
                 } else if roll < 87 {
                     Item { kind: ItemKind::Food, name: "Bitter Vetch", glyph: '%',
-                        effect: ItemEffect::Feed(4, FoodSideEffect::Poison(3)) }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Poison(3)) }
                 } else if roll < 93 {
                     Item { kind: ItemKind::Food, name: "Sorghum", glyph: '%',
-                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None) }
                 } else {
                     Item { kind: ItemKind::Food, name: "Buckwheat", glyph: '%',
-                        effect: ItemEffect::Feed(5, FoodSideEffect::None) }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None) }
                 };
                 self.ground_items.push(GroundItem { x, y, item: food });
             }
