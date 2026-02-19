@@ -1,4 +1,4 @@
-use crate::game::{Drawer, Game, Item, ItemKind};
+use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
 use crate::sprites;
 
 use super::{item_kind_color, Renderer};
@@ -134,6 +134,53 @@ impl Renderer {
                 let _ = ctx.fill_text(info.tile_desc, x + 4.0 * d, y + 18.0 * d);
             }
             y += detail_h + 6.0 * d;
+        }
+
+        // --- Quick-use bar (horizontal row of 4 slots) ---
+        {
+            let slot_size = 30.0 * d;
+            let slot_pad = 4.0 * d;
+            let total_slot_w = QUICKBAR_SLOTS as f64 * (slot_size + slot_pad) - slot_pad;
+            let slot_start_x = x + (inner_w - total_slot_w) / 2.0;
+            let radius = 4.0 * d;
+
+            for i in 0..QUICKBAR_SLOTS {
+                let sx = slot_start_x + i as f64 * (slot_size + slot_pad);
+                if let Some(inv_idx) = game.quick_bar.slots[i] {
+                    if let Some(item) = game.inventory.get(inv_idx) {
+                        let color = item_kind_color(&item.kind);
+                        ctx.set_fill_style_str("rgba(30,30,40,0.9)");
+                        self.fill_rounded_rect(sx, y, slot_size, slot_size, radius);
+                        ctx.set_stroke_style_str(color);
+                        ctx.set_line_width(1.0 * d);
+                        self.stroke_rounded_rect(sx, y, slot_size, slot_size, radius);
+                        let sprite = sprites::item_sprite(item.name);
+                        let inset = 2.0 * d;
+                        let spr_size = slot_size - inset * 2.0;
+                        if !self.draw_sprite(sprite, sx + inset, y + inset, spr_size, spr_size) {
+                            ctx.set_font(&self.font(14.0, "bold"));
+                            ctx.set_fill_style_str(color);
+                            ctx.set_text_align("center");
+                            ctx.set_text_baseline("middle");
+                            let _ = ctx.fill_text(
+                                &item.glyph.to_string(),
+                                sx + slot_size / 2.0,
+                                y + slot_size / 2.0,
+                            );
+                        }
+                        ctx.set_font(&self.font(7.0, "bold"));
+                        ctx.set_fill_style_str("rgba(255,255,255,0.5)");
+                        ctx.set_text_align("left");
+                        ctx.set_text_baseline("top");
+                        let _ = ctx.fill_text(&format!("{}", i + 1), sx + 2.0 * d, y + 1.0 * d);
+                    } else {
+                        self.draw_empty_quickbar_slot(sx, y, slot_size, radius, i, d);
+                    }
+                } else {
+                    self.draw_empty_quickbar_slot(sx, y, slot_size, radius, i, d);
+                }
+            }
+            y += slot_size + 6.0 * d;
         }
 
         // --- Action buttons (2×2 grid) ---
@@ -301,7 +348,28 @@ impl Renderer {
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str(item_kind_color(&item.kind));
                 ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text(item.name, x + icon_size + pad * 2.0, iy + slot_h / 2.0);
+                let name_x = x + icon_size + pad * 2.0;
+                let _ = ctx.fill_text(item.name, name_x, iy + slot_h / 2.0);
+
+                // Quick-bar slot badge
+                for s in 0..QUICKBAR_SLOTS {
+                    if game.quick_bar.slots[s] == Some(idx) {
+                        let name_w = item.name.len() as f64 * 5.0 * d;
+                        let badge_x = name_x + name_w + 3.0 * d;
+                        let badge_y = iy + slot_h / 2.0;
+                        let badge_r = 5.0 * d;
+                        ctx.set_fill_style_str("rgba(255,200,80,0.3)");
+                        ctx.begin_path();
+                        let _ = ctx.arc(badge_x + badge_r, badge_y, badge_r, 0.0, std::f64::consts::TAU);
+                        ctx.fill();
+                        ctx.set_font(&self.font(6.0, "bold"));
+                        ctx.set_fill_style_str("#fc8");
+                        ctx.set_text_align("center");
+                        let _ = ctx.fill_text(&format!("{}", s + 1), badge_x + badge_r, badge_y);
+                        ctx.set_text_align("left");
+                        break;
+                    }
+                }
 
                 // Inline action buttons
                 let btn_w = 24.0 * d;
@@ -706,6 +774,104 @@ impl Renderer {
             let y = msg_bottom - (show - 1 - i) as f64 * line_h - 4.0 * d;
             let _ = ctx.fill_text(msg, 8.0 * d, y);
         }
+    }
+
+    // ---- Quick-use bar (portrait, above bottom bar) ----
+
+    pub(super) fn draw_quick_bar(&self, game: &Game, canvas_w: f64, canvas_h: f64, bottom_h: f64, qbar_h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let bar_y = canvas_h - bottom_h - qbar_h;
+
+        // Background
+        ctx.set_fill_style_str("rgba(12,12,18,0.92)");
+        ctx.fill_rect(0.0, bar_y, canvas_w, qbar_h);
+        // Top accent line
+        ctx.set_fill_style_str("rgba(255,255,255,0.08)");
+        ctx.fill_rect(0.0, bar_y, canvas_w, 1.0);
+
+        let slot_size = 36.0 * d;
+        let slot_pad = 6.0 * d;
+        let total_w = QUICKBAR_SLOTS as f64 * (slot_size + slot_pad) - slot_pad;
+        let start_x = (canvas_w - total_w) / 2.0;
+        let slot_y = bar_y + (qbar_h - slot_size) / 2.0;
+        let radius = 5.0 * d;
+
+        for i in 0..QUICKBAR_SLOTS {
+            let sx = start_x + i as f64 * (slot_size + slot_pad);
+
+            if let Some(inv_idx) = game.quick_bar.slots[i] {
+                // Occupied slot
+                if let Some(item) = game.inventory.get(inv_idx) {
+                    // Slot background with item kind tint
+                    let color = item_kind_color(&item.kind);
+                    ctx.set_fill_style_str("rgba(30,30,40,0.9)");
+                    self.fill_rounded_rect(sx, slot_y, slot_size, slot_size, radius);
+
+                    // Colored border
+                    ctx.set_stroke_style_str(color);
+                    ctx.set_line_width(1.5 * d);
+                    self.stroke_rounded_rect(sx, slot_y, slot_size, slot_size, radius);
+
+                    // Item sprite
+                    let sprite = sprites::item_sprite(item.name);
+                    let inset = 3.0 * d;
+                    let spr_size = slot_size - inset * 2.0;
+                    if !self.draw_sprite(sprite, sx + inset, slot_y + inset, spr_size, spr_size) {
+                        // Fallback: glyph
+                        ctx.set_font(&self.font(18.0, "bold"));
+                        ctx.set_fill_style_str(color);
+                        ctx.set_text_align("center");
+                        ctx.set_text_baseline("middle");
+                        let _ = ctx.fill_text(
+                            &item.glyph.to_string(),
+                            sx + slot_size / 2.0,
+                            slot_y + slot_size / 2.0,
+                        );
+                    }
+
+                    // Slot number label (top-left corner)
+                    ctx.set_font(&self.font(8.0, "bold"));
+                    ctx.set_fill_style_str("rgba(255,255,255,0.5)");
+                    ctx.set_text_align("left");
+                    ctx.set_text_baseline("top");
+                    let _ = ctx.fill_text(&format!("{}", i + 1), sx + 3.0 * d, slot_y + 2.0 * d);
+
+                    // Flash overlay on use
+                    let flash = self.quickbar_flash[i];
+                    if flash > 0.0 {
+                        ctx.save();
+                        ctx.set_global_alpha(flash * 0.6);
+                        ctx.set_fill_style_str("#fff");
+                        self.fill_rounded_rect(sx, slot_y, slot_size, slot_size, radius);
+                        ctx.restore();
+                    }
+                } else {
+                    // Stale reference — draw as empty
+                    self.draw_empty_quickbar_slot(sx, slot_y, slot_size, radius, i, d);
+                }
+            } else {
+                // Empty slot
+                self.draw_empty_quickbar_slot(sx, slot_y, slot_size, radius, i, d);
+            }
+        }
+    }
+
+    fn draw_empty_quickbar_slot(&self, sx: f64, sy: f64, size: f64, radius: f64, index: usize, d: f64) {
+        let ctx = &self.ctx;
+        // Dim background
+        ctx.set_fill_style_str("rgba(30,30,40,0.5)");
+        self.fill_rounded_rect(sx, sy, size, size, radius);
+        // Dashed border effect (solid dim border)
+        ctx.set_stroke_style_str("rgba(255,255,255,0.12)");
+        ctx.set_line_width(1.0 * d);
+        self.stroke_rounded_rect(sx, sy, size, size, radius);
+        // Slot number
+        ctx.set_font(&self.font(10.0, ""));
+        ctx.set_fill_style_str("rgba(255,255,255,0.2)");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        let _ = ctx.fill_text(&format!("{}", index + 1), sx + size / 2.0, sy + size / 2.0);
     }
 
     // ---- Bottom action bar ----

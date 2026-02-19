@@ -284,3 +284,66 @@ pub enum SkillKind {
     Dexterity,
     Stamina,
 }
+
+/// Number of quick-bar slots.
+pub const QUICKBAR_SLOTS: usize = 4;
+
+/// The quick-use bar: fixed-size array of slots referencing inventory item indices.
+/// `None` = empty slot.
+#[derive(Clone, Debug)]
+pub struct QuickBar {
+    pub slots: [Option<usize>; QUICKBAR_SLOTS],
+}
+
+impl QuickBar {
+    pub fn new() -> Self {
+        Self { slots: [None; QUICKBAR_SLOTS] }
+    }
+
+    /// Assign an inventory item to a slot. Only consumables (Potion, Scroll, Food) allowed.
+    /// Returns false if the item isn't consumable or the slot is out of bounds.
+    /// If this inventory index is already assigned to another slot, that slot is cleared first.
+    pub fn assign(&mut self, slot: usize, inv_index: usize, item: &Item) -> bool {
+        if slot >= QUICKBAR_SLOTS { return false; }
+        match item.kind {
+            ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
+                // Remove any existing assignment of this inventory index
+                for s in &mut self.slots {
+                    if *s == Some(inv_index) { *s = None; }
+                }
+                self.slots[slot] = Some(inv_index);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Clear a slot.
+    pub fn clear(&mut self, slot: usize) {
+        if slot < QUICKBAR_SLOTS {
+            self.slots[slot] = None;
+        }
+    }
+
+    /// Fix up slot indices after an item at `removed_idx` was removed from inventory.
+    /// Slots pointing to `removed_idx` are cleared. Slots pointing to higher indices
+    /// are decremented by 1 (because `Vec::remove` shifts elements left).
+    pub fn on_item_removed(&mut self, removed_idx: usize) {
+        for slot in &mut self.slots {
+            if let Some(idx) = slot {
+                if *idx == removed_idx {
+                    *slot = None;
+                } else if *idx > removed_idx {
+                    *idx -= 1;
+                }
+            }
+        }
+    }
+
+    /// Swap the contents of two slots.
+    pub fn swap(&mut self, a: usize, b: usize) {
+        if a < QUICKBAR_SLOTS && b < QUICKBAR_SLOTS {
+            self.slots.swap(a, b);
+        }
+    }
+}
