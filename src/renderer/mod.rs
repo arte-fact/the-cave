@@ -6,8 +6,16 @@ mod menus;
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::camera::Camera;
-use crate::game::{Drawer, Game, ItemKind};
-use crate::sprites::{Sheet, SpriteRef};
+use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
+use crate::sprites::{self, Sheet, SpriteRef};
+
+/// Info passed from lib.rs to the renderer when a drag is active.
+pub struct DragInfo<'a> {
+    pub item: &'a Item,
+    /// Touch position in CSS pixels.
+    pub css_x: f64,
+    pub css_y: f64,
+}
 
 /// Map an ItemKind to its display color (used across HUD panels).
 pub(super) fn item_kind_color(kind: &ItemKind) -> &'static str {
@@ -50,6 +58,7 @@ impl SpriteSheets {
 const TOP_BAR_BASE: f64 = 52.0;
 const DETAIL_STRIP_BASE: f64 = 52.0;
 const BOTTOM_BAR_BASE: f64 = 48.0;
+const QUICKBAR_BASE: f64 = 44.0;
 const MSG_AREA_BASE: f64 = 42.0;
 
 /// Speed of drawer slide animation (fraction per frame at 60fps).
@@ -72,6 +81,8 @@ pub struct Renderer {
     pub glyph_mode: bool,
     /// True when the canvas is in landscape orientation (width > height).
     pub landscape: bool,
+    /// Per-slot flash animation progress (0.0 = off, 1.0 = bright, decays to 0).
+    pub quickbar_flash: [f64; 4],
 }
 
 impl Renderer {
@@ -85,6 +96,7 @@ impl Renderer {
             last_drawer: Drawer::None,
             glyph_mode: false,
             landscape: false,
+            quickbar_flash: [0.0; 4],
         }
     }
 
@@ -110,9 +122,9 @@ impl Renderer {
             self.camera.pad_bottom = 0.0;
             self.camera.pad_right = self.side_panel_w() / cell / 2.0;
         } else {
-            // Portrait: original top/bottom bar layout.
+            // Portrait: original top/bottom bar layout + quick bar.
             self.camera.pad_top = (self.top_bar_h() + self.detail_strip_h()) / cell;
-            self.camera.pad_bottom = (self.bottom_bar_h() + self.msg_area_h()) / cell;
+            self.camera.pad_bottom = (self.bottom_bar_h() + self.quickbar_h() + self.msg_area_h()) / cell;
             self.camera.pad_right = 0.0;
         }
     }
@@ -126,11 +138,33 @@ impl Renderer {
     pub(super) fn top_bar_h(&self) -> f64 { TOP_BAR_BASE * self.dpr }
     pub(super) fn detail_strip_h(&self) -> f64 { DETAIL_STRIP_BASE * self.dpr }
     pub(super) fn bottom_bar_h(&self) -> f64 { BOTTOM_BAR_BASE * self.dpr }
+    pub(super) fn quickbar_h(&self) -> f64 { QUICKBAR_BASE * self.dpr }
     pub(super) fn msg_area_h(&self) -> f64 { MSG_AREA_BASE * self.dpr }
+
+    /// Trigger a flash animation on a quick-bar slot.
+    pub fn flash_quickbar_slot(&mut self, slot: usize) {
+        if slot < self.quickbar_flash.len() {
+            self.quickbar_flash[slot] = 1.0;
+        }
+    }
+
+    /// Tick quick-bar flash animations (call once per frame).
+    pub fn tick_quickbar_flash(&mut self) {
+        for v in &mut self.quickbar_flash {
+            if *v > 0.0 {
+                *v = (*v - 0.08).max(0.0);
+            }
+        }
+    }
 
     /// Height of the bottom bar in canvas pixels.
     pub fn bottom_bar_height(&self) -> f64 {
         self.bottom_bar_h()
+    }
+
+    /// Height of the quick-bar in canvas pixels.
+    pub fn quickbar_height(&self) -> f64 {
+        self.quickbar_h()
     }
 
     /// Advance drawer animation toward the current drawer state.
@@ -257,7 +291,7 @@ impl Renderer {
         let _ = ctx.fill_text(label, x + text_inset, y + h / 2.0);
     }
 
-    pub fn draw(&self, game: &Game, preview_path: &[(i32, i32)]) {
+    pub fn draw(&self, game: &Game, preview_path: &[(i32, i32)], drag: Option<&DragInfo>) {
         let ctx = &self.ctx;
         let cam = &self.camera;
         let cell = cam.cell_size();
@@ -280,20 +314,100 @@ impl Renderer {
             let panel_x = canvas_w - panel_w;
             self.draw_side_panel(game, panel_x, panel_w, canvas_h);
         } else {
-            // Portrait: original top/bottom bar layout
+            // Portrait: original top/bottom bar layout + quick bar
             let top_h = self.top_bar_h();
             let bottom_h = self.bottom_bar_h();
+            let qbar_h = self.quickbar_h();
             let msg_h = self.msg_area_h();
+            // Combined height of bottom bar + quick bar for message/drawer positioning
+            let bottom_region = bottom_h + qbar_h;
             self.draw_top_bar(game, canvas_w, top_h);
             self.draw_tile_detail(game, canvas_w, top_h);
-            self.draw_messages(game, canvas_w, canvas_h, bottom_h, msg_h);
+            self.draw_messages(game, canvas_w, canvas_h, bottom_region, msg_h);
             self.draw_bottom_bar(game, canvas_w, canvas_h, bottom_h);
-            self.draw_drawer(game, canvas_w, canvas_h, bottom_h);
+            self.draw_quick_bar(game, canvas_w, canvas_h, bottom_h, qbar_h);
+            self.draw_drawer(game, canvas_w, canvas_h, bottom_region);
         }
 
         // Death / Victory overlay (on top of everything)
         if !game.alive || game.won {
             self.draw_end_overlay(game, canvas_w, canvas_h);
+        }
+
+        // Drag ghost (drawn on top of everything)
+        if let Some(drag) = drag {
+            self.draw_drag_ghost(drag, canvas_w, canvas_h);
+        }
+    }
+
+    /// Draw the dragged item ghost at the finger position + highlight quick-bar slot under finger.
+    fn draw_drag_ghost(&self, drag: &DragInfo, canvas_w: f64, canvas_h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let cx = drag.css_x * d;
+        let cy = drag.css_y * d;
+        let ghost_size = 40.0 * d;
+        let gx = cx - ghost_size / 2.0;
+        let gy = cy - ghost_size - 10.0 * d; // offset above finger
+
+        // Draw ghost sprite with transparency
+        ctx.save();
+        ctx.set_global_alpha(0.75);
+        // Shadow
+        ctx.set_shadow_color("rgba(0,0,0,0.6)");
+        ctx.set_shadow_blur(8.0 * d);
+        ctx.set_shadow_offset_x(2.0 * d);
+        ctx.set_shadow_offset_y(2.0 * d);
+
+        let color = item_kind_color(&drag.item.kind);
+        ctx.set_fill_style_str("rgba(20,20,30,0.85)");
+        self.fill_rounded_rect(gx, gy, ghost_size, ghost_size, 6.0 * d);
+        ctx.set_stroke_style_str(color);
+        ctx.set_line_width(2.0 * d);
+        self.stroke_rounded_rect(gx, gy, ghost_size, ghost_size, 6.0 * d);
+
+        // Reset shadow for sprite
+        ctx.set_shadow_color("transparent");
+        ctx.set_shadow_blur(0.0);
+
+        let sprite = sprites::item_sprite(drag.item.name);
+        let inset = 4.0 * d;
+        let spr_size = ghost_size - inset * 2.0;
+        if !self.draw_sprite(sprite, gx + inset, gy + inset, spr_size, spr_size) {
+            ctx.set_font(&self.font(20.0, "bold"));
+            ctx.set_fill_style_str(color);
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let _ = ctx.fill_text(
+                &drag.item.glyph.to_string(),
+                gx + ghost_size / 2.0,
+                gy + ghost_size / 2.0,
+            );
+        }
+        ctx.restore();
+
+        // Highlight quick-bar slot under finger
+        if !self.landscape {
+            let bottom_h = self.bottom_bar_h();
+            let qbar_h = self.quickbar_h();
+            let bar_y = canvas_h - bottom_h - qbar_h;
+            let slot_size = 36.0 * d;
+            let slot_pad = 6.0 * d;
+            let total_w = QUICKBAR_SLOTS as f64 * (slot_size + slot_pad) - slot_pad;
+            let start_x = (canvas_w - total_w) / 2.0;
+            let slot_y = bar_y + (qbar_h - slot_size) / 2.0;
+
+            for i in 0..QUICKBAR_SLOTS {
+                let sx = start_x + i as f64 * (slot_size + slot_pad);
+                if cx >= sx && cx <= sx + slot_size && cy >= slot_y && cy <= slot_y + slot_size {
+                    ctx.save();
+                    ctx.set_stroke_style_str("rgba(255,200,80,0.7)");
+                    ctx.set_line_width(2.5 * d);
+                    self.stroke_rounded_rect(sx, slot_y, slot_size, slot_size, 5.0 * d);
+                    ctx.restore();
+                    break;
+                }
+            }
         }
     }
 

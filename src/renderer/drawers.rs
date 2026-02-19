@@ -1,4 +1,4 @@
-use crate::game::{Drawer, Game, Item, ItemKind};
+use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
 use crate::sprites;
 
 use super::{item_kind_color, Renderer};
@@ -146,7 +146,28 @@ impl Renderer {
                 ctx.set_font(&self.font(11.0, ""));
                 ctx.set_fill_style_str(item_kind_color(&item.kind));
                 ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text(item.name, pad + icon_size + 8.0 * d, iy + slot_h / 2.0);
+                let name_x = pad + icon_size + 8.0 * d;
+                let _ = ctx.fill_text(item.name, name_x, iy + slot_h / 2.0);
+
+                // Quick-bar slot badge (if this item is assigned to a slot)
+                for s in 0..QUICKBAR_SLOTS {
+                    if game.quick_bar.slots[s] == Some(idx) {
+                        let name_w = item.name.len() as f64 * 6.5 * d;
+                        let badge_x = name_x + name_w + 4.0 * d;
+                        let badge_y = iy + slot_h / 2.0;
+                        let badge_r = 7.0 * d;
+                        ctx.set_fill_style_str("rgba(255,200,80,0.3)");
+                        ctx.begin_path();
+                        let _ = ctx.arc(badge_x + badge_r, badge_y, badge_r, 0.0, std::f64::consts::TAU);
+                        ctx.fill();
+                        ctx.set_font(&self.font(8.0, "bold"));
+                        ctx.set_fill_style_str("#fc8");
+                        ctx.set_text_align("center");
+                        let _ = ctx.fill_text(&format!("{}", s + 1), badge_x + badge_r, badge_y);
+                        ctx.set_text_align("left");
+                        break;
+                    }
+                }
 
                 // Inline Use/Equip button
                 let btn_y = iy + (slot_h - inline_btn_h) / 2.0;

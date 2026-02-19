@@ -44,23 +44,37 @@ pub enum InputAction {
     ToggleGlyphMode,
     /// Interact: attack adjacent enemy (facing direction) or pick up items at feet.
     Interact,
+    /// Use item in quick-bar slot (0-indexed).
+    QuickUse(usize),
+}
+
+/// Tracks whether a finger is currently touching the screen.
+#[derive(Clone, Copy, Debug)]
+pub struct TouchDown {
+    pub start_x: f64,
+    pub start_y: f64,
+    pub current_x: f64,
+    pub current_y: f64,
 }
 
 pub struct Input {
     queue: Rc<RefCell<Vec<InputAction>>>,
     /// Live swipe state, set during touchmove, cleared on touchend.
     swipe: Rc<RefCell<Option<SwipeState>>>,
+    /// Whether finger is currently down (set on touchstart, cleared on touchend).
+    touch_down: Rc<RefCell<Option<TouchDown>>>,
 }
 
 impl Input {
     pub fn new(canvas: &web_sys::HtmlCanvasElement) -> Self {
         let queue: Rc<RefCell<Vec<InputAction>>> = Rc::new(RefCell::new(Vec::new()));
         let swipe: Rc<RefCell<Option<SwipeState>>> = Rc::new(RefCell::new(None));
+        let touch_down: Rc<RefCell<Option<TouchDown>>> = Rc::new(RefCell::new(None));
 
-        Self::bind_touch(canvas, Rc::clone(&queue), Rc::clone(&swipe));
+        Self::bind_touch(canvas, Rc::clone(&queue), Rc::clone(&swipe), Rc::clone(&touch_down));
         Self::bind_keyboard(Rc::clone(&queue));
 
-        Self { queue, swipe }
+        Self { queue, swipe, touch_down }
     }
 
     pub fn drain(&self) -> Vec<InputAction> {
@@ -72,10 +86,16 @@ impl Input {
         *self.swipe.borrow()
     }
 
+    /// Returns the current touch-down state (finger on screen).
+    pub fn touch_down(&self) -> Option<TouchDown> {
+        *self.touch_down.borrow()
+    }
+
     fn bind_touch(
         canvas: &web_sys::HtmlCanvasElement,
         queue: Rc<RefCell<Vec<InputAction>>>,
         swipe: Rc<RefCell<Option<SwipeState>>>,
+        touch_down: Rc<RefCell<Option<TouchDown>>>,
     ) {
         let start: Rc<RefCell<Option<(f64, f64)>>> = Rc::new(RefCell::new(None));
 
@@ -83,6 +103,7 @@ impl Input {
         {
             let start = Rc::clone(&start);
             let swipe = Rc::clone(&swipe);
+            let touch_down = Rc::clone(&touch_down);
             let cb = Closure::<dyn FnMut(TouchEvent)>::new(move |e: TouchEvent| {
                 e.prevent_default();
                 if let Some(t) = e.touches().get(0) {
@@ -94,6 +115,10 @@ impl Input {
                         start_y: sy,
                         current_x: sx,
                         current_y: sy,
+                    });
+                    *touch_down.borrow_mut() = Some(TouchDown {
+                        start_x: sx, start_y: sy,
+                        current_x: sx, current_y: sy,
                     });
                 }
             });
@@ -107,16 +132,23 @@ impl Input {
         {
             let start = Rc::clone(&start);
             let swipe = Rc::clone(&swipe);
+            let touch_down = Rc::clone(&touch_down);
             let cb = Closure::<dyn FnMut(TouchEvent)>::new(move |e: TouchEvent| {
                 e.prevent_default();
                 if let Some((sx, sy)) = *start.borrow() {
                     if let Some(t) = e.touches().get(0) {
+                        let cx = t.client_x() as f64;
+                        let cy = t.client_y() as f64;
                         *swipe.borrow_mut() = Some(SwipeState {
                             start_x: sx,
                             start_y: sy,
-                            current_x: t.client_x() as f64,
-                            current_y: t.client_y() as f64,
+                            current_x: cx,
+                            current_y: cy,
                         });
+                        if let Some(td) = touch_down.borrow_mut().as_mut() {
+                            td.current_x = cx;
+                            td.current_y = cy;
+                        }
                     }
                 }
             });
@@ -130,10 +162,12 @@ impl Input {
         {
             let start = Rc::clone(&start);
             let swipe = Rc::clone(&swipe);
+            let touch_down = Rc::clone(&touch_down);
             let cb = Closure::<dyn FnMut(TouchEvent)>::new(move |e: TouchEvent| {
                 e.prevent_default();
                 let has_swipe = swipe.borrow().is_some();
                 *swipe.borrow_mut() = None;
+                *touch_down.borrow_mut() = None;
 
                 if let Some((sx, sy)) = start.borrow_mut().take() {
                     if let Some(t) = e.changed_touches().get(0) {
@@ -237,6 +271,10 @@ impl Input {
                     e.prevent_default();
                     queue.borrow_mut().push(InputAction::Interact);
                 }
+                "1" => { queue.borrow_mut().push(InputAction::QuickUse(0)); }
+                "2" => { queue.borrow_mut().push(InputAction::QuickUse(1)); }
+                "3" => { queue.borrow_mut().push(InputAction::QuickUse(2)); }
+                "4" => { queue.borrow_mut().push(InputAction::QuickUse(3)); }
                 _ => {}
             }
         });

@@ -172,6 +172,7 @@ impl Game {
                         x: self.player_x, y: self.player_y, age: 0.0,
                     });
                     self.inventory.remove(index);
+                    self.quick_bar.on_item_removed(index);
                     self.clamp_inventory_scroll();
                     return true;
                 }
@@ -182,6 +183,7 @@ impl Game {
                     let name = item.name;
                     self.messages.push(format!("You read {name}!"));
                     self.inventory.remove(index);
+                    self.quick_bar.on_item_removed(index);
                     self.clamp_inventory_scroll();
                     let px = self.player_x;
                     let py = self.player_y;
@@ -230,6 +232,7 @@ impl Game {
             _ => return false, // Potions/Scrolls/Food should be used, not equipped
         };
         let new_item = self.inventory.remove(index);
+        self.quick_bar.on_item_removed(index);
         let name = new_item.name;
         if let Some(old) = slot.replace(new_item) {
             self.messages.push(format!("You swap {} for {name}.", old.name));
@@ -247,6 +250,7 @@ impl Game {
             return false;
         }
         let item = self.inventory.remove(index);
+        self.quick_bar.on_item_removed(index);
         let name = item.name;
         self.messages.push(format!("You drop {name}."));
         self.ground_items.push(GroundItem {
@@ -326,6 +330,7 @@ impl Game {
             }
 
             self.inventory.remove(index);
+            self.quick_bar.on_item_removed(index);
             self.clamp_inventory_scroll();
             true
         } else {
