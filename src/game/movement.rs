@@ -67,59 +67,40 @@ impl Game {
     /// Returns true if a transition occurred.
     pub(crate) fn try_transition(&mut self, tile: Tile, x: i32, y: i32) -> bool {
         match tile {
-            Tile::DungeonEntrance => {
-                if let Location::Overworld = self.world.location {
-                    if let Some(di) = self.world.dungeon_at(x, y) {
-                        self.enter_dungeon(di);
-                        return true;
-                    }
-                }
+            Tile::DungeonEntrance if self.world.location == Location::Overworld => {
+                let Some(di) = self.world.dungeon_at(x, y) else { return false };
+                self.enter_dungeon(di);
+                true
             }
             Tile::StairsDown => {
-                if let Location::Dungeon { index, level } = self.world.location.clone() {
-                    if level + 1 < self.world.dungeons[index].levels.len() {
-                        self.descend(index, level);
-                        return true;
-                    }
-                }
+                let Location::Dungeon { index, level } = self.world.location else { return false };
+                if level + 1 >= self.world.dungeons[index].levels.len() { return false; }
+                self.descend(index, level);
+                true
             }
             Tile::StairsUp => {
-                match self.world.location.clone() {
-                    Location::Dungeon { level: 0, .. } => {
-                        self.exit_dungeon();
-                        return true;
-                    }
-                    Location::Dungeon { index, level } => {
-                        self.ascend(index, level);
-                        return true;
-                    }
-                    _ => {}
+                let Location::Dungeon { index, level } = self.world.location else { return false };
+                if level == 0 {
+                    self.exit_dungeon();
+                } else {
+                    self.ascend(index, level);
                 }
+                true
             }
-            _ => {}
+            _ => false,
         }
-        false
     }
 
     pub(crate) fn enter_dungeon(&mut self, dungeon_index: usize) {
-        // Save overworld state
         self.world.saved_overworld_pos = (self.player_x, self.player_y);
         self.world.saved_overworld_enemies = self.enemies.clone();
         self.world.saved_overworld_items = std::mem::take(&mut self.ground_items);
 
-        // Switch to dungeon level 0
         self.world.location = Location::Dungeon { index: dungeon_index, level: 0 };
         let map = self.world.current_map();
-
-        // Place player at StairsUp
-        if let Some((sx, sy)) = map.find_tile(Tile::StairsUp) {
-            self.player_x = sx;
-            self.player_y = sy;
-        } else {
-            let (sx, sy) = map.find_spawn();
-            self.player_x = sx;
-            self.player_y = sy;
-        }
+        let (sx, sy) = map.find_tile(Tile::StairsUp).unwrap_or_else(|| map.find_spawn());
+        self.player_x = sx;
+        self.player_y = sy;
 
         self.enemies.clear();
         self.spawn_dungeon_enemies(dungeon_index, 0);
@@ -129,7 +110,6 @@ impl Game {
     }
 
     pub(crate) fn exit_dungeon(&mut self) {
-        // Restore overworld state
         let (ox, oy) = self.world.saved_overworld_pos;
         self.player_x = ox;
         self.player_y = oy;
@@ -143,14 +123,9 @@ impl Game {
     pub(crate) fn descend(&mut self, dungeon_index: usize, current_level: usize) {
         self.world.location = Location::Dungeon { index: dungeon_index, level: current_level + 1 };
         let map = self.world.current_map();
-        if let Some((sx, sy)) = map.find_tile(Tile::StairsUp) {
-            self.player_x = sx;
-            self.player_y = sy;
-        } else {
-            let (sx, sy) = map.find_spawn();
-            self.player_x = sx;
-            self.player_y = sy;
-        }
+        let (sx, sy) = map.find_tile(Tile::StairsUp).unwrap_or_else(|| map.find_spawn());
+        self.player_x = sx;
+        self.player_y = sy;
         self.enemies.clear();
         self.ground_items.clear();
         self.spawn_dungeon_enemies(dungeon_index, current_level + 1);
@@ -162,14 +137,9 @@ impl Game {
     pub(crate) fn ascend(&mut self, dungeon_index: usize, current_level: usize) {
         self.world.location = Location::Dungeon { index: dungeon_index, level: current_level - 1 };
         let map = self.world.current_map();
-        if let Some((sx, sy)) = map.find_tile(Tile::StairsDown) {
-            self.player_x = sx;
-            self.player_y = sy;
-        } else {
-            let (sx, sy) = map.find_spawn();
-            self.player_x = sx;
-            self.player_y = sy;
-        }
+        let (sx, sy) = map.find_tile(Tile::StairsDown).unwrap_or_else(|| map.find_spawn());
+        self.player_x = sx;
+        self.player_y = sy;
         self.enemies.clear();
         self.ground_items.clear();
         self.spawn_dungeon_enemies(dungeon_index, current_level - 1);

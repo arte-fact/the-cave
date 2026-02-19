@@ -284,10 +284,10 @@ fn forest_all_grass_reachable() {
             let (nx, ny) = (x + dx, y + dy);
             if nx >= 0 && ny >= 0 && nx < map.width && ny < map.height {
                 // Corner-cutting prevention for diagonals
-                if dx != 0 && dy != 0 {
-                    if map.get(x + dx, y) != Tile::Grass || map.get(x, y + dy) != Tile::Grass {
-                        continue;
-                    }
+                if dx != 0 && dy != 0
+                    && (map.get(x + dx, y) != Tile::Grass || map.get(x, y + dy) != Tile::Grass)
+                {
+                    continue;
                 }
                 let ni = (ny * map.width + nx) as usize;
                 if !visited[ni] && map.get(nx, ny) == Tile::Grass {
@@ -472,7 +472,7 @@ fn dungeon_rooms_reachable_from_stairs() {
         let stairs_up = (0..level.height)
             .flat_map(|y| (0..level.width).map(move |x| (x, y)))
             .find(|&(x, y)| level.get(x, y) == Tile::StairsUp);
-        let (sx, sy) = stairs_up.expect(&format!("level {i} has no StairsUp"));
+        let (sx, sy) = stairs_up.unwrap_or_else(|| panic!("level {i} has no StairsUp"));
 
         // BFS from stairs to all walkable tiles
         let len = (level.width * level.height) as usize;
@@ -487,10 +487,10 @@ fn dungeon_rooms_reachable_from_stairs() {
             for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)] {
                 let (nx, ny) = (x + dx, y + dy);
                 // Corner-cutting prevention for diagonals
-                if dx != 0 && dy != 0 {
-                    if !level.is_walkable(x + dx, y) || !level.is_walkable(x, y + dy) {
-                        continue;
-                    }
+                if dx != 0 && dy != 0
+                    && (!level.is_walkable(x + dx, y) || !level.is_walkable(x, y + dy))
+                {
+                    continue;
                 }
                 if level.is_walkable(nx, ny) {
                     let ni = (ny * level.width + nx) as usize;
@@ -562,10 +562,10 @@ fn cave_floor_connected() {
         for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)] {
             let (nx, ny) = (x + dx, y + dy);
             // Corner-cutting prevention for diagonals
-            if dx != 0 && dy != 0 {
-                if !cave.is_walkable(x + dx, y) || !cave.is_walkable(x, y + dy) {
-                    continue;
-                }
+            if dx != 0 && dy != 0
+                && (!cave.is_walkable(x + dx, y) || !cave.is_walkable(x, y + dy))
+            {
+                continue;
             }
             if cave.is_walkable(nx, ny) {
                 let ni = (ny * cave.width + nx) as usize;

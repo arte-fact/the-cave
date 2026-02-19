@@ -10,6 +10,21 @@ use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
 use crate::sprites::{self, Sheet, SpriteRef};
 
 /// Info passed from lib.rs to the renderer when a drag is active.
+/// Parameters for drawing a stat bar (HP, stamina, hunger).
+pub(super) struct StatBar<'a> {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    pub r: f64,
+    pub frac: f64,
+    pub bg_color: &'a str,
+    pub fill_color: &'a str,
+    pub label: &'a str,
+    pub font_size: f64,
+    pub text_inset: f64,
+}
+
 pub struct DragInfo<'a> {
     pub item: &'a Item,
     /// Touch position in CSS pixels.
@@ -274,21 +289,17 @@ impl Renderer {
     }
 
     /// Draw a stat bar (HP, stamina, hunger style). Sets fill style and renders.
-    pub(super) fn draw_stat_bar(
-        &self, x: f64, y: f64, w: f64, h: f64, r: f64,
-        frac: f64, bg_color: &str, fill_color: &str,
-        label: &str, font_size: f64, text_inset: f64,
-    ) {
+    pub(super) fn draw_stat_bar(&self, bar: &StatBar) {
         let ctx = &self.ctx;
-        ctx.set_fill_style_str(bg_color);
-        self.fill_rounded_rect(x, y, w, h, r);
-        ctx.set_fill_style_str(fill_color);
-        self.fill_rounded_rect(x, y, w * frac.max(0.0), h, r);
-        ctx.set_font(&self.font(font_size, "bold"));
+        ctx.set_fill_style_str(bar.bg_color);
+        self.fill_rounded_rect(bar.x, bar.y, bar.w, bar.h, bar.r);
+        ctx.set_fill_style_str(bar.fill_color);
+        self.fill_rounded_rect(bar.x, bar.y, bar.w * bar.frac.max(0.0), bar.h, bar.r);
+        ctx.set_font(&self.font(bar.font_size, "bold"));
         ctx.set_fill_style_str("#fff");
         ctx.set_text_align("left");
         ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text(label, x + text_inset, y + h / 2.0);
+        let _ = ctx.fill_text(bar.label, bar.x + bar.text_inset, bar.y + bar.h / 2.0);
     }
 
     pub fn draw(&self, game: &Game, preview_path: &[(i32, i32)], drag: Option<&DragInfo>) {

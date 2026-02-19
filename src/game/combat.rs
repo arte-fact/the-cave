@@ -279,9 +279,8 @@ impl Game {
         if dx < 0 { self.player_facing_left = true; }
         if dx > 0 { self.player_facing_left = false; }
 
-        let idx = match self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0) {
-            Some(idx) => idx,
-            None => return TurnResult::Blocked,
+        let Some(idx) = self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0) else {
+            return TurnResult::Blocked;
         };
 
         let atk = self.effective_attack();
@@ -389,9 +388,9 @@ impl Game {
             return TurnResult::Blocked;
         }
 
-        let idx = match self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0) {
-            Some(idx) => idx,
-            None => { self.messages.push("Nothing to shoot at.".into()); return TurnResult::Blocked; }
+        let Some(idx) = self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0) else {
+            self.messages.push("Nothing to shoot at.".into());
+            return TurnResult::Blocked;
         };
 
         let hit_chance = self.ranged_hit_chance(distance);
@@ -593,12 +592,11 @@ impl Game {
             return base;
         }
         let combat = &self.config.combat;
-        if self.overworld_kills >= combat.xp_diminish_quarter {
-            (base / 4).max(1)
-        } else if self.overworld_kills >= combat.xp_diminish_half {
-            (base / 2).max(1)
-        } else {
-            base
+        // Check thresholds from highest to lowest
+        match self.overworld_kills {
+            k if k >= combat.xp_diminish_quarter => (base / 4).max(1),
+            k if k >= combat.xp_diminish_half => (base / 2).max(1),
+            _ => base,
         }
     }
 

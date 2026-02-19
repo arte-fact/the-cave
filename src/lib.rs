@@ -21,6 +21,25 @@ use map::{bresenham_line, Map};
 use renderer::{Renderer, SpriteSheets};
 use world::World;
 
+/// CSS coordinates for hit-testing (pre-DPR).
+struct CssHitArea {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+}
+
+/// State needed for drawer hit-testing.
+struct DrawerHitState {
+    drawer: Drawer,
+    item_count: usize,
+    inventory_scroll: usize,
+    skill_points: u32,
+}
+
+/// Type alias for the animation frame closure pattern.
+type AnimFrameClosure = Rc<RefCell<Option<Closure<dyn FnMut()>>>>;
+
 /// Drag-and-drop state for quick-bar item assignment.
 #[derive(Clone, Debug)]
 enum DragState {
@@ -229,23 +248,16 @@ fn hit_test_side_panel_quickbar(
 /// Hit-test the landscape side panel drawer area. Returns Some(DrawerTap) if
 /// the tap landed on an actionable element, None if outside the panel.
 fn hit_test_side_panel_drawer(
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    css_h: f64,
+    area: &CssHitArea,
     panel_css_w: f64,
-    drawer: Drawer,
-    item_count: usize,
-    inventory_scroll: usize,
-    skill_points: u32,
-    _has_ranged_weapon: bool,
+    state: &DrawerHitState,
 ) -> Option<DrawerTap> {
-    let panel_x = css_w - panel_css_w;
-    if css_x < panel_x {
+    let panel_x = area.w - panel_css_w;
+    if area.x < panel_x {
         return None;
     }
 
-    if drawer == Drawer::None {
+    if state.drawer == Drawer::None {
         return None;
     }
 
@@ -264,26 +276,24 @@ fn hit_test_side_panel_drawer(
     let drawer_start = base_y + qbar_offset + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
 
     // Settings drawer
-    if drawer == Drawer::Settings {
-        // Glyph toggle: at drawer_start + 18 (title) + row_h area
+    if state.drawer == Drawer::Settings {
         let row_y = drawer_start + 18.0;
         let row_h = 30.0;
         let toggle_w = 50.0;
         let toggle_h = 22.0;
         let toggle_x = x + inner_w - toggle_w;
         let toggle_y = row_y + (row_h - toggle_h) / 2.0;
-        if css_x >= toggle_x && css_x <= toggle_x + toggle_w
-            && css_y >= toggle_y && css_y <= toggle_y + toggle_h
+        if area.x >= toggle_x && area.x <= toggle_x + toggle_w
+            && area.y >= toggle_y && area.y <= toggle_y + toggle_h
         {
             return Some(DrawerTap::ToggleGlyphMode);
         }
-        // Main menu button
         let menu_y = row_y + row_h + 8.0 + 20.0;
         let menu_w = inner_w * 0.8;
         let menu_x = x + (inner_w - menu_w) / 2.0;
         let menu_h = 28.0;
-        if css_x >= menu_x && css_x <= menu_x + menu_w
-            && css_y >= menu_y && css_y <= menu_y + menu_h
+        if area.x >= menu_x && area.x <= menu_x + menu_w
+            && area.y >= menu_y && area.y <= menu_y + menu_h
         {
             return Some(DrawerTap::MainMenu);
         }
@@ -291,8 +301,7 @@ fn hit_test_side_panel_drawer(
     }
 
     // Stats drawer: skill allocation buttons
-    if drawer == Drawer::Stats && skill_points > 0 {
-        // Skills start after: drawer_start + title(16) + icon+level(36) + stat rows(~5*18) + gap(6) + header(14)
+    if state.drawer == Drawer::Stats && state.skill_points > 0 {
         let skill_start = drawer_start + 16.0 + 36.0 + 5.0 * 18.0 + 6.0 + 14.0;
         let skill_row_h = 24.0;
         let btn_sz = 18.0;
@@ -301,8 +310,8 @@ fn hit_test_side_panel_drawer(
             let row_y = skill_start + i as f64 * skill_row_h;
             let btn_x = x + inner_w - btn_sz;
             let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
-            if css_x >= btn_x && css_x <= btn_x + btn_sz
-                && css_y >= btn_y && css_y <= btn_y + btn_sz
+            if area.x >= btn_x && area.x <= btn_x + btn_sz
+                && area.y >= btn_y && area.y <= btn_y + btn_sz
             {
                 return Some(DrawerTap::StatsAllocate(*skill));
             }
@@ -311,19 +320,18 @@ fn hit_test_side_panel_drawer(
     }
 
     // Inventory drawer
-    if drawer == Drawer::Inventory {
-        // Items start after: drawer_start + title(16) + 6 eq slots(6*24) + gap(4)
+    if state.drawer == Drawer::Inventory {
         let eq_h = 22.0;
         let eq_gap = 2.0;
         let list_start = drawer_start + 16.0 + 6.0 * (eq_h + eq_gap) + 4.0;
         let slot_h = 26.0;
-        let avail_h = css_h - list_start - 16.0;
+        let avail_h = area.h - list_start - 16.0;
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
-        let end = (inventory_scroll + max_visible).min(item_count);
+        let end = (state.inventory_scroll + max_visible).min(state.item_count);
 
-        if css_y >= list_start && item_count > 0 {
-            let vis_idx = ((css_y - list_start) / slot_h).floor() as usize;
-            let abs_idx = inventory_scroll + vis_idx;
+        if area.y >= list_start && state.item_count > 0 {
+            let vis_idx = ((area.y - list_start) / slot_h).floor() as usize;
+            let abs_idx = state.inventory_scroll + vis_idx;
             if abs_idx < end {
                 return Some(DrawerTap::InventoryItem(abs_idx));
             }
@@ -361,56 +369,47 @@ enum DrawerTap {
 /// Layout constants here mirror `renderer::draw_inventory_drawer` / `draw_stats_drawer`
 /// (which use `base * dpr` in canvas pixels — dividing by dpr gives CSS points).
 fn hit_test_drawer(
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    css_h: f64,
+    area: &CssHitArea,
     bar_h_css: f64,
-    drawer: Drawer,
-    item_count: usize,
-    inventory_scroll: usize,
+    state: &DrawerHitState,
     selected_item: Option<usize>,
-    skill_points: u32,
     stats_scroll: f64,
     has_ranged_weapon: bool,
 ) -> Option<DrawerTap> {
-    let drawer_frac = match drawer {
+    let drawer_frac = match state.drawer {
         Drawer::None => return None,
         Drawer::Inventory => 0.55,
         Drawer::Stats => 0.55,
         Drawer::Settings => 0.45,
     };
-    let drawer_h = css_h * drawer_frac;
-    let drawer_y = css_h - bar_h_css - drawer_h;
+    let drawer_h = area.h * drawer_frac;
+    let drawer_y = area.h - bar_h_css - drawer_h;
 
-    // Not inside the drawer area
-    if css_y < drawer_y || css_y >= css_h - bar_h_css {
+    if area.y < drawer_y || area.y >= area.h - bar_h_css {
         return None;
     }
 
     // Settings drawer: glyph mode toggle + main menu button
-    if drawer == Drawer::Settings {
-        // Toggle button layout mirrors renderer::draw_settings_drawer (CSS space)
+    if state.drawer == Drawer::Settings {
         let pad = 12.0;
         let row_y = drawer_y + 40.0;
         let row_h = 40.0;
         let toggle_w = 70.0;
         let toggle_h = 30.0;
-        let toggle_x = css_w - pad - toggle_w;
+        let toggle_x = area.w - pad - toggle_w;
         let toggle_y = row_y + (row_h - toggle_h) / 2.0;
-        if css_x >= toggle_x && css_x <= toggle_x + toggle_w
-            && css_y >= toggle_y && css_y <= toggle_y + toggle_h
+        if area.x >= toggle_x && area.x <= toggle_x + toggle_w
+            && area.y >= toggle_y && area.y <= toggle_y + toggle_h
         {
             return Some(DrawerTap::ToggleGlyphMode);
         }
-        // Main Menu button (centered, below difficulty info)
         let diff_y = row_y + row_h + 24.0;
-        let menu_btn_w = (css_w * 0.5).min(180.0);
+        let menu_btn_w = (area.w * 0.5).min(180.0);
         let menu_btn_h = 34.0;
-        let menu_btn_x = (css_w - menu_btn_w) / 2.0;
+        let menu_btn_x = (area.w - menu_btn_w) / 2.0;
         let menu_btn_y = diff_y + 32.0;
-        if css_x >= menu_btn_x && css_x <= menu_btn_x + menu_btn_w
-            && css_y >= menu_btn_y && css_y <= menu_btn_y + menu_btn_h
+        if area.x >= menu_btn_x && area.x <= menu_btn_x + menu_btn_w
+            && area.y >= menu_btn_y && area.y <= menu_btn_y + menu_btn_h
         {
             return Some(DrawerTap::MainMenu);
         }
@@ -418,40 +417,29 @@ fn hit_test_drawer(
     }
 
     // Stats drawer: check for skill point allocation buttons
-    if drawer == Drawer::Stats {
-        if skill_points > 0 {
-            // Compute where the skill section starts in CSS space, matching renderer layout.
-            // All renderer values are in `val * dpr` canvas pixels; dividing by dpr gives CSS px.
-            // content_top = drawer_y + 32 (header)
-            // sprite area: icon(36) + gap(6) = 42
-            // xp bar area: bar(10) + gap(12) = 22
-            // stat rows: (4 base + 1 if ranged + 1 location) * 24
-            let stat_row_count = if has_ranged_weapon { 6.0 } else { 5.0 };
-            // skill section gap(8) + "Skill Points" header(20) = 28
-            let skill_section_offset = 32.0 + 42.0 + 22.0 + stat_row_count * 24.0 + 8.0 + 20.0;
-            // Apply scroll offset — renderer shifts content up by stats_scroll
-            let skill_section_y = drawer_y + skill_section_offset - stats_scroll;
+    if state.drawer == Drawer::Stats && state.skill_points > 0 {
+        let stat_row_count = if has_ranged_weapon { 6.0 } else { 5.0 };
+        let skill_section_offset = 32.0 + 42.0 + 22.0 + stat_row_count * 24.0 + 8.0 + 20.0;
+        let skill_section_y = drawer_y + skill_section_offset - stats_scroll;
 
-            let skill_row_h = 30.0;
-            let btn_sz = 24.0;
-            let pad = 12.0;
-            let btn_x = css_w - pad - btn_sz;
-            let skills = [SkillKind::Strength, SkillKind::Vitality, SkillKind::Dexterity, SkillKind::Stamina];
-            for (i, skill) in skills.iter().enumerate() {
-                let row_y = skill_section_y + i as f64 * skill_row_h;
-                let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
-                if css_x >= btn_x && css_x <= btn_x + btn_sz
-                    && css_y >= btn_y && css_y <= btn_y + btn_sz
-                {
-                    return Some(DrawerTap::StatsAllocate(*skill));
-                }
+        let skill_row_h = 30.0;
+        let btn_sz = 24.0;
+        let pad = 12.0;
+        let btn_x = area.w - pad - btn_sz;
+        let skills = [SkillKind::Strength, SkillKind::Vitality, SkillKind::Dexterity, SkillKind::Stamina];
+        for (i, skill) in skills.iter().enumerate() {
+            let row_y = skill_section_y + i as f64 * skill_row_h;
+            let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
+            if area.x >= btn_x && area.x <= btn_x + btn_sz
+                && area.y >= btn_y && area.y <= btn_y + btn_sz
+            {
+                return Some(DrawerTap::StatsAllocate(*skill));
             }
         }
         return Some(DrawerTap::Consumed);
     }
 
     // Inventory drawer: match layout from renderer::draw_inventory_drawer
-    // Equipment: 3 rows × 2 cols, eq_h=30, eq_gap=4
     let eq_y = drawer_y + 32.0;
     let eq_h = 30.0;
     let eq_gap = 4.0;
@@ -460,29 +448,27 @@ fn hit_test_drawer(
     let detail_bar_h = if selected_item.is_some() { 46.0 } else { 20.0 };
     let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
     let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
-    let end = (inventory_scroll + max_visible).min(item_count);
+    let end = (state.inventory_scroll + max_visible).min(state.item_count);
     let pad = 12.0;
     let scrollbar_w = 12.0;
 
     // Detail bar buttons hit test (when an item is selected)
     if let Some(sel_idx) = selected_item {
         let bar_y = drawer_y + drawer_h - detail_bar_h;
-        if css_y >= bar_y {
+        if area.y >= bar_y {
             let btn_h = 26.0;
             let btn_gap = 8.0;
             let btn_y = bar_y + detail_bar_h - btn_h - 4.0;
 
-            if css_y >= btn_y && css_y <= btn_y + btn_h {
-                // Use/Equip button
+            if area.y >= btn_y && area.y <= btn_y + btn_h {
                 let action_w = 60.0;
-                let action_x = css_w - pad - action_w - btn_gap - 60.0;
-                if css_x >= action_x && css_x <= action_x + action_w {
+                let action_x = area.w - pad - action_w - btn_gap - 60.0;
+                if area.x >= action_x && area.x <= action_x + action_w {
                     return Some(DrawerTap::UseEquip(sel_idx));
                 }
-                // Drop button
                 let drop_w = 60.0;
-                let drop_x = css_w - pad - drop_w;
-                if css_x >= drop_x && css_x <= drop_x + drop_w {
+                let drop_x = area.w - pad - drop_w;
+                if area.x >= drop_x && area.x <= drop_x + drop_w {
                     return Some(DrawerTap::Drop(sel_idx));
                 }
             }
@@ -490,33 +476,31 @@ fn hit_test_drawer(
         }
     }
 
-    if css_y >= list_y && item_count > 0 {
-        // Check if tap is in scrollbar track (right edge of list area)
-        let scrollbar_x = css_w - pad - scrollbar_w;
-        if css_x >= scrollbar_x && item_count > max_visible {
+    if area.y >= list_y && state.item_count > 0 {
+        let scrollbar_x = area.w - pad - scrollbar_w;
+        if area.x >= scrollbar_x && state.item_count > max_visible {
             let track_h = max_visible as f64 * slot_h;
-            let scroll_range = item_count - max_visible;
-            let thumb_frac = max_visible as f64 / item_count as f64;
+            let scroll_range = state.item_count - max_visible;
+            let thumb_frac = max_visible as f64 / state.item_count as f64;
             let min_thumb_h = 20.0;
             let thumb_h = (track_h * thumb_frac).max(min_thumb_h);
             let scroll_frac = if scroll_range > 0 {
-                inventory_scroll as f64 / scroll_range as f64
+                state.inventory_scroll as f64 / scroll_range as f64
             } else {
                 0.0
             };
             let thumb_y = list_y + scroll_frac * (track_h - thumb_h);
 
-            if css_y < thumb_y {
+            if area.y < thumb_y {
                 return Some(DrawerTap::ScrollUp);
-            } else if css_y > thumb_y + thumb_h {
+            } else if area.y > thumb_y + thumb_h {
                 return Some(DrawerTap::ScrollDown);
             }
-            return Some(DrawerTap::Consumed); // tap on thumb itself
+            return Some(DrawerTap::Consumed);
         }
 
-        // Regular item tap (select, not use)
-        let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
-        let abs_idx = inventory_scroll + vis_idx;
+        let vis_idx = ((area.y - list_y) / slot_h).floor() as usize;
+        let abs_idx = state.inventory_scroll + vis_idx;
         if abs_idx < end {
             return Some(DrawerTap::InventoryItem(abs_idx));
         }
@@ -634,17 +618,14 @@ fn handle_menu_tap(
     game: &Rc<RefCell<Game>>,
     renderer: &Rc<RefCell<Renderer>>,
     auto_path: &Rc<RefCell<Vec<(i32, i32)>>>,
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    css_h: f64,
+    area: &CssHitArea,
     dpr: f64,
 ) {
     // Convert to canvas-pixel coords for hit testing
-    let cx = css_x * dpr;
-    let cy = css_y * dpr;
-    let cw = css_w * dpr;
-    let ch = css_h * dpr;
+    let cx = area.x * dpr;
+    let cy = area.y * dpr;
+    let cw = area.w * dpr;
+    let ch = area.h * dpr;
 
     match &ms.app_state {
         AppState::MainMenu => {
@@ -1079,7 +1060,7 @@ pub fn start() -> Result<(), JsValue> {
     }
 
     // Game loop
-    let f: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
+    let f: AnimFrameClosure = Rc::new(RefCell::new(None));
     let g = Rc::clone(&f);
 
     let window2 = web_sys::window().expect("no global window");
@@ -1098,7 +1079,7 @@ pub fn start() -> Result<(), JsValue> {
                     for action in &actions {
                         if let InputAction::Tap(cx, cy) = action {
                             let mut ms = menu_state_loop.borrow_mut();
-                            handle_menu_tap(&mut ms, &game, &renderer, &auto_path, *cx, *cy, css_w, css_h, dpr);
+                            handle_menu_tap(&mut ms, &game, &renderer, &auto_path, &CssHitArea { x: *cx, y: *cy, w: css_w, h: css_h }, dpr);
                         }
                     }
                     // Render menu
@@ -1237,10 +1218,9 @@ pub fn start() -> Result<(), JsValue> {
                                         }
                                     } else if gm.drawer != Drawer::None {
                                         if let Some(dtap) = hit_test_side_panel_drawer(
-                                            css_x, css_y, css_w, css_h, panel_w,
-                                            gm.drawer, gm.inventory.len(), gm.inventory_scroll,
-                                            gm.skill_points,
-                                            gm.has_ranged_weapon(),
+                                            &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
+                                            panel_w,
+                                            &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points },
                                         ) {
                                             handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
                                         }
@@ -1290,10 +1270,10 @@ pub fn start() -> Result<(), JsValue> {
                                         }
                                     }
                                 } else if let Some(dtap) = hit_test_drawer(
-                                    css_x, css_y, css_w, css_h, bottom_region_css,
-                                    gm.drawer, gm.inventory.len(), gm.inventory_scroll,
-                                    gm.selected_inventory_item, gm.skill_points,
-                                    gm.stats_scroll, gm.has_ranged_weapon(),
+                                    &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
+                                    bottom_region_css,
+                                    &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points },
+                                    gm.selected_inventory_item, gm.stats_scroll, gm.has_ranged_weapon(),
                                 ) {
                                     handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
                                 } else if css_y < css_h - bottom_region_css {

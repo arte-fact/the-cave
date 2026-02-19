@@ -153,7 +153,7 @@ fn chain_mail() -> Item {
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
         assert_eq!(g.equipped_armor.as_ref().unwrap().name, "Leather Armor");
-        assert_eq!(g.effective_defense(), 0 + 2);
+        assert_eq!(g.effective_defense(), 2);
     }
 
     #[test]
@@ -181,7 +181,7 @@ fn chain_mail() -> Item {
         assert_eq!(g.equipped_armor.as_ref().unwrap().name, "Chain Mail");
         assert_eq!(g.inventory.len(), 1);
         assert_eq!(g.inventory[0].name, "Leather Armor");
-        assert_eq!(g.effective_defense(), 0 + 4);
+        assert_eq!(g.effective_defense(), 4);
     }
 
     #[test]

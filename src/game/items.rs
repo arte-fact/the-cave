@@ -157,59 +157,52 @@ impl Game {
         let item = &self.inventory[index];
         match item.kind {
             ItemKind::Potion => {
-                if let ItemEffect::Heal(amount) = item.effect {
-                    let old_hp = self.player_hp;
-                    self.player_hp = (self.player_hp + amount).min(self.player_max_hp);
-                    let healed = self.player_hp - old_hp;
-                    let name = item.name;
-                    self.messages.push(format!("You drink {name}. Healed {healed} HP."));
-                    self.floating_texts.push(FloatingText {
-                        world_x: self.player_x, world_y: self.player_y,
-                        text: format!("+{healed} HP"), color: "#4f4", age: 0.0,
-                    });
-                    self.visual_effects.push(VisualEffect {
-                        kind: EffectKind::HealGlow,
-                        x: self.player_x, y: self.player_y, age: 0.0,
-                    });
-                    self.inventory.remove(index);
-                    self.quick_bar.on_item_removed(index);
-                    self.clamp_inventory_scroll();
-                    return true;
-                }
-                false
+                let ItemEffect::Heal(amount) = item.effect else { return false };
+                let old_hp = self.player_hp;
+                self.player_hp = (self.player_hp + amount).min(self.player_max_hp);
+                let healed = self.player_hp - old_hp;
+                let name = item.name;
+                self.messages.push(format!("You drink {name}. Healed {healed} HP."));
+                self.floating_texts.push(FloatingText {
+                    world_x: self.player_x, world_y: self.player_y,
+                    text: format!("+{healed} HP"), color: "#4f4", age: 0.0,
+                });
+                self.visual_effects.push(VisualEffect {
+                    kind: EffectKind::HealGlow,
+                    x: self.player_x, y: self.player_y, age: 0.0,
+                });
+                self.inventory.remove(index);
+                self.quick_bar.on_item_removed(index);
+                self.clamp_inventory_scroll();
+                true
             }
             ItemKind::Scroll => {
-                if let ItemEffect::DamageAoe(damage) = item.effect {
-                    let name = item.name;
-                    self.messages.push(format!("You read {name}!"));
-                    self.inventory.remove(index);
-                    self.quick_bar.on_item_removed(index);
-                    self.clamp_inventory_scroll();
-                    let px = self.player_x;
-                    let py = self.player_y;
-                    // AOE blast effect
-                    self.visual_effects.push(VisualEffect {
-                        kind: EffectKind::AoeBlast,
-                        x: px, y: py, age: 0.0,
+                let ItemEffect::DamageAoe(damage) = item.effect else { return false };
+                let name = item.name;
+                self.messages.push(format!("You read {name}!"));
+                self.inventory.remove(index);
+                self.quick_bar.on_item_removed(index);
+                self.clamp_inventory_scroll();
+                let px = self.player_x;
+                let py = self.player_y;
+                self.visual_effects.push(VisualEffect {
+                    kind: EffectKind::AoeBlast,
+                    x: px, y: py, age: 0.0,
+                });
+                for enemy in &mut self.enemies {
+                    if enemy.hp <= 0 { continue; }
+                    let dist = (enemy.x - px).abs() + (enemy.y - py).abs();
+                    if dist > 3 { continue; }
+                    enemy.hp -= damage;
+                    self.floating_texts.push(FloatingText {
+                        world_x: enemy.x, world_y: enemy.y,
+                        text: format!("-{damage}"), color: "#f84", age: 0.0,
                     });
-                    // Damage all enemies within 3 tiles
-                    for enemy in &mut self.enemies {
-                        if enemy.hp <= 0 { continue; }
-                        let dist = (enemy.x - px).abs() + (enemy.y - py).abs();
-                        if dist <= 3 {
-                            enemy.hp -= damage;
-                            self.floating_texts.push(FloatingText {
-                                world_x: enemy.x, world_y: enemy.y,
-                                text: format!("-{damage}"), color: "#f84", age: 0.0,
-                            });
-                            if enemy.hp <= 0 {
-                                self.messages.push(format!("{} is destroyed!", enemy.name));
-                            }
-                        }
+                    if enemy.hp <= 0 {
+                        self.messages.push(format!("{} is destroyed!", enemy.name));
                     }
-                    return true;
                 }
-                false
+                true
             }
             ItemKind::Food => self.eat_food(index),
             _ => false, // Weapons/Armor/RangedWeapons should be equipped, not used
@@ -270,72 +263,71 @@ impl Game {
         if self.inventory[index].kind != ItemKind::Food {
             return false;
         }
-        if let ItemEffect::Feed(amount, side_effect) = self.inventory[index].effect {
-            let old = self.hunger;
-            self.hunger = (self.hunger + amount).min(self.max_hunger);
-            let gained = self.hunger - old;
-            let name = self.inventory[index].name;
-            self.messages.push(format!("You eat {name}. Hunger +{gained}."));
+        let ItemEffect::Feed(amount, side_effect) = self.inventory[index].effect else {
+            return false;
+        };
 
-            // Apply side effect
-            let fx = self.player_x;
-            let fy = self.player_y;
-            match side_effect {
-                FoodSideEffect::None => {}
-                FoodSideEffect::Heal(hp) => {
-                    self.player_hp = (self.player_hp + hp).min(self.player_max_hp);
-                    self.messages.push(format!("You feel revitalized. +{hp} HP."));
-                    self.floating_texts.push(FloatingText {
-                        world_x: fx, world_y: fy,
-                        text: format!("+{hp} HP"), color: "#4f4", age: 0.0,
-                    });
-                    self.visual_effects.push(VisualEffect {
-                        kind: EffectKind::HealGlow, x: fx, y: fy, age: 0.0,
-                    });
-                }
-                FoodSideEffect::Poison(dmg) => {
-                    self.player_hp -= dmg;
-                    self.messages.push(format!("Your stomach churns! -{dmg} HP."));
-                    self.floating_texts.push(FloatingText {
-                        world_x: fx, world_y: fy,
-                        text: format!("-{dmg} HP"), color: "#a4f", age: 0.0,
-                    });
-                    self.visual_effects.push(VisualEffect {
-                        kind: EffectKind::PoisonCloud, x: fx, y: fy, age: 0.0,
-                    });
-                    if self.player_hp <= 0 {
-                        self.alive = false;
-                        self.messages.push("You died from food poisoning.".into());
-                    }
-                }
-                FoodSideEffect::Energize(stam) => {
-                    self.stamina = (self.stamina + stam).min(self.max_stamina);
-                    self.messages.push(format!("You feel energized. +{stam} stamina."));
-                    self.floating_texts.push(FloatingText {
-                        world_x: fx, world_y: fy,
-                        text: format!("+{stam} STA"), color: "#4ef", age: 0.0,
-                    });
-                    self.visual_effects.push(VisualEffect {
-                        kind: EffectKind::EnergizeEffect, x: fx, y: fy, age: 0.0,
-                    });
-                }
-                FoodSideEffect::Sicken(stam) => {
-                    self.stamina = (self.stamina - stam).max(0);
-                    self.messages.push(format!("You feel nauseous. -{stam} stamina."));
-                    self.floating_texts.push(FloatingText {
-                        world_x: fx, world_y: fy,
-                        text: format!("-{stam} STA"), color: "#a4f", age: 0.0,
-                    });
+        let old = self.hunger;
+        self.hunger = (self.hunger + amount).min(self.max_hunger);
+        let gained = self.hunger - old;
+        let name = self.inventory[index].name;
+        self.messages.push(format!("You eat {name}. Hunger +{gained}."));
+
+        let fx = self.player_x;
+        let fy = self.player_y;
+        match side_effect {
+            FoodSideEffect::None => {}
+            FoodSideEffect::Heal(hp) => {
+                self.player_hp = (self.player_hp + hp).min(self.player_max_hp);
+                self.messages.push(format!("You feel revitalized. +{hp} HP."));
+                self.floating_texts.push(FloatingText {
+                    world_x: fx, world_y: fy,
+                    text: format!("+{hp} HP"), color: "#4f4", age: 0.0,
+                });
+                self.visual_effects.push(VisualEffect {
+                    kind: EffectKind::HealGlow, x: fx, y: fy, age: 0.0,
+                });
+            }
+            FoodSideEffect::Poison(dmg) => {
+                self.player_hp -= dmg;
+                self.messages.push(format!("Your stomach churns! -{dmg} HP."));
+                self.floating_texts.push(FloatingText {
+                    world_x: fx, world_y: fy,
+                    text: format!("-{dmg} HP"), color: "#a4f", age: 0.0,
+                });
+                self.visual_effects.push(VisualEffect {
+                    kind: EffectKind::PoisonCloud, x: fx, y: fy, age: 0.0,
+                });
+                if self.player_hp <= 0 {
+                    self.alive = false;
+                    self.messages.push("You died from food poisoning.".into());
                 }
             }
-
-            self.inventory.remove(index);
-            self.quick_bar.on_item_removed(index);
-            self.clamp_inventory_scroll();
-            true
-        } else {
-            false
+            FoodSideEffect::Energize(stam) => {
+                self.stamina = (self.stamina + stam).min(self.max_stamina);
+                self.messages.push(format!("You feel energized. +{stam} stamina."));
+                self.floating_texts.push(FloatingText {
+                    world_x: fx, world_y: fy,
+                    text: format!("+{stam} STA"), color: "#4ef", age: 0.0,
+                });
+                self.visual_effects.push(VisualEffect {
+                    kind: EffectKind::EnergizeEffect, x: fx, y: fy, age: 0.0,
+                });
+            }
+            FoodSideEffect::Sicken(stam) => {
+                self.stamina = (self.stamina - stam).max(0);
+                self.messages.push(format!("You feel nauseous. -{stam} stamina."));
+                self.floating_texts.push(FloatingText {
+                    world_x: fx, world_y: fy,
+                    text: format!("-{stam} STA"), color: "#a4f", age: 0.0,
+                });
+            }
         }
+
+        self.inventory.remove(index);
+        self.quick_bar.on_item_removed(index);
+        self.clamp_inventory_scroll();
+        true
     }
 
     /// Clamp inventory scroll so it never exceeds the item count.
