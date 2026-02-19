@@ -325,21 +325,6 @@ fn hit_test_side_panel_drawer(
             let vis_idx = ((css_y - list_start) / slot_h).floor() as usize;
             let abs_idx = inventory_scroll + vis_idx;
             if abs_idx < end {
-                // Check inline buttons (Use/Equip and Drop)
-                let btn_w = 24.0;
-                let btn_h_i = 16.0;
-                let drop_x = x + inner_w - btn_w - 2.0;
-                let use_x = drop_x - btn_w - 2.0;
-                let row_y = list_start + vis_idx as f64 * slot_h;
-                let btn_y = row_y + (slot_h - btn_h_i) / 2.0;
-                if css_y >= btn_y && css_y <= btn_y + btn_h_i {
-                    if css_x >= use_x && css_x <= use_x + btn_w {
-                        return Some(DrawerTap::InlineUseEquip(abs_idx));
-                    }
-                    if css_x >= drop_x && css_x <= drop_x + btn_w {
-                        return Some(DrawerTap::InlineDrop(abs_idx));
-                    }
-                }
                 return Some(DrawerTap::InventoryItem(abs_idx));
             }
         }
@@ -361,10 +346,6 @@ enum DrawerTap {
     UseEquip(usize),
     /// Drop button tapped for the selected item (detail bar).
     Drop(usize),
-    /// Inline Use/Equip button on a list item row.
-    InlineUseEquip(usize),
-    /// Inline Drop button on a list item row.
-    InlineDrop(usize),
     /// Allocate a skill point to the given attribute.
     StatsAllocate(SkillKind),
     /// Toggle glyph rendering mode.
@@ -510,29 +491,6 @@ fn hit_test_drawer(
     }
 
     if css_y >= list_y && item_count > 0 {
-        // Inline button hit-test (Use/Equip and Drop buttons on each row)
-        let inline_btn_w = 36.0;
-        let inline_btn_h = 22.0;
-        let inline_btn_gap = 3.0;
-        let text_right = css_w - pad - scrollbar_w - 4.0;
-        let drop_btn_x = text_right - inline_btn_w;
-        let use_btn_x = drop_btn_x - inline_btn_gap - inline_btn_w;
-
-        let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
-        let abs_idx = inventory_scroll + vis_idx;
-        if abs_idx < end {
-            let row_y = list_y + vis_idx as f64 * slot_h;
-            let btn_y = row_y + (slot_h - inline_btn_h) / 2.0;
-            if css_y >= btn_y && css_y <= btn_y + inline_btn_h {
-                if css_x >= use_btn_x && css_x <= use_btn_x + inline_btn_w {
-                    return Some(DrawerTap::InlineUseEquip(abs_idx));
-                }
-                if css_x >= drop_btn_x && css_x <= drop_btn_x + inline_btn_w {
-                    return Some(DrawerTap::InlineDrop(abs_idx));
-                }
-            }
-        }
-
         // Check if tap is in scrollbar track (right edge of list area)
         let scrollbar_x = css_w - pad - scrollbar_w;
         if css_x >= scrollbar_x && item_count > max_visible {
@@ -841,7 +799,7 @@ fn handle_drawer_tap(
                 gm.selected_inventory_item = Some(idx);
             }
         }
-        DrawerTap::UseEquip(idx) | DrawerTap::InlineUseEquip(idx) => {
+        DrawerTap::UseEquip(idx) => {
             if idx < gm.inventory.len() {
                 let is_consumable = matches!(
                     gm.inventory[idx].kind,
@@ -857,7 +815,7 @@ fn handle_drawer_tap(
                 gm.selected_inventory_item = None;
             }
         }
-        DrawerTap::Drop(idx) | DrawerTap::InlineDrop(idx) => {
+        DrawerTap::Drop(idx) => {
             gm.drop_item(idx);
             gm.selected_inventory_item = None;
         }
@@ -1262,16 +1220,18 @@ pub fn start() -> Result<(), JsValue> {
                                             BarTap::Sprint => gm.toggle_sprint(),
                                         }
                                     } else if let Some(slot) = hit_test_side_panel_quickbar(css_x, css_y, css_w, panel_w, gm.inspected.is_some()) {
-                                        // Quick-bar tap in landscape
-                                        if let Some(inv_idx) = gm.quick_bar.slots[slot] {
-                                            if inv_idx < gm.inventory.len() {
-                                                let kind = gm.inventory[inv_idx].kind.clone();
-                                                match kind {
-                                                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                        gm.use_item(inv_idx);
-                                                        renderer.borrow_mut().flash_quickbar_slot(slot);
+                                        // Quick-bar tap in landscape (disabled when inventory is open)
+                                        if gm.drawer != Drawer::Inventory {
+                                            if let Some(inv_idx) = gm.quick_bar.slots[slot] {
+                                                if inv_idx < gm.inventory.len() {
+                                                    let kind = gm.inventory[inv_idx].kind.clone();
+                                                    match kind {
+                                                        ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
+                                                            gm.use_item(inv_idx);
+                                                            renderer.borrow_mut().flash_quickbar_slot(slot);
+                                                        }
+                                                        _ => {}
                                                     }
-                                                    _ => {}
                                                 }
                                             }
                                         }
@@ -1314,16 +1274,18 @@ pub fn start() -> Result<(), JsValue> {
                                         BarTap::Sprint => gm.toggle_sprint(),
                                     }
                                 } else if let Some(slot) = hit_test_quick_bar(css_x, css_y, css_w, css_h, bar_h_css, qbar_h_css) {
-                                    // Quick-bar tap: use item if slot is occupied
-                                    if let Some(inv_idx) = gm.quick_bar.slots[slot] {
-                                        if inv_idx < gm.inventory.len() {
-                                            let kind = gm.inventory[inv_idx].kind.clone();
-                                            match kind {
-                                                ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                    gm.use_item(inv_idx);
-                                                    renderer.borrow_mut().flash_quickbar_slot(slot);
+                                    // Quick-bar tap: use item if slot is occupied (disabled when inventory is open)
+                                    if gm.drawer != Drawer::Inventory {
+                                        if let Some(inv_idx) = gm.quick_bar.slots[slot] {
+                                            if inv_idx < gm.inventory.len() {
+                                                let kind = gm.inventory[inv_idx].kind.clone();
+                                                match kind {
+                                                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
+                                                        gm.use_item(inv_idx);
+                                                        renderer.borrow_mut().flash_quickbar_slot(slot);
+                                                    }
+                                                    _ => {}
                                                 }
-                                                _ => {}
                                             }
                                         }
                                     }
@@ -1524,6 +1486,27 @@ pub fn start() -> Result<(), JsValue> {
                                         };
                                     }
                                 }
+                            } else {
+                                // Check quick-bar slots — allow dragging back to unassign
+                                let qbar_slot = if is_landscape {
+                                    let panel_css_w = renderer.borrow().side_panel_css_w();
+                                    hit_test_side_panel_quickbar(td.start_x, td.start_y, css_w, panel_css_w, game.borrow().inspected.is_some())
+                                } else {
+                                    let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+                                    let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
+                                    hit_test_quick_bar(td.start_x, td.start_y, css_w, css_h, bar_h_css, qbar_h_css)
+                                };
+                                if let Some(slot) = qbar_slot {
+                                    if let Some(inv_index) = game.borrow().quick_bar.slots[slot] {
+                                        *ds = DragState::Pending {
+                                            inv_index,
+                                            start_x: td.start_x,
+                                            start_y: td.start_y,
+                                            start_frame: fc,
+                                            from_quickbar_slot: Some(slot),
+                                        };
+                                    }
+                                }
                             }
                         }
                         // When drawer is closed, do NOT start drags on quick-bar slots.
@@ -1582,9 +1565,11 @@ pub fn start() -> Result<(), JsValue> {
                                     gm.quick_bar.assign(slot, inv_index, &item);
                                 }
                             }
+                        } else if let Some(from_slot) = from_quickbar_slot {
+                            // Dragged from quick-bar and dropped outside → unassign
+                            gm.quick_bar.clear(from_slot);
                         }
-                        // Dropped outside a quick-bar slot — cancel (no change).
-                        // Whether from inventory or from a quick-bar slot, just do nothing.
+                        // Dropped from inventory outside a quick-bar slot → cancel (no change).
 
                         drop(gm);
                         *ds = DragState::Idle;

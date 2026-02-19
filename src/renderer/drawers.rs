@@ -123,10 +123,6 @@ impl Renderer {
             let end = (scroll + max_visible).min(total);
             let selected = game.selected_inventory_item;
 
-            let inline_btn_w = 36.0 * d;
-            let inline_btn_h = 22.0 * d;
-            let inline_btn_gap = 3.0 * d;
-
             for (vi, idx) in (scroll..end).enumerate() {
                 let item = &game.inventory[idx];
                 let iy = list_y + vi as f64 * slot_h;
@@ -169,26 +165,19 @@ impl Renderer {
                     }
                 }
 
-                // Inline Use/Equip button
-                let btn_y = iy + (slot_h - inline_btn_h) / 2.0;
-                let drop_x = text_right - inline_btn_w;
-                let use_x = drop_x - inline_btn_gap - inline_btn_w;
-                let action_label = match item.kind {
-                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => "Use",
-                    _ => "Eq",
+                // Item effect stats (right-aligned)
+                let stat_text = match &item.effect {
+                    crate::game::ItemEffect::Heal(n) => format!("+{} HP", n),
+                    crate::game::ItemEffect::DamageAoe(n) => format!("AOE {}", n),
+                    crate::game::ItemEffect::BuffAttack(n) => format!("ATK +{}", n),
+                    crate::game::ItemEffect::BuffDefense(n) => format!("DEF +{}", n),
+                    crate::game::ItemEffect::Feed(n, _) => format!("+{} food", n),
                 };
-                ctx.set_fill_style_str("rgba(80,200,120,0.2)");
-                self.fill_rounded_rect(use_x, btn_y, inline_btn_w, inline_btn_h, 3.0 * d);
-                ctx.set_font(&self.font(9.0, "bold"));
-                ctx.set_fill_style_str("#8f8");
-                ctx.set_text_align("center");
-                let _ = ctx.fill_text(action_label, use_x + inline_btn_w / 2.0, btn_y + inline_btn_h / 2.0);
-
-                // Inline Drop button
-                ctx.set_fill_style_str("rgba(200,80,80,0.2)");
-                self.fill_rounded_rect(drop_x, btn_y, inline_btn_w, inline_btn_h, 3.0 * d);
-                ctx.set_fill_style_str("#f88");
-                let _ = ctx.fill_text("Del", drop_x + inline_btn_w / 2.0, btn_y + inline_btn_h / 2.0);
+                ctx.set_font(&self.font(9.0, ""));
+                ctx.set_fill_style_str("#777");
+                ctx.set_text_align("right");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(&stat_text, text_right, iy + slot_h / 2.0);
                 ctx.set_text_align("left");
             }
 
@@ -227,13 +216,20 @@ impl Renderer {
                 ctx.set_fill_style_str("rgba(80,130,255,0.15)");
                 ctx.fill_rect(0.0, bar_y, canvas_w, 1.0 * d);
 
-                // Description text
+                // Description text (truncated to fit available width)
                 let desc = game.inventory_item_desc(sel_idx).unwrap_or_default();
                 ctx.set_font(&self.font(10.0, ""));
                 ctx.set_fill_style_str("#ccc");
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text(&desc, pad, bar_y + detail_bar_h * 0.35);
+                let char_w = 6.0 * d;
+                let max_chars = ((canvas_w - 2.0 * pad) / char_w).floor() as usize;
+                let display_desc = if desc.len() > max_chars && max_chars > 3 {
+                    format!("{}...", &desc[..max_chars - 3])
+                } else {
+                    desc
+                };
+                let _ = ctx.fill_text(&display_desc, pad, bar_y + detail_bar_h * 0.35);
 
                 // Action buttons
                 let btn_h = 26.0 * d;
