@@ -571,7 +571,7 @@ fn hit_test_drawer(
 /// Check if CSS coordinates land on an inventory item row in portrait mode.
 /// Returns the absolute inventory index if so.
 fn hit_test_inventory_item_row(
-    css_x: f64,
+    _css_x: f64,
     css_y: f64,
     _css_w: f64,
     css_h: f64,
@@ -1237,9 +1237,15 @@ pub fn start() -> Result<(), JsValue> {
                             }
                         }
                         InputAction::Tap(css_x, css_y) => {
-                            // Skip tap if we were dragging (drop is handled separately)
-                            if !matches!(*drag_state.borrow(), DragState::Idle) {
+                            // Skip tap only if actively dragging (drop is handled separately).
+                            // Pending state should NOT block taps — it means the long-press
+                            // timer hasn't fired yet, so the touch was a normal tap.
+                            if matches!(*drag_state.borrow(), DragState::Dragging { .. }) {
                                 continue;
+                            }
+                            // Cancel any pending drag since the finger lifted (tap = touchend)
+                            if !matches!(*drag_state.borrow(), DragState::Idle) {
+                                *drag_state.borrow_mut() = DragState::Idle;
                             }
                             let (css_w, css_h) = window_css_size();
                             let is_landscape = renderer.borrow().landscape;
@@ -1519,31 +1525,9 @@ pub fn start() -> Result<(), JsValue> {
                                     }
                                 }
                             }
-                        } else if gm_drawer == Drawer::None {
-                            // Finger down on quick-bar slot (drawer closed) → drag to reorder/clear
-                            let slot = if is_landscape {
-                                let panel_css_w = renderer.borrow().side_panel_css_w();
-                                hit_test_side_panel_quickbar(td.start_x, td.start_y, css_w, panel_css_w, game.borrow().inspected.is_some())
-                            } else {
-                                let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
-                                let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
-                                hit_test_quick_bar(td.start_x, td.start_y, css_w, css_h, bar_h_css, qbar_h_css)
-                            };
-                            if let Some(s) = slot {
-                                let gm = game.borrow();
-                                if let Some(inv_idx) = gm.quick_bar.slots[s] {
-                                    if inv_idx < gm.inventory.len() {
-                                        *ds = DragState::Pending {
-                                            inv_index: inv_idx,
-                                            start_x: td.start_x,
-                                            start_y: td.start_y,
-                                            start_frame: fc,
-                                            from_quickbar_slot: Some(s),
-                                        };
-                                    }
-                                }
-                            }
                         }
+                        // When drawer is closed, do NOT start drags on quick-bar slots.
+                        // Taps on quick-bar slots are handled by the tap input processing.
                     }
                 }
                 DragState::Pending { inv_index, start_x, start_y, start_frame, from_quickbar_slot } => {
@@ -1598,11 +1582,9 @@ pub fn start() -> Result<(), JsValue> {
                                     gm.quick_bar.assign(slot, inv_index, &item);
                                 }
                             }
-                        } else if let Some(from_slot) = from_quickbar_slot {
-                            // Dragged from quick-bar to non-slot area → clear
-                            gm.quick_bar.clear(from_slot);
                         }
-                        // else: dropped in no-man's land, just cancel
+                        // Dropped outside a quick-bar slot — cancel (no change).
+                        // Whether from inventory or from a quick-bar slot, just do nothing.
 
                         drop(gm);
                         *ds = DragState::Idle;

@@ -82,7 +82,7 @@ pub struct Renderer {
     /// True when the canvas is in landscape orientation (width > height).
     pub landscape: bool,
     /// Per-slot flash animation progress (0.0 = off, 1.0 = bright, decays to 0).
-    pub quickbar_flash: [f64; 4],
+    pub quickbar_flash: [f64; QUICKBAR_SLOTS],
 }
 
 impl Renderer {
@@ -96,7 +96,7 @@ impl Renderer {
             last_drawer: Drawer::None,
             glyph_mode: false,
             landscape: false,
-            quickbar_flash: [0.0; 4],
+            quickbar_flash: [0.0; QUICKBAR_SLOTS],
         }
     }
 

@@ -286,7 +286,7 @@ pub enum SkillKind {
 }
 
 /// Number of quick-bar slots.
-pub const QUICKBAR_SLOTS: usize = 4;
+pub const QUICKBAR_SLOTS: usize = 6;
 
 /// The quick-use bar: fixed-size array of slots referencing inventory item indices.
 /// `None` = empty slot.
