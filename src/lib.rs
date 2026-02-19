@@ -1416,17 +1416,19 @@ pub fn start() -> Result<(), JsValue> {
                     // Inspect the destination tile during swipe
                     gm.inspected = gm.inspect_tile(dest.0, dest.1);
                 } else if gm.drawer == Drawer::Inventory {
-                    // Swipe-scroll inventory when drawer is open
-                    let slot_h_css = 34.0;
-                    let mut base = drawer_swipe_base.borrow_mut();
-                    if base.is_none() {
-                        *base = Some((gm.inventory_scroll, swipe.start_y));
-                    }
-                    if let Some((base_scroll, start_y)) = *base {
-                        let dy = start_y - swipe.current_y; // positive = scroll down
-                        let delta = (dy / slot_h_css).round() as i32;
-                        let new_scroll = (base_scroll as i32 + delta).max(0) as usize;
-                        gm.set_inventory_scroll(new_scroll);
+                    // Swipe-scroll inventory when drawer is open (skip if dragging)
+                    if matches!(*drag_state.borrow(), DragState::Idle) {
+                        let slot_h_css = 34.0;
+                        let mut base = drawer_swipe_base.borrow_mut();
+                        if base.is_none() {
+                            *base = Some((gm.inventory_scroll, swipe.start_y));
+                        }
+                        if let Some((base_scroll, start_y)) = *base {
+                            let dy = start_y - swipe.current_y; // positive = scroll down
+                            let delta = (dy / slot_h_css).round() as i32;
+                            let new_scroll = (base_scroll as i32 + delta).max(0) as usize;
+                            gm.set_inventory_scroll(new_scroll);
+                        }
                     }
                 } else if gm.drawer == Drawer::Stats {
                     // Swipe-scroll stats panel
@@ -1518,8 +1520,8 @@ pub fn start() -> Result<(), JsValue> {
                         let dx = td.current_x - start_x;
                         let dy = td.current_y - start_y;
                         let dist = (dx * dx + dy * dy).sqrt();
-                        if dist > 12.0 {
-                            // Moved too far — cancel, let normal scroll/swipe handle it
+                        if dist > 12.0 || dy.abs() > 6.0 {
+                            // Moved too far or scrolling vertically — cancel, let scroll handle it
                             *ds = DragState::Idle;
                         } else if fc.wrapping_sub(start_frame) >= 18 {
                             // ~300ms at 60fps — promote to dragging
