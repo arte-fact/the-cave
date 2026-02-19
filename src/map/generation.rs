@@ -450,9 +450,51 @@ impl Map {
     }
 }
 
+/// Visual style of a dungeon, determining which wall/floor sprites are used.
+/// Deeper dungeons use progressively more ominous styles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DungeonStyle {
+    /// Basic dirt/rough stone — shallow dungeons.
+    DirtCaves,
+    /// Stone brick — standard dungeons.
+    StoneBrick,
+    /// Dark igneous rock — mid-depth.
+    Igneous,
+    /// Massive stone blocks — deep dungeons.
+    LargeStone,
+    /// Skull-decorated catacombs — deepest BSP levels.
+    Catacombs,
+    /// Open cave with red stone — dragon's lair.
+    DragonLair,
+}
+
+impl DungeonStyle {
+    /// Pick a dungeon style based on which dungeon and how deep.
+    pub fn for_level(dungeon_seed: u64, level: usize, is_cave: bool) -> Self {
+        if is_cave {
+            return Self::DragonLair;
+        }
+        // Use dungeon seed to vary base style per dungeon, then escalate with depth
+        let base = dungeon_seed % 3;
+        match (base, level) {
+            (0, 0) => Self::DirtCaves,
+            (0, 1) => Self::StoneBrick,
+            (0, _) => Self::Catacombs,
+            (1, 0) => Self::StoneBrick,
+            (1, 1) => Self::Igneous,
+            (1, _) => Self::LargeStone,
+            (_, 0) => Self::DirtCaves,
+            (_, 1) => Self::LargeStone,
+            (_, _) => Self::Catacombs,
+        }
+    }
+}
+
 /// A dungeon complex with multiple levels, each a self-contained Map.
 pub struct Dungeon {
     pub levels: Vec<Map>,
+    /// Visual style per level (determines wall/floor sprites).
+    pub styles: Vec<DungeonStyle>,
 }
 
 impl Dungeon {
@@ -462,6 +504,7 @@ impl Dungeon {
     /// as the deepest level — the dragon's lair.
     pub fn generate(depth: usize, seed: u64, has_cave: bool) -> Self {
         let mut levels = Vec::new();
+        let mut styles = Vec::new();
         let mut rng = seed;
 
         // Total levels: BSP depth + optional cave
@@ -476,6 +519,7 @@ impl Dungeon {
             rng = xorshift64(rng);
             let map = Map::generate_bsp_dungeon(w, h, rng, level, total);
             levels.push(map);
+            styles.push(DungeonStyle::for_level(seed, level, false));
         }
 
         // Append cave level if this is the dragon's dungeon
@@ -483,9 +527,10 @@ impl Dungeon {
             rng = xorshift64(rng);
             let cave = Map::generate_cave(80, 60, rng);
             levels.push(cave);
+            styles.push(DungeonStyle::DragonLair);
         }
 
-        Dungeon { levels }
+        Dungeon { levels, styles }
     }
 }
 

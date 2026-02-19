@@ -228,7 +228,18 @@ impl Game {
                 if *level == total - 1 && total == 4 {
                     format!("Dragon's Lair (B{})", depth)
                 } else {
-                    format!("Dungeon {} (B{})", index + 1, depth)
+                    let style_name = self.world.dungeons.get(*index)
+                        .and_then(|d| d.styles.get(*level))
+                        .map(|s| match s {
+                            crate::map::DungeonStyle::DirtCaves => "Dirt Caves",
+                            crate::map::DungeonStyle::StoneBrick => "Stone Dungeon",
+                            crate::map::DungeonStyle::Igneous => "Volcanic Dungeon",
+                            crate::map::DungeonStyle::LargeStone => "Ancient Ruins",
+                            crate::map::DungeonStyle::Catacombs => "Catacombs",
+                            crate::map::DungeonStyle::DragonLair => "Dragon's Lair",
+                        })
+                        .unwrap_or("Dungeon");
+                    format!("{} {} (B{})", style_name, index + 1, depth)
                 }
             }
         }
@@ -625,7 +636,7 @@ mod tests {
     #[test]
     fn overworld_has_forest_animals() {
         let g = test_game();
-        let forest_glyphs = ['r', 'a', 'w', 'i', 'b', 'B', 'L'];
+        let forest_glyphs = ['r', 'a', 'w', 'i', 'b', 'B', 'L', 'f', 'n', 'h', 'j'];
         for e in &g.enemies {
             assert!(
                 forest_glyphs.contains(&e.glyph),
@@ -1442,9 +1453,9 @@ mod tests {
         let mut g = overworld_game();
         g.enter_dungeon(0);
         let name = g.location_name();
-        assert!(name.starts_with("Dungeon") || name.starts_with("Dragon"),
+        // Dungeon names now include style prefixes (e.g. "Dirt Caves 1 (B1)")
+        assert!(name.contains("(B1)"),
             "unexpected location name: {name}");
-        assert!(name.contains("B1"));
     }
 
     // --- Drawers ---

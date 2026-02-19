@@ -435,7 +435,7 @@ impl Game {
         TurnResult::Moved
     }
 
-    /// Spawn forest animals on the overworld: wolves, boars, bears.
+    /// Spawn forest creatures on the overworld with expanded variety.
     pub fn spawn_enemies(&mut self, seed: u64) {
         let map = self.world.current_map();
         let mut rng = seed;
@@ -452,17 +452,26 @@ impl Game {
                 if rng % 100 < self.config.spawn.overworld_enemy_pct {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
-                    let (hp, attack, def, glyph, name) = if roll < 20 {
+                    // (hp, atk, def, glyph, name)
+                    let (hp, attack, def, glyph, name) = if roll < 12 {
                         (3, 1, 0, 'r', "Giant Rat")
-                    } else if roll < 35 {
+                    } else if roll < 20 {
                         (4, 2, 0, 'a', "Giant Bat")
-                    } else if roll < 60 {
+                    } else if roll < 30 {
+                        (4, 2, 1, 'f', "Fox")
+                    } else if roll < 40 {
+                        (5, 3, 0, 'n', "Viper")
+                    } else if roll < 55 {
                         (5, 2, 1, 'w', "Wolf")
-                    } else if roll < 75 {
+                    } else if roll < 65 {
                         (6, 3, 0, 'i', "Giant Spider")
-                    } else if roll < 87 {
+                    } else if roll < 72 {
+                        (5, 3, 1, 'j', "Badger")
+                    } else if roll < 80 {
                         (8, 2, 2, 'b', "Boar")
-                    } else if roll < 95 {
+                    } else if roll < 87 {
+                        (9, 4, 2, 'h', "Cougar")
+                    } else if roll < 94 {
                         (12, 4, 2, 'B', "Bear")
                     } else {
                         (14, 5, 3, 'L', "Lycanthrope")
@@ -473,11 +482,11 @@ impl Game {
         }
     }
 
-    /// Spawn enemies appropriate for a dungeon level.
-    /// L0: rats, kobolds, slimes, goblins, skeletons.
-    /// L1: goblin archers, zombies, skeleton archers, big slimes, orcs.
-    /// L2+: ghouls, orc blademasters, wraiths, nagas, trolls.
-    /// Cave (L3, dragon dungeon only): death knights, trolls, liches + dragon boss.
+    /// Spawn enemies appropriate for a dungeon level with expanded variety.
+    /// L0: rats, kobolds, slimes, goblins, skeletons, centipedes, myconids.
+    /// L1: goblin archers, zombies, skeleton archers, big slimes, orcs, ants, mages, hags.
+    /// L2+: ghouls, blademasters, wraiths, nagas, trolls, ettins, golems, minotaurs, medusas, banshees.
+    /// Cave: death knights, liches, drakes, basilisks, imps, manticores, reapers + dragon boss.
     pub(super) fn spawn_dungeon_enemies(&mut self, dungeon_index: usize, level: usize) {
         let total_levels = self.world.dungeons[dungeon_index].levels.len();
         let is_cave = total_levels == 4 && level == 3;
@@ -511,52 +520,82 @@ impl Game {
                     let roll = rng % 100;
                     // (hp, attack, defense, glyph, name, is_ranged)
                     let (hp, attack, def, glyph, name, ranged) = if is_cave {
-                        if roll < 40 {
+                        if roll < 20 {
                             (20, 7, 5, 'K', "Death Knight", false)
-                        } else if roll < 70 {
+                        } else if roll < 35 {
                             (16, 5, 3, 'T', "Troll", false)
-                        } else {
+                        } else if roll < 50 {
                             (15, 8, 2, 'l', "Lich", false)
+                        } else if roll < 60 {
+                            (14, 6, 3, 'd', "Drake", false)
+                        } else if roll < 70 {
+                            (16, 7, 4, 'C', "Basilisk", false)
+                        } else if roll < 80 {
+                            (10, 6, 1, 'I', "Imp", false)
+                        } else if roll < 90 {
+                            (18, 7, 4, 'X', "Manticore", false)
+                        } else {
+                            (20, 9, 3, 'V', "Reaper", false)
                         }
                     } else {
                         match level {
                             0 => {
-                                if roll < 25 {
+                                if roll < 15 {
                                     (3, 1, 0, 'r', "Giant Rat", false)
-                                } else if roll < 40 {
+                                } else if roll < 25 {
                                     (4, 2, 1, 'c', "Kobold", false)
-                                } else if roll < 55 {
+                                } else if roll < 35 {
                                     (4, 1, 0, 'S', "Small Slime", false)
-                                } else if roll < 80 {
+                                } else if roll < 50 {
                                     (5, 2, 1, 'g', "Goblin", false)
+                                } else if roll < 62 {
+                                    (4, 2, 0, 'e', "Giant Centipede", false)
+                                } else if roll < 75 {
+                                    (3, 1, 1, 'p', "Myconid", false)
                                 } else {
                                     (6, 3, 2, 's', "Skeleton", false)
                                 }
                             }
                             1 => {
-                                if roll < 20 {
+                                if roll < 12 {
                                     (6, 3, 1, 'G', "Goblin Archer", true)
-                                } else if roll < 40 {
+                                } else if roll < 24 {
                                     (10, 2, 1, 'z', "Zombie", false)
-                                } else if roll < 55 {
+                                } else if roll < 36 {
                                     (7, 4, 2, 'k', "Skeleton Archer", true)
-                                } else if roll < 70 {
+                                } else if roll < 48 {
                                     (10, 2, 0, 'm', "Big Slime", false)
-                                } else {
+                                } else if roll < 60 {
                                     (10, 4, 3, 'o', "Orc", false)
+                                } else if roll < 72 {
+                                    (8, 3, 2, 'A', "Giant Ant", false)
+                                } else if roll < 84 {
+                                    (7, 5, 1, 'M', "Goblin Mage", true)
+                                } else {
+                                    (9, 4, 1, 'H', "Hag", false)
                                 }
                             }
                             _ => {
-                                if roll < 20 {
+                                if roll < 10 {
                                     (10, 5, 2, 'u', "Ghoul", false)
-                                } else if roll < 40 {
+                                } else if roll < 20 {
                                     (14, 5, 4, 'O', "Orc Blademaster", false)
-                                } else if roll < 55 {
+                                } else if roll < 30 {
                                     (8, 6, 0, 'W', "Wraith", false)
-                                } else if roll < 70 {
+                                } else if roll < 40 {
                                     (12, 6, 3, 'N', "Naga", false)
-                                } else {
+                                } else if roll < 50 {
                                     (16, 5, 3, 'T', "Troll", false)
+                                } else if roll < 60 {
+                                    (18, 6, 4, 'E', "Ettin", false)
+                                } else if roll < 70 {
+                                    (22, 5, 6, 'R', "Rock Golem", false)
+                                } else if roll < 80 {
+                                    (16, 7, 3, 'Y', "Minotaur", false)
+                                } else if roll < 90 {
+                                    (12, 7, 2, 'P', "Medusa", false)
+                                } else {
+                                    (10, 6, 1, 'Q', "Banshee", false)
                                 }
                             }
                         }

@@ -6,17 +6,37 @@
 /// game-specific mapping functions (`tile_sprite`, `player_sprite`, etc.).
 pub use crate::sprite_atlas::{Sheet, SpriteRef};
 
-use crate::map::Tile;
+use crate::map::{DungeonStyle, Tile};
 use crate::sprite_atlas::animals::AnimalSprite;
 use crate::sprite_atlas::items::ItemSprite;
 use crate::sprite_atlas::monsters::MonsterSprite;
 use crate::sprite_atlas::rogues::RogueSprite;
 use crate::sprite_atlas::tiles::TileSprite;
 
-const FLOOR_VARIANTS: [TileSprite; 3] = [
+// === Floor variant arrays per dungeon style ===
+
+const FLOOR_STONE: [TileSprite; 3] = [
     TileSprite::FloorStone1,
     TileSprite::FloorStone2,
     TileSprite::FloorStone3,
+];
+
+const FLOOR_STONE_ALT: [TileSprite; 3] = [
+    TileSprite::StoneFloor1,
+    TileSprite::StoneFloor2,
+    TileSprite::StoneFloor3,
+];
+
+const FLOOR_BONE: [TileSprite; 3] = [
+    TileSprite::BoneFloor1,
+    TileSprite::BoneFloor2,
+    TileSprite::BoneFloor3,
+];
+
+const FLOOR_RED: [TileSprite; 3] = [
+    TileSprite::RedStoneFloor1,
+    TileSprite::RedStoneFloor2,
+    TileSprite::RedStoneFloor3,
 ];
 
 const GRASS_VARIANTS: [TileSprite; 3] = [
@@ -34,17 +54,32 @@ const ROAD_VARIANTS: [TileSprite; 3] = [
 /// Pick a tile sprite. `x, y` are world coordinates used for variation hashing.
 /// `wall_face` should be true when the wall has a non-wall tile directly below
 /// (so we show the "side/face" variant instead of the "top" variant).
-pub fn tile_sprite(tile: Tile, x: i32, y: i32, wall_face: bool) -> SpriteRef {
+/// `dungeon_style` determines which wall/floor theme to use (None = overworld).
+pub fn tile_sprite(tile: Tile, x: i32, y: i32, wall_face: bool, dungeon_style: Option<DungeonStyle>) -> SpriteRef {
     let variation = (x.wrapping_mul(31).wrapping_add(y.wrapping_mul(17))).unsigned_abs() % 3;
     match tile {
         Tile::Wall => {
-            if wall_face {
-                TileSprite::StoneBrickWallSide1.sprite_ref()
-            } else {
-                TileSprite::StoneBrickWallTop.sprite_ref()
-            }
+            let (top, side) = match dungeon_style {
+                Some(DungeonStyle::DirtCaves) => (TileSprite::DirtWallTop, TileSprite::DirtWallSide),
+                Some(DungeonStyle::StoneBrick) | None => (TileSprite::StoneBrickWallTop, TileSprite::StoneBrickWallSide1),
+                Some(DungeonStyle::Igneous) => (TileSprite::IgneousWallTop, TileSprite::IgneousWallSide),
+                Some(DungeonStyle::LargeStone) => (TileSprite::LargeStoneWallTop, TileSprite::LargeStoneWallSide),
+                Some(DungeonStyle::Catacombs) => (TileSprite::CatacombsWallTop, TileSprite::CatacombsWallSide),
+                Some(DungeonStyle::DragonLair) => (TileSprite::IgneousWallTop, TileSprite::IgneousWallSide),
+            };
+            if wall_face { side.sprite_ref() } else { top.sprite_ref() }
         }
-        Tile::Floor => FLOOR_VARIANTS[variation as usize].sprite_ref(),
+        Tile::Floor => {
+            let variants = match dungeon_style {
+                Some(DungeonStyle::DirtCaves) => &FLOOR_STONE,
+                Some(DungeonStyle::StoneBrick) | None => &FLOOR_STONE,
+                Some(DungeonStyle::Igneous) => &FLOOR_STONE_ALT,
+                Some(DungeonStyle::LargeStone) => &FLOOR_STONE_ALT,
+                Some(DungeonStyle::Catacombs) => &FLOOR_BONE,
+                Some(DungeonStyle::DragonLair) => &FLOOR_RED,
+            };
+            variants[variation as usize].sprite_ref()
+        }
         Tile::Grass => GRASS_VARIANTS[variation as usize].sprite_ref(),
         Tile::Road => ROAD_VARIANTS[variation as usize].sprite_ref(),
         Tile::Tree => TileSprite::Tree.sprite_ref(),
@@ -62,35 +97,55 @@ pub fn player_sprite() -> SpriteRef {
 /// Enemy sprite based on glyph character.
 pub fn enemy_sprite(glyph: char) -> SpriteRef {
     match glyph {
-        // Forest beasts
+        // Forest beasts (animals)
         'r' => MonsterSprite::GiantRat.sprite_ref(),
         'a' => MonsterSprite::GiantBat.sprite_ref(),
-        'w' => MonsterSprite::WargDireWolf.sprite_ref(),
+        'w' => AnimalSprite::Wolf.sprite_ref(),
         'i' => MonsterSprite::GiantSpider.sprite_ref(),
         'b' => AnimalSprite::Boar.sprite_ref(),
         'B' => AnimalSprite::GrizzlyBear.sprite_ref(),
         'L' => MonsterSprite::Lycanthrope.sprite_ref(),
-        // Dungeon — shallow
+        // Forest extra animals
+        'f' => AnimalSprite::Fox.sprite_ref(),
+        'n' => AnimalSprite::Cobra.sprite_ref(),
+        'h' => AnimalSprite::Cougar.sprite_ref(),
+        'j' => AnimalSprite::Badger.sprite_ref(),
+        // Dungeon — shallow (L0)
         'c' => MonsterSprite::SmallKoboldCanine.sprite_ref(),
         'S' => MonsterSprite::SmallSlime.sprite_ref(),
         'g' => MonsterSprite::Goblin.sprite_ref(),
         's' => MonsterSprite::Skeleton.sprite_ref(),
-        // Dungeon — mid
+        'e' => MonsterSprite::GiantCentipede.sprite_ref(),
+        'p' => MonsterSprite::SmallMyconid.sprite_ref(),
+        // Dungeon — mid (L1)
         'G' => MonsterSprite::GoblinArcher.sprite_ref(),
         'z' => MonsterSprite::Zombie.sprite_ref(),
         'k' => MonsterSprite::SkeletonArcher.sprite_ref(),
         'm' => MonsterSprite::BigSlime.sprite_ref(),
         'o' => MonsterSprite::Orc.sprite_ref(),
-        // Dungeon — deep
+        'A' => MonsterSprite::GiantAnt.sprite_ref(),
+        'M' => MonsterSprite::GoblinMage.sprite_ref(),
+        'H' => MonsterSprite::HagWitch.sprite_ref(),
+        // Dungeon — deep (L2)
         'u' => MonsterSprite::Ghoul.sprite_ref(),
         'O' => MonsterSprite::OrcBlademaster.sprite_ref(),
         'W' => MonsterSprite::Wraith.sprite_ref(),
         'N' => MonsterSprite::Naga.sprite_ref(),
         'T' => MonsterSprite::Troll.sprite_ref(),
+        'E' => MonsterSprite::Ettin.sprite_ref(),
+        'R' => MonsterSprite::RockGolem.sprite_ref(),
+        'Y' => MonsterSprite::Minotaur.sprite_ref(),
+        'P' => MonsterSprite::GorgonMedusa.sprite_ref(),
+        'Q' => MonsterSprite::Banshee.sprite_ref(),
         // Cave — boss floor
         'K' => MonsterSprite::DeathKnight.sprite_ref(),
         'l' => MonsterSprite::Lich.sprite_ref(),
         'D' => MonsterSprite::Dragon.sprite_ref(),
+        'd' => MonsterSprite::Drake.sprite_ref(),
+        'C' => MonsterSprite::Basilisk.sprite_ref(),
+        'I' => MonsterSprite::ImpDevil.sprite_ref(),
+        'X' => MonsterSprite::Manticore.sprite_ref(),
+        'V' => MonsterSprite::Reaper.sprite_ref(),
         _   => MonsterSprite::Goblin.sprite_ref(),
     }
 }
@@ -98,53 +153,106 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
 /// Item sprite based on item name. Each tier gets a distinct sprite.
 pub fn item_sprite(name: &str) -> SpriteRef {
     match name {
-        // Potions
+        // === Potions ===
         "Health Potion"          => ItemSprite::RedPotion.sprite_ref(),
         "Greater Health Potion"  => ItemSprite::LargeDarkPotion.sprite_ref(),
         "Superior Health Potion" => ItemSprite::GreenPotion.sprite_ref(),
-        // Scrolls
+        "Antidote"               => ItemSprite::BrightGreenPotion.sprite_ref(),
+        "Stamina Potion"         => ItemSprite::BluePotion.sprite_ref(),
+        "Elixir of Power"        => ItemSprite::OrangePotion.sprite_ref(),
+        "Poison Vial"            => ItemSprite::PurplePotion.sprite_ref(),
+
+        // === Scrolls ===
         "Scroll of Fire"      => ItemSprite::RedBook.sprite_ref(),
         "Scroll of Lightning" => ItemSprite::DarkTome.sprite_ref(),
         "Scroll of Storm"     => ItemSprite::Tome2.sprite_ref(),
-        // Weapons
+        "Scroll of Ice"       => ItemSprite::Book.sprite_ref(),
+        "Scroll of Wrath"     => ItemSprite::Tome.sprite_ref(),
+
+        // === Melee weapons — Tier 0 (shallow/overworld) ===
         "Rusty Sword"     => ItemSprite::ShortSword.sprite_ref(),
-        "Iron Sword"      => ItemSprite::LongSword.sprite_ref(),
-        "Enchanted Blade" => ItemSprite::CrystalSword.sprite_ref(),
         "Iron Dagger"     => ItemSprite::Dagger.sprite_ref(),
+        "Wooden Club"     => ItemSprite::Club.sprite_ref(),
+        "Hand Axe"        => ItemSprite::HandAxe.sprite_ref(),
+        "Wooden Spear"    => ItemSprite::ShortSpear.sprite_ref(),
+        "Kukri"           => ItemSprite::Kukri.sprite_ref(),
+
+        // === Melee weapons — Tier 1 (mid) ===
+        "Iron Sword"      => ItemSprite::LongSword.sprite_ref(),
         "Battle Axe"      => ItemSprite::BattleAxe.sprite_ref(),
         "War Hammer"      => ItemSprite::Hammer.sprite_ref(),
-        "Wooden Club"     => ItemSprite::Club.sprite_ref(),
+        "Scimitar"        => ItemSprite::Scimitar.sprite_ref(),
+        "Mace"            => ItemSprite::Mace1.sprite_ref(),
+        "Spear"           => ItemSprite::Spear.sprite_ref(),
+        "Flail"           => ItemSprite::Flail1.sprite_ref(),
+        "Rapier"          => ItemSprite::Rapier.sprite_ref(),
+        "Spiked Club"     => ItemSprite::SpikedClub.sprite_ref(),
+
+        // === Melee weapons — Tier 2 (deep) ===
+        "Enchanted Blade" => ItemSprite::CrystalSword.sprite_ref(),
         "Crystal Staff"   => ItemSprite::CrystalStaff.sprite_ref(),
         "Flame Sword"     => ItemSprite::FlameSword.sprite_ref(),
-        // Ranged weapons
+        "Great Axe"       => ItemSprite::GreatAxe.sprite_ref(),
+        "Great Hammer"    => ItemSprite::GreatHammer.sprite_ref(),
+        "Trident"         => ItemSprite::Trident.sprite_ref(),
+        "Bastard Sword"   => ItemSprite::BastardSword.sprite_ref(),
+        "Evil Blade"      => ItemSprite::EvilSword.sprite_ref(),
+        "Halberd"         => ItemSprite::Halberd.sprite_ref(),
+        "Great Scimitar"  => ItemSprite::GreatScimitar.sprite_ref(),
+        "Flamberge"       => ItemSprite::Flamberge.sprite_ref(),
+        "Great Mace"      => ItemSprite::GreatMace.sprite_ref(),
+        "Magic Spear"     => ItemSprite::MagicSpear.sprite_ref(),
+        "Holy Staff"      => ItemSprite::HolyStaff.sprite_ref(),
+        "Flame Staff"     => ItemSprite::FlameStaff.sprite_ref(),
+
+        // === Ranged weapons ===
         "Short Bow"       => ItemSprite::ShortBow.sprite_ref(),
         "Crossbow"        => ItemSprite::Crossbow.sprite_ref(),
         "Long Bow"        => ItemSprite::LongBow.sprite_ref(),
         "Heavy Crossbow"  => ItemSprite::LargeCrossbow.sprite_ref(),
         "Elven Bow"       => ItemSprite::LongBow2.sprite_ref(),
-        // Body armor
+
+        // === Body armor ===
+        "Cloth Armor"    => ItemSprite::ClothArmor.sprite_ref(),
         "Leather Armor"  => ItemSprite::LeatherArmor.sprite_ref(),
         "Chain Mail"     => ItemSprite::ChainMail.sprite_ref(),
+        "Scale Mail"     => ItemSprite::ScaleMail.sprite_ref(),
         "Dragon Scale"   => ItemSprite::ChestPlate.sprite_ref(),
-        // Shields
+        "Robe"           => ItemSprite::Robe.sprite_ref(),
+
+        // === Shields ===
         "Wooden Shield"  => ItemSprite::Buckler.sprite_ref(),
         "Iron Shield"    => ItemSprite::KiteShield.sprite_ref(),
+        "Cross Shield"   => ItemSprite::CrossShield.sprite_ref(),
+        "Dark Shield"    => ItemSprite::DarkShield.sprite_ref(),
+        "Round Shield"   => ItemSprite::RoundShield.sprite_ref(),
         "Tower Shield"   => ItemSprite::LargeShield.sprite_ref(),
-        // Helmets
+
+        // === Helmets ===
+        "Cloth Hood"     => ItemSprite::ClothHood.sprite_ref(),
         "Leather Cap"    => ItemSprite::LeatherHelm.sprite_ref(),
         "Iron Helmet"    => ItemSprite::Helm.sprite_ref(),
+        "Chain Coif"     => ItemSprite::ChainMailCoif.sprite_ref(),
         "Mithril Helm"   => ItemSprite::PlateHelm1.sprite_ref(),
-        // Boots
+        "Plate Helm"     => ItemSprite::PlateHelm2.sprite_ref(),
+
+        // === Boots ===
         "Leather Boots"  => ItemSprite::LeatherBoots.sprite_ref(),
         "Chain Boots"    => ItemSprite::HighBlueBoots.sprite_ref(),
         "Plate Boots"    => ItemSprite::Greaves.sprite_ref(),
-        // Rings
+        "Shoes"          => ItemSprite::Shoes.sprite_ref(),
+
+        // === Rings ===
         "Copper Ring"   => ItemSprite::GoldBandRing.sprite_ref(),
         "Silver Ring"   => ItemSprite::SilverSignetRing.sprite_ref(),
         "Ruby Ring"     => ItemSprite::RubyRing.sprite_ref(),
         "Gold Ring"     => ItemSprite::TwistedGoldRing.sprite_ref(),
         "Diamond Ring"  => ItemSprite::SapphireRing.sprite_ref(),
-        // Food — forageables
+        "Jade Ring"     => ItemSprite::JadeRing.sprite_ref(),
+        "Emerald Ring"  => ItemSprite::GoldEmeraldRing.sprite_ref(),
+        "Onyx Ring"     => ItemSprite::OnyxRing.sprite_ref(),
+
+        // === Food — forageables ===
         "Wild Berries"   => ItemSprite::Apple.sprite_ref(),
         "Wild Mushrooms" => TileSprite::SmallMushrooms.sprite_ref(),
         "Clean Water"    => ItemSprite::BottleOfWater.sprite_ref(),
@@ -159,12 +267,18 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Sorghum"        => TileSprite::Sorghum.sprite_ref(),
         "Buckwheat"      => TileSprite::Buckwheat.sprite_ref(),
         // Food — meats
+        "Rat Meat"       => ItemSprite::Bread.sprite_ref(),
         "Wolf Meat"      => ItemSprite::Bread.sprite_ref(),
         "Boar Meat"      => ItemSprite::Bread.sprite_ref(),
         "Bear Meat"      => ItemSprite::Bread.sprite_ref(),
+        "Fox Meat"       => ItemSprite::Bread.sprite_ref(),
+        "Venison"        => ItemSprite::Bread.sprite_ref(),
+        "Snake Meat"     => ItemSprite::Cheese.sprite_ref(),
+        "Stolen Rations" => ItemSprite::Bread.sprite_ref(),
         // Food — dungeon provisions
         "Stale Bread"    => ItemSprite::Bread.sprite_ref(),
         "Waterskin"      => ItemSprite::BottleOfWater.sprite_ref(),
+        "Cheese Wedge"   => ItemSprite::Cheese.sprite_ref(),
         "Dried Rations"  => ItemSprite::Bread.sprite_ref(),
         "Dwarven Ale"    => ItemSprite::BottleOfBeer.sprite_ref(),
         "Elven Waybread" => ItemSprite::Bread.sprite_ref(),
@@ -177,9 +291,6 @@ pub fn item_sprite(name: &str) -> SpriteRef {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sprite_atlas::animals::AnimalSprite;
-    use crate::sprite_atlas::monsters::MonsterSprite;
-    use crate::sprite_atlas::items::ItemSprite;
 
     // --- SpriteRef pixel offsets ---
 
@@ -199,15 +310,15 @@ mod tests {
             Tile::Tree, Tile::DungeonEntrance, Tile::StairsDown, Tile::StairsUp,
         ];
         for tile in tiles {
-            let s = tile_sprite(tile, 10, 20, false);
+            let s = tile_sprite(tile, 10, 20, false, None);
             assert_eq!(s.sheet, Sheet::Tiles, "tile {:?} should use Tiles sheet", tile);
         }
     }
 
     #[test]
     fn wall_top_vs_face() {
-        let top = tile_sprite(Tile::Wall, 0, 0, false);
-        let face = tile_sprite(Tile::Wall, 0, 0, true);
+        let top = tile_sprite(Tile::Wall, 0, 0, false, None);
+        let face = tile_sprite(Tile::Wall, 0, 0, true, None);
         assert_eq!(top, TileSprite::StoneBrickWallTop.sprite_ref());
         assert_eq!(face, TileSprite::StoneBrickWallSide1.sprite_ref());
     }
@@ -216,7 +327,7 @@ mod tests {
     fn floor_variation_produces_all_variants() {
         let mut seen = [false; 3];
         for x in 0..100 {
-            let s = tile_sprite(Tile::Floor, x, 0, false);
+            let s = tile_sprite(Tile::Floor, x, 0, false, None);
             assert_eq!(s.row, TileSprite::FloorStone1.sprite_ref().row);
             let idx = (s.col - TileSprite::FloorStone1.sprite_ref().col) as usize;
             assert!(idx < 3, "floor variant index {} out of range", idx);
@@ -229,7 +340,7 @@ mod tests {
     fn grass_variation_produces_all_variants() {
         let mut seen = [false; 3];
         for x in 0..100 {
-            let s = tile_sprite(Tile::Grass, x, 0, false);
+            let s = tile_sprite(Tile::Grass, x, 0, false, None);
             assert_eq!(s.row, TileSprite::Grass1.sprite_ref().row);
             let idx = (s.col - TileSprite::Grass1.sprite_ref().col) as usize;
             assert!(idx < 3);
@@ -242,7 +353,7 @@ mod tests {
     fn road_variation_produces_all_variants() {
         let mut seen = [false; 3];
         for x in 0..100 {
-            let s = tile_sprite(Tile::Road, x, 0, false);
+            let s = tile_sprite(Tile::Road, x, 0, false, None);
             assert_eq!(s.row, TileSprite::Dirt1.sprite_ref().row);
             let idx = (s.col - TileSprite::Dirt1.sprite_ref().col) as usize;
             assert!(idx < 3);
@@ -253,22 +364,48 @@ mod tests {
 
     #[test]
     fn tree_sprite_fixed() {
-        let s = tile_sprite(Tile::Tree, 42, 99, false);
+        let s = tile_sprite(Tile::Tree, 42, 99, false, None);
         assert_eq!(s, TileSprite::Tree.sprite_ref());
     }
 
     #[test]
     fn dungeon_entrance_sprite() {
-        let s = tile_sprite(Tile::DungeonEntrance, 0, 0, false);
+        let s = tile_sprite(Tile::DungeonEntrance, 0, 0, false, None);
         assert_eq!(s, TileSprite::Door1.sprite_ref());
     }
 
     #[test]
     fn stairs_sprites() {
-        let down = tile_sprite(Tile::StairsDown, 0, 0, false);
+        let down = tile_sprite(Tile::StairsDown, 0, 0, false, None);
         assert_eq!(down, TileSprite::StaircaseDown.sprite_ref());
-        let up = tile_sprite(Tile::StairsUp, 0, 0, false);
+        let up = tile_sprite(Tile::StairsUp, 0, 0, false, None);
         assert_eq!(up, TileSprite::StaircaseUp.sprite_ref());
+    }
+
+    // --- Dungeon styles produce different wall sprites ---
+
+    #[test]
+    fn dungeon_styles_give_different_walls() {
+        let styles = [
+            DungeonStyle::DirtCaves, DungeonStyle::StoneBrick,
+            DungeonStyle::Igneous, DungeonStyle::LargeStone,
+            DungeonStyle::Catacombs, DungeonStyle::DragonLair,
+        ];
+        let mut wall_tops = std::collections::HashSet::new();
+        for style in styles {
+            let s = tile_sprite(Tile::Wall, 0, 0, false, Some(style));
+            wall_tops.insert((s.row, s.col));
+        }
+        assert!(wall_tops.len() >= 4, "should have at least 4 distinct wall styles");
+    }
+
+    #[test]
+    fn dungeon_styles_give_different_floors() {
+        let catacombs = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::Catacombs));
+        let stone = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::StoneBrick));
+        let dragon = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::DragonLair));
+        assert_ne!(catacombs, dragon);
+        assert_ne!(catacombs, stone);
     }
 
     // --- Entity sprites ---
@@ -301,7 +438,7 @@ mod tests {
 
     #[test]
     fn enemy_sprite_wolf() {
-        assert_eq!(enemy_sprite('w'), MonsterSprite::WargDireWolf.sprite_ref());
+        assert_eq!(enemy_sprite('w'), AnimalSprite::Wolf.sprite_ref());
     }
 
     #[test]
@@ -324,19 +461,33 @@ mod tests {
         assert_eq!(enemy_sprite('?'), MonsterSprite::Goblin.sprite_ref());
     }
 
+    #[test]
+    fn enemy_sprite_new_enemies_within_bounds() {
+        // All new forest animals
+        for g in ['f', 'n', 'h', 'j'] {
+            let s = enemy_sprite(g);
+            assert!(s.row < 17, "glyph '{}' row {} out of bounds", g, s.row);
+        }
+        // All new dungeon enemies
+        for g in ['e', 'p', 'A', 'M', 'H', 'E', 'R', 'Y', 'P', 'Q', 'd', 'C', 'I', 'X', 'V'] {
+            let s = enemy_sprite(g);
+            assert!(s.row < 13, "glyph '{}' row {} out of bounds", g, s.row);
+        }
+    }
+
     // --- Variation determinism ---
 
     #[test]
     fn variation_is_deterministic() {
-        let a = tile_sprite(Tile::Floor, 10, 20, false);
-        let b = tile_sprite(Tile::Floor, 10, 20, false);
+        let a = tile_sprite(Tile::Floor, 10, 20, false, None);
+        let b = tile_sprite(Tile::Floor, 10, 20, false, None);
         assert_eq!(a, b, "same coords should always give same sprite");
     }
 
     #[test]
     fn variation_changes_with_position() {
-        let a = tile_sprite(Tile::Floor, 0, 0, false);
-        let b = tile_sprite(Tile::Floor, 1, 0, false);
+        let a = tile_sprite(Tile::Floor, 0, 0, false, None);
+        let b = tile_sprite(Tile::Floor, 1, 0, false, None);
         assert_ne!(a.col, b.col, "different positions should vary");
     }
 
@@ -348,15 +499,26 @@ mod tests {
             Tile::Wall, Tile::Floor, Tile::Grass, Tile::Road,
             Tile::Tree, Tile::DungeonEntrance, Tile::StairsDown, Tile::StairsUp,
         ];
+        let styles = [
+            None,
+            Some(DungeonStyle::DirtCaves),
+            Some(DungeonStyle::StoneBrick),
+            Some(DungeonStyle::Igneous),
+            Some(DungeonStyle::LargeStone),
+            Some(DungeonStyle::Catacombs),
+            Some(DungeonStyle::DragonLair),
+        ];
         for tile in tiles {
-            for x in 0..10 {
-                for y in 0..10 {
-                    let s = tile_sprite(tile, x, y, false);
-                    assert!(s.row < 26, "{:?} row {} >= 26", tile, s.row);
-                    assert!(s.col < 17, "{:?} col {} >= 17", tile, s.col);
-                    let s2 = tile_sprite(tile, x, y, true);
-                    assert!(s2.row < 26, "{:?} wall_face row {} >= 26", tile, s2.row);
-                    assert!(s2.col < 17, "{:?} wall_face col {} >= 17", tile, s2.col);
+            for &style in &styles {
+                for x in 0..10 {
+                    for y in 0..10 {
+                        let s = tile_sprite(tile, x, y, false, style);
+                        assert!(s.row < 26, "{:?} {:?} row {} >= 26", tile, style, s.row);
+                        assert!(s.col < 17, "{:?} {:?} col {} >= 17", tile, style, s.col);
+                        let s2 = tile_sprite(tile, x, y, true, style);
+                        assert!(s2.row < 26, "{:?} wall_face {:?} row {} >= 26", tile, style, s2.row);
+                        assert!(s2.col < 17, "{:?} wall_face {:?} col {} >= 17", tile, style, s2.col);
+                    }
                 }
             }
         }
@@ -365,31 +527,27 @@ mod tests {
     #[test]
     fn monster_sprites_within_sheet_bounds() {
         let monster_glyphs = [
-            // Forest (non-animal)
-            'r', 'a', 'w', 'i', 'L',
-            // Dungeon shallow
-            'c', 'S', 'g', 's',
-            // Dungeon mid
-            'G', 'z', 'k', 'm', 'o',
-            // Dungeon deep
-            'u', 'O', 'W', 'N', 'T',
-            // Cave boss
-            'K', 'l', 'D',
-            // Unknown fallback
+            'r', 'a', 'i', 'L',
+            'f', 'n', 'h', 'j',
+            'c', 'S', 'g', 's', 'e', 'p',
+            'G', 'z', 'k', 'm', 'o', 'A', 'M', 'H',
+            'u', 'O', 'W', 'N', 'T', 'E', 'R', 'Y', 'P', 'Q',
+            'K', 'l', 'D', 'd', 'C', 'I', 'X', 'V',
             '?',
         ];
         for glyph in monster_glyphs {
             let s = enemy_sprite(glyph);
-            assert!(s.row < 13, "glyph '{}' row {} >= 13", glyph, s.row);
-            assert!(s.col < 12, "glyph '{}' col {} >= 12", glyph, s.col);
-        }
-        // Boar and Bear use Animal sheet
-        let animal_glyphs = ['b', 'B'];
-        for glyph in animal_glyphs {
-            let s = enemy_sprite(glyph);
-            assert_eq!(s.sheet, Sheet::Animals, "glyph '{}' should use Animals sheet", glyph);
-            assert!(s.row < 17, "glyph '{}' row {} >= 17", glyph, s.row);
-            assert!(s.col < 9, "glyph '{}' col {} >= 9", glyph, s.col);
+            match s.sheet {
+                Sheet::Monsters => {
+                    assert!(s.row < 13, "glyph '{}' row {} >= 13", glyph, s.row);
+                    assert!(s.col < 12, "glyph '{}' col {} >= 12", glyph, s.col);
+                }
+                Sheet::Animals => {
+                    assert!(s.row < 17, "glyph '{}' row {} >= 17", glyph, s.row);
+                    assert!(s.col < 9, "glyph '{}' col {} >= 9", glyph, s.col);
+                }
+                _ => panic!("glyph '{}' uses unexpected sheet {:?}", glyph, s.sheet),
+            }
         }
     }
 
@@ -406,16 +564,28 @@ mod tests {
     fn item_sprites_within_sheet_bounds() {
         let names = [
             "Health Potion", "Greater Health Potion", "Superior Health Potion",
+            "Antidote", "Stamina Potion", "Elixir of Power", "Poison Vial",
             "Scroll of Fire", "Scroll of Lightning", "Scroll of Storm",
+            "Scroll of Ice", "Scroll of Wrath",
             "Rusty Sword", "Iron Sword", "Enchanted Blade",
-            "Leather Armor", "Chain Mail", "Dragon Scale",
+            "Hand Axe", "Battle Axe", "Great Axe",
+            "Mace", "Great Mace", "Trident", "Halberd",
+            "Leather Armor", "Chain Mail", "Scale Mail", "Dragon Scale",
             "unknown_fallback",
         ];
         for name in names {
             let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row < 26, "{name} row {} >= 26", s.row);
-            assert!(s.col < 11, "{name} col {} >= 11", s.col);
+            match s.sheet {
+                Sheet::Items => {
+                    assert!(s.row < 26, "{name} row {} >= 26", s.row);
+                    assert!(s.col < 11, "{name} col {} >= 11", s.col);
+                }
+                Sheet::Tiles => {
+                    assert!(s.row < 26, "{name} Tiles row {} >= 26", s.row);
+                    assert!(s.col < 17, "{name} Tiles col {} >= 17", s.col);
+                }
+                _ => panic!("{name} unexpected sheet {:?}", s.sheet),
+            }
         }
     }
 
@@ -453,157 +623,11 @@ mod tests {
     }
 
     #[test]
-    fn item_sprite_armor_uses_armor_sprites() {
-        assert_eq!(item_sprite("Leather Armor"), ItemSprite::LeatherArmor.sprite_ref());
-        assert_eq!(item_sprite("Chain Mail"), ItemSprite::ChainMail.sprite_ref());
-        assert_eq!(item_sprite("Dragon Scale"), ItemSprite::ChestPlate.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_shields() {
-        assert_eq!(item_sprite("Wooden Shield"), ItemSprite::Buckler.sprite_ref());
-        assert_eq!(item_sprite("Iron Shield"), ItemSprite::KiteShield.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_helmets() {
-        assert_eq!(item_sprite("Leather Cap"), ItemSprite::LeatherHelm.sprite_ref());
-        assert_eq!(item_sprite("Iron Helmet"), ItemSprite::Helm.sprite_ref());
-        assert_eq!(item_sprite("Mithril Helm"), ItemSprite::PlateHelm1.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_boots() {
-        assert_eq!(item_sprite("Plate Boots"), ItemSprite::Greaves.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_food_uses_correct_sprites() {
-        // Foods using item sprites (row 25)
-        let item_foods = [
-            "Wild Berries", "Wolf Meat", "Boar Meat", "Bear Meat",
-            "Stale Bread", "Dried Rations", "Elven Waybread",
-        ];
-        for name in item_foods {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert_eq!(s.row, 25, "{name} should be on food row 25");
-        }
-        // Drinks on row 24-25 (BottleOfBeer=25, BottleOfWater=24)
-        let drinks = ["Clean Water", "Waterskin", "Dwarven Ale", "Honey Mead"];
-        for name in drinks {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row == 24 || s.row == 25, "{name} row {} not in 24-25", s.row);
-        }
-        // Foraged plants use tile sprites (row 19-20)
-        let plant_foods = [
-            "Wild Mushrooms", "Wild Wheat", "Wild Rice", "Wild Corn",
-            "Quinoa Seeds", "Amaranth", "Red Spinach", "Bitter Vetch",
-            "Sorghum", "Buckwheat",
-        ];
-        for name in plant_foods {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Tiles, "{name} should use Tiles sheet");
-            assert!(s.row == 19 || s.row == 20,
-                "{name} should be on crop row 19 or mushroom row 20, got {}", s.row);
-        }
-    }
-
-    #[test]
-    fn food_sprites_within_sheet_bounds() {
-        let all_food = [
-            // Forageables (item sprites)
-            "Wild Berries", "Clean Water",
-            // Foraged plants (tile sprites)
-            "Wild Mushrooms", "Wild Wheat", "Wild Rice", "Wild Corn",
-            "Quinoa Seeds", "Amaranth", "Red Spinach", "Bitter Vetch",
-            "Sorghum", "Buckwheat",
-            // Meats
-            "Wolf Meat", "Boar Meat", "Bear Meat",
-            // Dungeon provisions
-            "Stale Bread", "Waterskin", "Dried Rations", "Dwarven Ale",
-            "Elven Waybread", "Honey Mead",
-        ];
-        for name in all_food {
-            let s = item_sprite(name);
-            match s.sheet {
-                Sheet::Items => {
-                    assert!(s.row < 26, "{name} Items row {} >= 26", s.row);
-                    assert!(s.col < 11, "{name} Items col {} >= 11", s.col);
-                }
-                Sheet::Tiles => {
-                    assert!(s.row < 26, "{name} Tiles row {} >= 26", s.row);
-                    assert!(s.col < 17, "{name} Tiles col {} >= 17", s.col);
-                }
-                _ => panic!("{name} uses unexpected sheet {:?}", s.sheet),
-            }
-        }
-    }
-
-    #[test]
-    fn item_sprite_new_weapons_within_bounds() {
-        let names = ["Iron Dagger", "Battle Axe", "War Hammer", "Wooden Club", "Crystal Staff", "Flame Sword"];
-        for name in names {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row < 26, "{name} row {} >= 26", s.row);
-            assert!(s.col < 11, "{name} col {} >= 11", s.col);
-        }
-    }
-
-    #[test]
-    fn item_sprite_new_armor_within_bounds() {
-        let names = ["Wooden Shield", "Iron Shield", "Leather Cap", "Iron Helmet", "Mithril Helm", "Plate Boots"];
-        for name in names {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row < 26, "{name} row {} >= 26", s.row);
-            assert!(s.col < 11, "{name} col {} >= 11", s.col);
-        }
-    }
-
-    #[test]
-    fn item_sprite_rings_use_ring_sprites() {
-        let names = ["Copper Ring", "Silver Ring", "Ruby Ring", "Gold Ring", "Diamond Ring"];
-        for name in names {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row == 17 || s.row == 18, "{name} should be on ring row 17 or 18, got {}", s.row);
-        }
-    }
-
-    #[test]
-    fn item_sprite_new_boots() {
-        assert_eq!(item_sprite("Leather Boots"), ItemSprite::LeatherBoots.sprite_ref());
-        assert_eq!(item_sprite("Chain Boots"), ItemSprite::HighBlueBoots.sprite_ref());
-        assert_eq!(item_sprite("Plate Boots"), ItemSprite::Greaves.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_tower_shield() {
-        assert_eq!(item_sprite("Tower Shield"), ItemSprite::LargeShield.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_new_items_within_bounds() {
-        let names = ["Leather Boots", "Chain Boots", "Tower Shield"];
-        for name in names {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row < 26, "{name} row {} >= 26", s.row);
-            assert!(s.col < 11, "{name} col {} >= 11", s.col);
-        }
-    }
-
-    #[test]
     fn item_sprite_tiers_differ() {
         assert_ne!(item_sprite("Health Potion"), item_sprite("Greater Health Potion"));
         assert_ne!(item_sprite("Rusty Sword"), item_sprite("Iron Sword"));
         assert_ne!(item_sprite("Leather Armor"), item_sprite("Chain Mail"));
     }
-
-    // --- Ranged weapon sprites ---
 
     #[test]
     fn item_sprite_ranged_weapons() {
@@ -612,23 +636,5 @@ mod tests {
         assert_eq!(item_sprite("Long Bow"), ItemSprite::LongBow.sprite_ref());
         assert_eq!(item_sprite("Heavy Crossbow"), ItemSprite::LargeCrossbow.sprite_ref());
         assert_eq!(item_sprite("Elven Bow"), ItemSprite::LongBow2.sprite_ref());
-    }
-
-    #[test]
-    fn item_sprite_ranged_weapons_within_bounds() {
-        let names = ["Short Bow", "Crossbow", "Long Bow", "Heavy Crossbow", "Elven Bow"];
-        for name in names {
-            let s = item_sprite(name);
-            assert_eq!(s.sheet, Sheet::Items, "{name} should use Items sheet");
-            assert!(s.row < 26, "{name} row {} >= 26", s.row);
-            assert!(s.col < 11, "{name} col {} >= 11", s.col);
-        }
-    }
-
-    #[test]
-    fn item_sprite_ranged_tiers_differ() {
-        assert_ne!(item_sprite("Short Bow"), item_sprite("Long Bow"));
-        assert_ne!(item_sprite("Long Bow"), item_sprite("Elven Bow"));
-        assert_ne!(item_sprite("Crossbow"), item_sprite("Heavy Crossbow"));
     }
 }

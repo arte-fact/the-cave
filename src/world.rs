@@ -1,5 +1,5 @@
 use crate::game::{Enemy, GroundItem};
-use crate::map::{Dungeon, Map};
+use crate::map::{Dungeon, DungeonStyle, Map};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Location {
@@ -80,6 +80,19 @@ impl World {
         self.dungeon_entrances
             .iter()
             .position(|&(ex, ey)| ex == x && ey == y)
+    }
+
+    /// Get the visual style of the current dungeon level.
+    /// Returns None on the overworld.
+    pub fn current_dungeon_style(&self) -> Option<DungeonStyle> {
+        match &self.location {
+            Location::Overworld => None,
+            Location::Dungeon { index, level } => {
+                self.dungeons.get(*index)
+                    .and_then(|d| d.styles.get(*level))
+                    .copied()
+            }
+        }
     }
 }
 
