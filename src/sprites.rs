@@ -39,6 +39,24 @@ const FLOOR_RED: [TileSprite; 3] = [
     TileSprite::RedStoneFloor3,
 ];
 
+const FLOOR_BLUE: [TileSprite; 3] = [
+    TileSprite::BlueStoneFloor1,
+    TileSprite::BlueStoneFloor2,
+    TileSprite::BlueStoneFloor3,
+];
+
+const FLOOR_GREEN_DIRT: [TileSprite; 3] = [
+    TileSprite::GreenDirt1,
+    TileSprite::GreenDirt2,
+    TileSprite::GreenDirt3,
+];
+
+const FLOOR_DARK_BONES: [TileSprite; 3] = [
+    TileSprite::DarkBrownBones1,
+    TileSprite::DarkBrownBones2,
+    TileSprite::DarkBrownBones3,
+];
+
 const GRASS_VARIANTS: [TileSprite; 3] = [
     TileSprite::Grass1,
     TileSprite::Grass2,
@@ -60,12 +78,18 @@ pub fn tile_sprite(tile: Tile, x: i32, y: i32, wall_face: bool, dungeon_style: O
     match tile {
         Tile::Wall => {
             let (top, side) = match dungeon_style {
-                Some(DungeonStyle::DirtCaves) => (TileSprite::DirtWallTop, TileSprite::DirtWallSide),
-                Some(DungeonStyle::StoneBrick) | None => (TileSprite::StoneBrickWallTop, TileSprite::StoneBrickWallSide1),
-                Some(DungeonStyle::Igneous) => (TileSprite::IgneousWallTop, TileSprite::IgneousWallSide),
-                Some(DungeonStyle::LargeStone) => (TileSprite::LargeStoneWallTop, TileSprite::LargeStoneWallSide),
-                Some(DungeonStyle::Catacombs) => (TileSprite::CatacombsWallTop, TileSprite::CatacombsWallSide),
-                Some(DungeonStyle::DragonLair) => (TileSprite::IgneousWallTop, TileSprite::IgneousWallSide),
+                Some(DungeonStyle::DirtCaves) | Some(DungeonStyle::SerpentPit) =>
+                    (TileSprite::DirtWallTop, TileSprite::DirtWallSide),
+                Some(DungeonStyle::StoneBrick) | None =>
+                    (TileSprite::StoneBrickWallTop, TileSprite::StoneBrickWallSide1),
+                Some(DungeonStyle::Igneous) | Some(DungeonStyle::DragonLair) | Some(DungeonStyle::AbyssalTemple) =>
+                    (TileSprite::IgneousWallTop, TileSprite::IgneousWallSide),
+                Some(DungeonStyle::LargeStone) =>
+                    (TileSprite::LargeStoneWallTop, TileSprite::LargeStoneWallSide),
+                Some(DungeonStyle::Catacombs) | Some(DungeonStyle::DarkBones) =>
+                    (TileSprite::CatacombsWallTop, TileSprite::CatacombsWallSide),
+                Some(DungeonStyle::FungalCave) | Some(DungeonStyle::BeastDen) =>
+                    (TileSprite::RoughStoneWallTop, TileSprite::RoughStoneWallSide),
             };
             if wall_face { side.sprite_ref() } else { top.sprite_ref() }
         }
@@ -77,6 +101,9 @@ pub fn tile_sprite(tile: Tile, x: i32, y: i32, wall_face: bool, dungeon_style: O
                 Some(DungeonStyle::LargeStone) => &FLOOR_STONE_ALT,
                 Some(DungeonStyle::Catacombs) => &FLOOR_BONE,
                 Some(DungeonStyle::DragonLair) => &FLOOR_RED,
+                Some(DungeonStyle::FungalCave) | Some(DungeonStyle::SerpentPit) => &FLOOR_GREEN_DIRT,
+                Some(DungeonStyle::BeastDen) | Some(DungeonStyle::DarkBones) => &FLOOR_DARK_BONES,
+                Some(DungeonStyle::AbyssalTemple) => &FLOOR_BLUE,
             };
             variants[variation as usize].sprite_ref()
         }
@@ -165,6 +192,20 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         'I' => MonsterSprite::ImpDevil.sprite_ref(),
         'X' => MonsterSprite::Manticore.sprite_ref(),
         'V' => MonsterSprite::Reaper.sprite_ref(),
+        // Biome-specific — previously unused sprites
+        '$' => MonsterSprite::Harpy.sprite_ref(),
+        '~' => MonsterSprite::Cockatrice.sprite_ref(),
+        '>' => MonsterSprite::LizardfolkKobold.sprite_ref(),
+        '{' => MonsterSprite::KoboldCanine.sprite_ref(),
+        '}' => MonsterSprite::OrcWizard.sprite_ref(),
+        '^' => MonsterSprite::TwoHeadedEttin.sprite_ref(),
+        '[' => MonsterSprite::Lampreymander.sprite_ref(),
+        ']' => MonsterSprite::GiantEarthworm.sprite_ref(),
+        '<' => MonsterSprite::LesserGiantSpider.sprite_ref(),
+        'U' => MonsterSprite::WargDireWolf.sprite_ref(),
+        '!' => MonsterSprite::Cultist.sprite_ref(),
+        '(' => MonsterSprite::SmallWrithingMass.sprite_ref(),
+        ')' => MonsterSprite::WrithingHumanoid.sprite_ref(),
         _   => MonsterSprite::Goblin.sprite_ref(),
     }
 }

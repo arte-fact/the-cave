@@ -70,7 +70,7 @@ fn cave_has_enough_floor() {
 
 #[test]
 fn dungeon_with_cave_has_4_levels() {
-    let d = Dungeon::generate(3, 42, true);
+    let d = Dungeon::generate(3, 42, true, DungeonBiome::DragonLair);
     assert_eq!(d.levels.len(), 4, "dragon dungeon should have 4 levels");
     // Cave level is 80x60
     assert_eq!((d.levels[3].width, d.levels[3].height), (80, 60));
@@ -78,14 +78,14 @@ fn dungeon_with_cave_has_4_levels() {
 
 #[test]
 fn dungeon_without_cave_has_3_levels() {
-    let d = Dungeon::generate(3, 42, false);
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
     assert_eq!(d.levels.len(), 3);
 }
 
 #[test]
 fn cave_dungeon_level2_has_stairs_down() {
     // With a cave, level 2 (the last BSP level) should have StairsDown connecting to cave
-    let d = Dungeon::generate(3, 42, true);
+    let d = Dungeon::generate(3, 42, true, DungeonBiome::DragonLair);
     let level2 = &d.levels[2];
     let has_down = (0..level2.height)
         .flat_map(|y| (0..level2.width).map(move |x| (x, y)))

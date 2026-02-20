@@ -232,18 +232,10 @@ impl Game {
                 if *level == total - 1 && total == 4 {
                     format!("Dragon's Lair (B{})", depth)
                 } else {
-                    let style_name = self.world.dungeons.get(*index)
-                        .and_then(|d| d.styles.get(*level))
-                        .map(|s| match s {
-                            crate::map::DungeonStyle::DirtCaves => "Dirt Caves",
-                            crate::map::DungeonStyle::StoneBrick => "Stone Dungeon",
-                            crate::map::DungeonStyle::Igneous => "Volcanic Dungeon",
-                            crate::map::DungeonStyle::LargeStone => "Ancient Ruins",
-                            crate::map::DungeonStyle::Catacombs => "Catacombs",
-                            crate::map::DungeonStyle::DragonLair => "Dragon's Lair",
-                        })
+                    let biome_name = self.world.dungeons.get(*index)
+                        .map(|d| d.biome.name())
                         .unwrap_or("Dungeon");
-                    format!("{} {} (B{})", style_name, index + 1, depth)
+                    format!("{} {} (B{})", biome_name, index + 1, depth)
                 }
             }
         }

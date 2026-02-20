@@ -104,14 +104,22 @@ fn dungeon_enemies_spawn_on_walkable() {
 }
 
 #[test]
-fn dungeon_has_classic_enemies() {
+fn dungeon_has_biome_appropriate_enemies() {
     let mut g = overworld_game();
     g.enter_dungeon(0);
-    // Level 0: rats, kobolds, slimes, goblins, skeletons
-    let l0_glyphs = ['r', 'c', 'S', 'g', 's'];
+    // Valid L0 glyphs across all dungeon biomes
+    let valid_l0_glyphs = [
+        'r', 'c', 'S', 'g', 'e', 's',   // Goblin Warren
+        'z', 'a',                          // Undead Crypt extras
+        'p', ']', 't',                     // Fungal Grotto extras
+        'o', '{', '3', 'A',               // Orc Stronghold extras
+        '!', '6', 'W',                     // Abyssal Temple extras
+        '<', 'n', 'w',                     // Beast Den extras
+        '>',                               // Serpent Pit extras
+    ];
     for e in &g.enemies {
         assert!(
-            l0_glyphs.contains(&e.glyph),
+            valid_l0_glyphs.contains(&e.glyph),
             "unexpected dungeon L0 enemy: {} ('{}')", e.name, e.glyph
         );
     }

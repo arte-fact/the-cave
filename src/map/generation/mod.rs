@@ -2,8 +2,10 @@ mod cave;
 mod forest;
 mod dungeon;
 mod roads;
+pub(crate) mod biome;
 
 pub use dungeon::{Dungeon, DungeonStyle};
+pub use biome::{DungeonBiome, OverworldBiome};
 
 use super::{Map, Tile};
 
