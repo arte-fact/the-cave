@@ -243,6 +243,12 @@ impl Game {
             return TurnResult::Blocked;
         }
 
+        let cost = self.config.combat.melee_stamina_cost;
+        if self.stamina < cost {
+            self.messages.push("Too exhausted to attack! No stamina.".into());
+            return TurnResult::Blocked;
+        }
+
         let dx = tx - self.player_x;
         let dy = ty - self.player_y;
         if dx < 0 { self.player_facing_left = true; }
@@ -251,6 +257,8 @@ impl Game {
         let Some(idx) = self.enemies.iter().position(|e| e.x == tx && e.y == ty && e.hp > 0) else {
             return TurnResult::Blocked;
         };
+
+        self.stamina -= cost;
 
         let atk = self.effective_attack();
         let edef = self.enemies[idx].defense;
@@ -341,6 +349,12 @@ impl Game {
             return TurnResult::Blocked;
         }
 
+        let cost = self.config.combat.ranged_stamina_cost;
+        if self.stamina < cost {
+            self.messages.push("Too exhausted to shoot! No stamina.".into());
+            return TurnResult::Blocked;
+        }
+
         if tx < self.player_x { self.player_facing_left = true; }
         if tx > self.player_x { self.player_facing_left = false; }
 
@@ -361,6 +375,8 @@ impl Game {
             self.messages.push("Nothing to shoot at.".into());
             return TurnResult::Blocked;
         };
+
+        self.stamina -= cost;
 
         let hit_chance = self.ranged_hit_chance(distance);
         let seed = self.turn as u64 * 7 + self.player_x as u64 * 31 + self.player_y as u64 * 17;
