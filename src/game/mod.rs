@@ -3,6 +3,8 @@ mod items;
 mod combat;
 mod movement;
 mod survival;
+mod spawning;
+mod progression;
 
 pub use types::*;
 #[cfg(test)]
