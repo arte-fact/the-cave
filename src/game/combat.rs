@@ -452,28 +452,50 @@ impl Game {
                     rng = xorshift64(rng);
                     let roll = rng % 100;
                     // (hp, atk, def, glyph, name)
-                    let (hp, attack, def, glyph, name) = if roll < 12 {
+                    let (hp, attack, def, glyph, name) = if roll < 6 {
                         (3, 1, 0, 'r', "Giant Rat")
-                    } else if roll < 20 {
+                    } else if roll < 11 {
                         (4, 2, 0, 'a', "Giant Bat")
-                    } else if roll < 30 {
+                    } else if roll < 16 {
                         (4, 2, 1, 'f', "Fox")
-                    } else if roll < 40 {
+                    } else if roll < 20 {
+                        (4, 2, 0, 'q', "Buzzard")
+                    } else if roll < 25 {
                         (5, 3, 0, 'n', "Viper")
-                    } else if roll < 55 {
+                    } else if roll < 28 {
+                        (5, 3, 0, 'v', "Black Mamba")
+                    } else if roll < 35 {
                         (5, 2, 1, 'w', "Wolf")
-                    } else if roll < 65 {
+                    } else if roll < 39 {
+                        (5, 2, 1, 'y', "Coyote")
+                    } else if roll < 43 {
+                        (5, 3, 1, 'x', "Hyena")
+                    } else if roll < 48 {
                         (6, 3, 0, 'i', "Giant Spider")
-                    } else if roll < 72 {
+                    } else if roll < 52 {
                         (5, 3, 1, 'j', "Badger")
-                    } else if roll < 80 {
+                    } else if roll < 55 {
+                        (6, 3, 2, 'J', "Honey Badger")
+                    } else if roll < 59 {
+                        (5, 2, 0, '1', "Dryad")
+                    } else if roll < 62 {
+                        (4, 1, 1, '2', "Forest Spirit")
+                    } else if roll < 68 {
                         (8, 2, 2, 'b', "Boar")
-                    } else if roll < 87 {
+                    } else if roll < 73 {
                         (9, 4, 2, 'h', "Cougar")
-                    } else if roll < 94 {
+                    } else if roll < 77 {
+                        (10, 3, 3, 'Z', "Alligator")
+                    } else if roll < 80 {
+                        (10, 4, 2, '9', "Centaur")
+                    } else if roll < 86 {
                         (12, 4, 2, 'B', "Bear")
-                    } else {
+                    } else if roll < 91 {
                         (14, 5, 3, 'L', "Lycanthrope")
+                    } else if roll < 96 {
+                        (16, 6, 2, 'F', "Male Lion")
+                    } else {
+                        (12, 5, 1, '0', "Wendigo")
                     };
                     self.enemies.push(Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: false });
                 }
@@ -539,62 +561,80 @@ impl Game {
                     } else {
                         match level {
                             0 => {
-                                if roll < 15 {
+                                if roll < 12 {
                                     (3, 1, 0, 'r', "Giant Rat", false)
-                                } else if roll < 25 {
+                                } else if roll < 22 {
                                     (4, 2, 1, 'c', "Kobold", false)
-                                } else if roll < 35 {
+                                } else if roll < 30 {
                                     (4, 1, 0, 'S', "Small Slime", false)
-                                } else if roll < 50 {
+                                } else if roll < 42 {
                                     (5, 2, 1, 'g', "Goblin", false)
-                                } else if roll < 62 {
+                                } else if roll < 52 {
                                     (4, 2, 0, 'e', "Giant Centipede", false)
-                                } else if roll < 75 {
+                                } else if roll < 60 {
                                     (3, 1, 1, 'p', "Myconid", false)
+                                } else if roll < 68 {
+                                    (4, 2, 1, 't', "Large Myconid", false)
+                                } else if roll < 78 {
+                                    (5, 2, 0, '1', "Dryad", false)
+                                } else if roll < 88 {
+                                    (4, 1, 1, '2', "Forest Spirit", false)
                                 } else {
                                     (6, 3, 2, 's', "Skeleton", false)
                                 }
                             }
                             1 => {
-                                if roll < 12 {
+                                if roll < 10 {
                                     (6, 3, 1, 'G', "Goblin Archer", true)
-                                } else if roll < 24 {
+                                } else if roll < 20 {
                                     (10, 2, 1, 'z', "Zombie", false)
-                                } else if roll < 36 {
+                                } else if roll < 28 {
                                     (7, 4, 2, 'k', "Skeleton Archer", true)
-                                } else if roll < 48 {
+                                } else if roll < 36 {
                                     (10, 2, 0, 'm', "Big Slime", false)
-                                } else if roll < 60 {
+                                } else if roll < 46 {
                                     (10, 4, 3, 'o', "Orc", false)
-                                } else if roll < 72 {
+                                } else if roll < 54 {
                                     (8, 3, 2, 'A', "Giant Ant", false)
-                                } else if roll < 84 {
+                                } else if roll < 62 {
                                     (7, 5, 1, 'M', "Goblin Mage", true)
-                                } else {
+                                } else if roll < 70 {
                                     (9, 4, 1, 'H', "Hag", false)
+                                } else if roll < 78 {
+                                    (6, 3, 1, '3', "Goblin Brute", false)
+                                } else if roll < 88 {
+                                    (7, 3, 0, '4', "Satyr", false)
+                                } else {
+                                    (12, 5, 4, '5', "Orc Warchief", false)
                                 }
                             }
                             _ => {
-                                if roll < 10 {
+                                if roll < 8 {
                                     (10, 5, 2, 'u', "Ghoul", false)
-                                } else if roll < 20 {
+                                } else if roll < 16 {
                                     (14, 5, 4, 'O', "Orc Blademaster", false)
-                                } else if roll < 30 {
+                                } else if roll < 24 {
                                     (8, 6, 0, 'W', "Wraith", false)
-                                } else if roll < 40 {
+                                } else if roll < 32 {
                                     (12, 6, 3, 'N', "Naga", false)
-                                } else if roll < 50 {
+                                } else if roll < 40 {
                                     (16, 5, 3, 'T', "Troll", false)
-                                } else if roll < 60 {
+                                } else if roll < 48 {
                                     (18, 6, 4, 'E', "Ettin", false)
-                                } else if roll < 70 {
+                                } else if roll < 56 {
                                     (22, 5, 6, 'R', "Rock Golem", false)
-                                } else if roll < 80 {
+                                } else if roll < 64 {
                                     (16, 7, 3, 'Y', "Minotaur", false)
-                                } else if roll < 90 {
+                                } else if roll < 72 {
                                     (12, 7, 2, 'P', "Medusa", false)
-                                } else {
+                                } else if roll < 80 {
                                     (10, 6, 1, 'Q', "Banshee", false)
+                                } else if roll < 86 {
+                                    (11, 5, 2, '6', "Faceless Monk", false)
+                                } else if roll < 92 {
+                                    (14, 7, 3, '7', "Unholy Cardinal", false)
+                                } else {
+                                    (15, 6, 2, '8', "Writhing Mass", false)
                                 }
                             }
                         }

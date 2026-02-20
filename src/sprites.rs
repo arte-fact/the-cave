@@ -97,7 +97,7 @@ pub fn player_sprite() -> SpriteRef {
 /// Enemy sprite based on glyph character.
 pub fn enemy_sprite(glyph: char) -> SpriteRef {
     match glyph {
-        // Forest beasts (animals)
+        // Forest beasts (animals sheet)
         'r' => MonsterSprite::GiantRat.sprite_ref(),
         'a' => MonsterSprite::GiantBat.sprite_ref(),
         'w' => AnimalSprite::Wolf.sprite_ref(),
@@ -105,11 +105,21 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         'b' => AnimalSprite::Boar.sprite_ref(),
         'B' => AnimalSprite::GrizzlyBear.sprite_ref(),
         'L' => MonsterSprite::Lycanthrope.sprite_ref(),
-        // Forest extra animals
         'f' => AnimalSprite::Fox.sprite_ref(),
         'n' => AnimalSprite::Cobra.sprite_ref(),
         'h' => AnimalSprite::Cougar.sprite_ref(),
         'j' => AnimalSprite::Badger.sprite_ref(),
+        // Forest extra animals
+        'q' => AnimalSprite::Buzzard.sprite_ref(),
+        'v' => AnimalSprite::BlackMamba.sprite_ref(),
+        'y' => AnimalSprite::Coyote.sprite_ref(),
+        'x' => AnimalSprite::Hyena.sprite_ref(),
+        'J' => AnimalSprite::Honeybadger.sprite_ref(),
+        'Z' => AnimalSprite::Alligator.sprite_ref(),
+        'F' => AnimalSprite::MaleLion.sprite_ref(),
+        // Forest monsters
+        '9' => MonsterSprite::Centaur.sprite_ref(),
+        '0' => MonsterSprite::Wendigo.sprite_ref(),
         // Dungeon — shallow (L0)
         'c' => MonsterSprite::SmallKoboldCanine.sprite_ref(),
         'S' => MonsterSprite::SmallSlime.sprite_ref(),
@@ -117,6 +127,9 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         's' => MonsterSprite::Skeleton.sprite_ref(),
         'e' => MonsterSprite::GiantCentipede.sprite_ref(),
         'p' => MonsterSprite::SmallMyconid.sprite_ref(),
+        't' => MonsterSprite::LargeMyconid.sprite_ref(),
+        '1' => MonsterSprite::Dryad.sprite_ref(),
+        '2' => MonsterSprite::ForestSpirit.sprite_ref(),
         // Dungeon — mid (L1)
         'G' => MonsterSprite::GoblinArcher.sprite_ref(),
         'z' => MonsterSprite::Zombie.sprite_ref(),
@@ -126,6 +139,9 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         'A' => MonsterSprite::GiantAnt.sprite_ref(),
         'M' => MonsterSprite::GoblinMage.sprite_ref(),
         'H' => MonsterSprite::HagWitch.sprite_ref(),
+        '3' => MonsterSprite::GoblinBrute.sprite_ref(),
+        '4' => MonsterSprite::Satyr.sprite_ref(),
+        '5' => MonsterSprite::OrcWarchief.sprite_ref(),
         // Dungeon — deep (L2)
         'u' => MonsterSprite::Ghoul.sprite_ref(),
         'O' => MonsterSprite::OrcBlademaster.sprite_ref(),
@@ -137,6 +153,9 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         'Y' => MonsterSprite::Minotaur.sprite_ref(),
         'P' => MonsterSprite::GorgonMedusa.sprite_ref(),
         'Q' => MonsterSprite::Banshee.sprite_ref(),
+        '6' => MonsterSprite::FacelessMonk.sprite_ref(),
+        '7' => MonsterSprite::UnholyCardinal.sprite_ref(),
+        '8' => MonsterSprite::LargeWrithingMass.sprite_ref(),
         // Cave — boss floor
         'K' => MonsterSprite::DeathKnight.sprite_ref(),
         'l' => MonsterSprite::Lich.sprite_ref(),
@@ -274,6 +293,9 @@ pub fn item_sprite(name: &str) -> SpriteRef {
         "Fox Meat"       => ItemSprite::Bread.sprite_ref(),
         "Venison"        => ItemSprite::Bread.sprite_ref(),
         "Snake Meat"     => ItemSprite::Cheese.sprite_ref(),
+        "Gator Meat"     => ItemSprite::Bread.sprite_ref(),
+        "Lion Meat"      => ItemSprite::Bread.sprite_ref(),
+        "Fowl Meat"      => ItemSprite::Bread.sprite_ref(),
         "Stolen Rations" => ItemSprite::Bread.sprite_ref(),
         // Food — dungeon provisions
         "Stale Bread"    => ItemSprite::Bread.sprite_ref(),
@@ -463,13 +485,14 @@ mod tests {
 
     #[test]
     fn enemy_sprite_new_enemies_within_bounds() {
-        // All new forest animals
-        for g in ['f', 'n', 'h', 'j'] {
+        // Forest animals (Animals sheet)
+        for g in ['f', 'n', 'h', 'j', 'q', 'v', 'y', 'x', 'J', 'Z', 'F'] {
             let s = enemy_sprite(g);
             assert!(s.row < 17, "glyph '{}' row {} out of bounds", g, s.row);
         }
-        // All new dungeon enemies
-        for g in ['e', 'p', 'A', 'M', 'H', 'E', 'R', 'Y', 'P', 'Q', 'd', 'C', 'I', 'X', 'V'] {
+        // Forest + dungeon monsters (Monsters sheet)
+        for g in ['1', '2', '9', '0', 't', '3', '4', '5', '6', '7', '8',
+                   'e', 'p', 'A', 'M', 'H', 'E', 'R', 'Y', 'P', 'Q', 'd', 'C', 'I', 'X', 'V'] {
             let s = enemy_sprite(g);
             assert!(s.row < 13, "glyph '{}' row {} out of bounds", g, s.row);
         }
@@ -527,11 +550,18 @@ mod tests {
     #[test]
     fn monster_sprites_within_sheet_bounds() {
         let monster_glyphs = [
-            'r', 'a', 'i', 'L',
-            'f', 'n', 'h', 'j',
-            'c', 'S', 'g', 's', 'e', 'p',
-            'G', 'z', 'k', 'm', 'o', 'A', 'M', 'H',
-            'u', 'O', 'W', 'N', 'T', 'E', 'R', 'Y', 'P', 'Q',
+            // Forest animals
+            'r', 'a', 'w', 'i', 'b', 'B', 'L',
+            'f', 'n', 'h', 'j', 'q', 'v', 'y', 'x', 'J', 'Z', 'F',
+            // Forest monsters
+            '1', '2', '9', '0',
+            // Dungeon — shallow
+            'c', 'S', 'g', 's', 'e', 'p', 't',
+            // Dungeon — mid
+            'G', 'z', 'k', 'm', 'o', 'A', 'M', 'H', '3', '4', '5',
+            // Dungeon — deep
+            'u', 'O', 'W', 'N', 'T', 'E', 'R', 'Y', 'P', 'Q', '6', '7', '8',
+            // Cave — boss
             'K', 'l', 'D', 'd', 'C', 'I', 'X', 'V',
             '?',
         ];
