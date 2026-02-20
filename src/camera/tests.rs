@@ -18,6 +18,41 @@ fn viewport_cell_size_at_least_one() {
     assert!(cell >= 1.0);
 }
 
+#[test]
+fn set_viewport_for_area_uses_game_area_for_cell_size() {
+    let mut cam = Camera::new();
+    // Full canvas 1600×720, game area 1160 (side panel takes 440)
+    let cell = cam.set_viewport_for_area(1600.0, 720.0, 1160.0);
+    // cell_size = floor(1160 / 15) = 77
+    assert_eq!(cell, 77.0);
+    // Viewport spans the full canvas at the smaller cell size
+    assert!((cam.viewport_w() - 1600.0 / 77.0).abs() < 0.01);
+    assert!((cam.viewport_h() - 720.0 / 77.0).abs() < 0.01);
+}
+
+#[test]
+fn set_viewport_for_area_matches_set_viewport_when_equal() {
+    let mut cam1 = Camera::new();
+    let mut cam2 = Camera::new();
+    let cell1 = cam1.set_viewport(660.0, 440.0);
+    let cell2 = cam2.set_viewport_for_area(660.0, 440.0, 660.0);
+    assert_eq!(cell1, cell2);
+    assert_eq!(cam1.viewport_w(), cam2.viewport_w());
+    assert_eq!(cam1.viewport_h(), cam2.viewport_h());
+}
+
+#[test]
+fn landscape_tiles_fit_game_area() {
+    let mut cam = Camera::new();
+    // Simulate landscape: 1600×720 canvas, 440px side panel
+    let game_w = 1600.0 - 440.0;
+    let cell = cam.set_viewport_for_area(1600.0, 720.0, game_w);
+    // ~15 tiles should fit in the game area
+    let tiles_in_game_area = game_w / cell;
+    assert!((tiles_in_game_area - 15.0).abs() < 0.1,
+        "expected ~15 tiles in game area, got {tiles_in_game_area}");
+}
+
 // --- Clamping ---
 
 #[test]

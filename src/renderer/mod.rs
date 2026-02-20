@@ -136,7 +136,15 @@ impl Renderer {
         self.dpr = dpr;
         // Detect landscape: canvas is wider than tall (typical mobile landscape).
         self.landscape = width > height;
-        let cell = self.camera.set_viewport(width, height);
+        let cell = if self.landscape {
+            // Size tiles for the game area (excluding side panel) so that
+            // VIEWPORT_TILES_WIDE tiles fit in the playable region, not the
+            // full canvas. This prevents oversized tiles in landscape.
+            let game_area_w = width - SIDE_PANEL_CSS_W * dpr;
+            self.camera.set_viewport_for_area(width, height, game_area_w)
+        } else {
+            self.camera.set_viewport(width, height)
+        };
         if self.landscape {
             // In landscape: compact top bar, bottom message strip, side panel on right.
             self.camera.pad_top = self.landscape_top_bar_h() / cell;
