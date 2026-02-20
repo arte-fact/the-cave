@@ -236,8 +236,8 @@ fn roll_abyssal_temple_deep(roll: u64) -> EnemyStats {
 }
 
 // === Beast Den ===
-// L0: Giant Rats, Giant Bats, Lesser Giant Spiders, Cobras
-// L1: Giant Spiders, Dire Wolves, Lycanthropes
+// L0: Giant Rats, Giant Bats, Lesser Giant Spiders, Kobolds
+// L1: Giant Spiders, Dire Wolves, Lycanthropes, Cockatrices
 // L2: Wendigos, Manticores
 // Boss: Wendigo
 
@@ -253,8 +253,8 @@ fn roll_beast_den_l0(roll: u64) -> EnemyStats {
     if roll < 20      { GIANT_RAT }
     else if roll < 40 { GIANT_BAT }
     else if roll < 55 { LESSER_GIANT_SPIDER }
-    else if roll < 70 { VIPER }
-    else if roll < 85 { WOLF }
+    else if roll < 70 { GIANT_CENTIPEDE }
+    else if roll < 85 { KOBOLD_CANINE }
     else              { KOBOLD }
 }
 
@@ -262,11 +262,11 @@ fn roll_beast_den_l1(roll: u64) -> EnemyStats {
     if roll < 18      { GIANT_SPIDER }
     else if roll < 33 { DIRE_WOLF }
     else if roll < 45 { LYCANTHROPE }
-    else if roll < 57 { BEAR }
-    else if roll < 67 { LYNX }
-    else if roll < 77 { BLACK_BEAR }
+    else if roll < 57 { WATER_BUFFALO }
+    else if roll < 67 { MONITOR_LIZARD }
+    else if roll < 77 { YAK }
     else if roll < 88 { GIANT_BAT }
-    else              { COUGAR }
+    else              { COCKATRICE }
 }
 
 fn roll_beast_den_deep(roll: u64) -> EnemyStats {
@@ -280,9 +280,9 @@ fn roll_beast_den_deep(roll: u64) -> EnemyStats {
 }
 
 // === Serpent Pit ===
-// L0: Cobras, Lizardfolk/Kobold, Giant Centipedes
-// L1: Black Mambas, Cockatrices, Nagas
-// L2: Basilisks, Gorgon/Medusa
+// L0: Black Mambas, Lizardfolk, Giant Centipedes, Monitor Lizards
+// L1: Black Mambas, Cockatrices, Nagas, Monitor Lizards
+// L2: Basilisks, Medusa, Nagas
 // Boss: Basilisk
 
 fn roll_serpent_pit(level: usize, roll: u64) -> EnemyStats {
@@ -294,7 +294,7 @@ fn roll_serpent_pit(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_serpent_pit_l0(roll: u64) -> EnemyStats {
-    if roll < 22      { VIPER }
+    if roll < 22      { BLACK_MAMBA }
     else if roll < 40 { LIZARDFOLK }
     else if roll < 52 { GIANT_CENTIPEDE }
     else if roll < 65 { MONITOR_LIZARD }
@@ -308,7 +308,7 @@ fn roll_serpent_pit_l1(roll: u64) -> EnemyStats {
     else if roll < 45 { COCKATRICE }
     else if roll < 60 { NAGA }
     else if roll < 75 { LIZARDFOLK }
-    else if roll < 88 { VIPER }
+    else if roll < 88 { MONITOR_LIZARD }
     else              { GIANT_CENTIPEDE }
 }
 
@@ -414,7 +414,7 @@ mod tests {
     #[test]
     fn serpent_pit_has_reptiles() {
         let glyphs = collect_glyphs(DungeonBiome::SerpentPit, 0, 1000);
-        assert!(glyphs.contains(&'n'), "L0 should have vipers");
+        assert!(glyphs.contains(&'v'), "L0 should have black mambas");
         assert!(glyphs.contains(&'>'), "L0 should have lizardfolk");
     }
 
