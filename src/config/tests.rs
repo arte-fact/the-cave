@@ -20,7 +20,7 @@ fn normal_defaults_match_original_hardcoded_values() {
     assert_eq!(cfg.survival.regen_hunger_cost, 2);
     assert_eq!(cfg.fov.overworld_radius, 8);
     assert_eq!(cfg.fov.dungeon_radius, 6);
-    assert_eq!(cfg.spawn.overworld_enemy_pct, 3);
+    assert_eq!(cfg.spawn.overworld_enemy_pct, 2);
 }
 
 #[test]

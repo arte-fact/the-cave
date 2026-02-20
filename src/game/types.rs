@@ -186,11 +186,23 @@ pub(super) fn enemy_desc(name: &str) -> &'static str {
         "Boar"            => "A ferocious wild pig with razor-sharp tusks.",
         "Bear"            => "A massive predator. Top of the forest chain.",
         "Lycanthrope"     => "A cursed shapeshifter. Savage in beast form.",
-        // Forest — new animals
+        // Forest — animals
         "Fox"             => "A quick and sly predator. Hard to pin down.",
         "Viper"           => "A venomous snake. Strikes without warning.",
         "Cougar"          => "A stealthy big cat. Silent and deadly.",
         "Badger"          => "Small but ferocious. Fights to the death.",
+        "Buzzard"         => "A circling scavenger. Swoops down on the weak.",
+        "Black Mamba"     => "The deadliest snake. Lightning-fast venom.",
+        "Coyote"          => "A crafty opportunist. Hunts in pairs.",
+        "Hyena"           => "A cackling predator. Stronger than it looks.",
+        "Honey Badger"    => "Fearless and relentless. Never backs down.",
+        "Alligator"       => "An armored ambush predator. Crushes with its jaws.",
+        "Male Lion"       => "King of beasts. A rare and terrifying encounter.",
+        // Forest — monsters
+        "Dryad"           => "A woodland spirit. Protects the ancient trees.",
+        "Forest Spirit"   => "An ethereal guardian of the deep woods.",
+        "Centaur"         => "Half-man, half-horse. Patrols the forest trails.",
+        "Wendigo"         => "A gaunt horror of the frozen woods. Insatiable hunger.",
         // Dungeon — shallow
         "Kobold"          => "A small reptilian scavenger. Cowardly but cunning.",
         "Small Slime"     => "A translucent ooze. Dissolves what it touches.",
@@ -198,6 +210,7 @@ pub(super) fn enemy_desc(name: &str) -> &'static str {
         "Skeleton"        => "Animated bones bound by dark magic.",
         "Giant Centipede" => "A writhing mass of legs and mandibles.",
         "Myconid"         => "A walking mushroom that releases toxic spores.",
+        "Large Myconid"   => "A towering fungal creature. Its spores choke the air.",
         // Dungeon — mid
         "Goblin Archer"   => "A goblin with a crude bow. Deadly at range.",
         "Zombie"          => "A shambling corpse. Slow but relentless.",
@@ -207,6 +220,9 @@ pub(super) fn enemy_desc(name: &str) -> &'static str {
         "Giant Ant"       => "An oversized insect with crushing mandibles.",
         "Goblin Mage"     => "A goblin versed in crude fire magic.",
         "Hag"             => "A wretched crone. Curses those who draw near.",
+        "Goblin Brute"    => "A hulking goblin. All muscle, no brains.",
+        "Satyr"           => "A wild goat-man. Plays a maddening tune.",
+        "Orc Warchief"    => "A battle-scarred commander. Inspires fury in others.",
         // Dungeon — deep
         "Ghoul"           => "A ravenous undead. Paralyzes with its claws.",
         "Orc Blademaster" => "An elite orc warrior. Master of the blade.",
@@ -218,6 +234,9 @@ pub(super) fn enemy_desc(name: &str) -> &'static str {
         "Minotaur"        => "A bull-headed monster that charges through corridors.",
         "Medusa"          => "Her gaze turns flesh to stone.",
         "Banshee"         => "A wailing spirit. Her screams can kill.",
+        "Faceless Monk"   => "A silent cultist. Its face is smooth, featureless skin.",
+        "Unholy Cardinal" => "A heretic priest wreathed in dark flame.",
+        "Writhing Mass"   => "A pulsing mound of flesh. Origin unknown.",
         // Cave — boss floor
         "Death Knight"    => "A fallen paladin. Commands undead legions.",
         "Lich"            => "An undead sorcerer of immense power.",
@@ -245,6 +264,17 @@ pub(super) fn xp_for_enemy(name: &str) -> u32 {
         "Viper" => 5,
         "Cougar" => 8,
         "Badger" => 5,
+        "Buzzard" => 4,
+        "Black Mamba" => 6,
+        "Coyote" => 5,
+        "Hyena" => 6,
+        "Honey Badger" => 7,
+        "Alligator" => 10,
+        "Male Lion" => 16,
+        "Dryad" => 5,
+        "Forest Spirit" => 4,
+        "Centaur" => 10,
+        "Wendigo" => 14,
         // Dungeon — shallow
         "Kobold" => 3,
         "Small Slime" => 3,
@@ -252,6 +282,7 @@ pub(super) fn xp_for_enemy(name: &str) -> u32 {
         "Skeleton" => 6,
         "Giant Centipede" => 4,
         "Myconid" => 3,
+        "Large Myconid" => 4,
         // Dungeon — mid
         "Goblin Archer" => 5,
         "Zombie" => 6,
@@ -261,6 +292,9 @@ pub(super) fn xp_for_enemy(name: &str) -> u32 {
         "Giant Ant" => 6,
         "Goblin Mage" => 7,
         "Hag" => 8,
+        "Goblin Brute" => 6,
+        "Satyr" => 7,
+        "Orc Warchief" => 14,
         // Dungeon — deep
         "Ghoul" => 11,
         "Orc Blademaster" => 14,
@@ -272,6 +306,9 @@ pub(super) fn xp_for_enemy(name: &str) -> u32 {
         "Minotaur" => 17,
         "Medusa" => 16,
         "Banshee" => 14,
+        "Faceless Monk" => 12,
+        "Unholy Cardinal" => 17,
+        "Writhing Mass" => 16,
         // Cave
         "Death Knight" => 22,
         "Lich" => 25,

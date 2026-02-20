@@ -210,9 +210,29 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
             kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
             effect: ItemEffect::Feed(12, FoodSideEffect::Poison(2)),
         }),
-        "Badger" => Some(Item {
+        "Badger" | "Honey Badger" => Some(Item {
             kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
             effect: ItemEffect::Feed(12, FoodSideEffect::None),
+        }),
+        "Coyote" | "Hyena" => Some(Item {
+            kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
+            effect: ItemEffect::Feed(18, FoodSideEffect::Energize(8)),
+        }),
+        "Black Mamba" => Some(Item {
+            kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
+            effect: ItemEffect::Feed(14, FoodSideEffect::Poison(3)),
+        }),
+        "Alligator" => Some(Item {
+            kind: ItemKind::Food, name: "Gator Meat", glyph: '%',
+            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)),
+        }),
+        "Male Lion" => Some(Item {
+            kind: ItemKind::Food, name: "Lion Meat", glyph: '%',
+            effect: ItemEffect::Feed(30, FoodSideEffect::Energize(15)),
+        }),
+        "Buzzard" => Some(Item {
+            kind: ItemKind::Food, name: "Fowl Meat", glyph: '%',
+            effect: ItemEffect::Feed(14, FoodSideEffect::None),
         }),
         "Goblin" | "Goblin Archer" | "Goblin Mage" | "Goblin Brute" => {
             Some(Item {

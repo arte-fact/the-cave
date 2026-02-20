@@ -156,12 +156,12 @@ impl GameConfig {
                 dungeon_radius: 6,
             },
             spawn: SpawnConfig {
-                overworld_enemy_pct: 3,
+                overworld_enemy_pct: 2,
                 overworld_item_road_pct: 3,
                 overworld_item_grass_pct: 1,
                 overworld_food_pct: 8,
-                dungeon_enemy_pct: 10,
-                cave_enemy_pct: 6,
+                dungeon_enemy_pct: 8,
+                cave_enemy_pct: 5,
                 dungeon_item_pct: 2,
                 cave_item_pct: 1,
             },
@@ -183,9 +183,9 @@ impl GameConfig {
         cfg.progression.skill_points_per_level = 4;
         cfg.progression.hp_per_level = 3;
         // Fewer enemies, more items
-        cfg.spawn.overworld_enemy_pct = 2;
-        cfg.spawn.dungeon_enemy_pct = 7;
-        cfg.spawn.cave_enemy_pct = 4;
+        cfg.spawn.overworld_enemy_pct = 1;
+        cfg.spawn.dungeon_enemy_pct = 5;
+        cfg.spawn.cave_enemy_pct = 3;
         cfg.spawn.dungeon_item_pct = 3;
         cfg.spawn.overworld_food_pct = 12;
         cfg
@@ -210,9 +210,9 @@ impl GameConfig {
         cfg.progression.skill_points_per_level = 2;
         cfg.progression.hp_per_level = 1;
         // More enemies, fewer items
-        cfg.spawn.overworld_enemy_pct = 4;
-        cfg.spawn.dungeon_enemy_pct = 14;
-        cfg.spawn.cave_enemy_pct = 8;
+        cfg.spawn.overworld_enemy_pct = 3;
+        cfg.spawn.dungeon_enemy_pct = 11;
+        cfg.spawn.cave_enemy_pct = 7;
         cfg.spawn.dungeon_item_pct = 1;
         cfg.spawn.overworld_food_pct = 5;
         cfg
