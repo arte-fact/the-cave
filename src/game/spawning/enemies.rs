@@ -17,6 +17,8 @@ pub(super) const COYOTE: EnemyStats       = (5, 2, 1, 'y', "Coyote", false);
 pub(super) const WOLF: EnemyStats         = (5, 2, 1, 'w', "Wolf", false);
 pub(super) const BADGER: EnemyStats       = (5, 3, 1, 'j', "Badger", false);
 pub(super) const HONEY_BADGER: EnemyStats = (6, 3, 2, 'J', "Honey Badger", false);
+pub(super) const LYNX: EnemyStats         = (5, 3, 1, '#', "Lynx", false);
+pub(super) const BLACK_BEAR: EnemyStats   = (9, 3, 2, '&', "Black Bear", false);
 pub(super) const FOREST_SPIRIT: EnemyStats = (4, 1, 1, '2', "Forest Spirit", false);
 pub(super) const BOAR: EnemyStats         = (8, 2, 2, 'b', "Boar", false);
 
@@ -30,9 +32,13 @@ pub(super) const LYCANTHROPE: EnemyStats  = (14, 5, 3, 'L', "Lycanthrope", false
 // === Overworld — jungle-only ===
 pub(super) const BLACK_MAMBA: EnemyStats  = (5, 3, 0, 'v', "Black Mamba", false);
 pub(super) const HYENA: EnemyStats        = (5, 3, 1, 'x', "Hyena", false);
+pub(super) const OCELOT: EnemyStats       = (5, 2, 1, '+', "Ocelot", false);
+pub(super) const JACKAL: EnemyStats       = (4, 2, 0, '-', "Jackal", false);
+pub(super) const MONITOR_LIZARD: EnemyStats = (7, 3, 2, '|', "Monitor Lizard", false);
 pub(super) const SATYR: EnemyStats        = (7, 3, 0, '4', "Satyr", false);
 pub(super) const GIANT_ANT: EnemyStats    = (8, 3, 2, 'A', "Giant Ant", false);
 pub(super) const HARPY: EnemyStats        = (8, 4, 1, '$', "Harpy", false);
+pub(super) const WATER_BUFFALO: EnemyStats = (14, 4, 4, '%', "Water Buffalo", false);
 pub(super) const ALLIGATOR: EnemyStats    = (10, 3, 3, 'Z', "Alligator", false);
 pub(super) const COCKATRICE: EnemyStats   = (10, 5, 2, '~', "Cockatrice", false);
 pub(super) const NAGA: EnemyStats         = (12, 6, 3, 'N', "Naga", false);
@@ -41,6 +47,7 @@ pub(super) const MALE_LION: EnemyStats    = (16, 6, 2, 'F', "Male Lion", false);
 pub(super) const MANTICORE: EnemyStats    = (18, 7, 4, 'X', "Manticore", false);
 pub(super) const DIRE_WOLF: EnemyStats    = (10, 4, 2, 'U', "Dire Wolf", false);
 pub(super) const WENDIGO: EnemyStats      = (12, 5, 1, '0', "Wendigo", false);
+pub(super) const YAK: EnemyStats          = (12, 3, 4, '*', "Yak", false);
 
 // === Dungeon — shallow (L0) ===
 pub(super) const KOBOLD: EnemyStats        = (4, 2, 1, 'c', "Kobold", false);

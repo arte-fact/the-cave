@@ -214,9 +214,29 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
             kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
             effect: ItemEffect::Feed(12, FoodSideEffect::None),
         }),
-        "Coyote" | "Hyena" => Some(Item {
+        "Coyote" | "Hyena" | "Jackal" => Some(Item {
             kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
             effect: ItemEffect::Feed(18, FoodSideEffect::Energize(8)),
+        }),
+        "Lynx" | "Ocelot" => Some(Item {
+            kind: ItemKind::Food, name: "Venison", glyph: '%',
+            effect: ItemEffect::Feed(16, FoodSideEffect::None),
+        }),
+        "Black Bear" => Some(Item {
+            kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
+            effect: ItemEffect::Feed(22, FoodSideEffect::Heal(2)),
+        }),
+        "Monitor Lizard" => Some(Item {
+            kind: ItemKind::Food, name: "Gator Meat", glyph: '%',
+            effect: ItemEffect::Feed(18, FoodSideEffect::None),
+        }),
+        "Water Buffalo" => Some(Item {
+            kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
+            effect: ItemEffect::Feed(30, FoodSideEffect::Heal(5)),
+        }),
+        "Yak" => Some(Item {
+            kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
+            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)),
         }),
         "Black Mamba" => Some(Item {
             kind: ItemKind::Food, name: "Snake Meat", glyph: '%',

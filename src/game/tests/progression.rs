@@ -77,6 +77,8 @@ use super::{test_game, overworld_game, rusty_sword};
     fn every_enemy_has_desc() {
         let all_enemies = [
             "Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear", "Lycanthrope",
+            "Lynx", "Black Bear", "Ocelot", "Jackal", "Monitor Lizard",
+            "Water Buffalo", "Yak",
             "Kobold", "Small Slime", "Goblin", "Skeleton",
             "Goblin Archer", "Zombie", "Skeleton Archer", "Big Slime", "Orc",
             "Ghoul", "Orc Blademaster", "Wraith", "Naga", "Troll",

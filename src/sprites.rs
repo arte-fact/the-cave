@@ -144,6 +144,13 @@ pub fn enemy_sprite(glyph: char) -> SpriteRef {
         'J' => AnimalSprite::Honeybadger.sprite_ref(),
         'Z' => AnimalSprite::Alligator.sprite_ref(),
         'F' => AnimalSprite::MaleLion.sprite_ref(),
+        '#' => AnimalSprite::Lynx.sprite_ref(),
+        '&' => AnimalSprite::BlackBear.sprite_ref(),
+        '+' => AnimalSprite::Ocelot.sprite_ref(),
+        '-' => AnimalSprite::Jackal.sprite_ref(),
+        '%' => AnimalSprite::WaterBuffalo.sprite_ref(),
+        '|' => AnimalSprite::MonitorLizard.sprite_ref(),
+        '*' => AnimalSprite::Yak.sprite_ref(),
         // Forest monsters
         '9' => MonsterSprite::Centaur.sprite_ref(),
         '0' => MonsterSprite::Wendigo.sprite_ref(),
@@ -527,7 +534,8 @@ mod tests {
     #[test]
     fn enemy_sprite_new_enemies_within_bounds() {
         // Forest animals (Animals sheet)
-        for g in ['f', 'n', 'h', 'j', 'q', 'v', 'y', 'x', 'J', 'Z', 'F'] {
+        for g in ['f', 'n', 'h', 'j', 'q', 'v', 'y', 'x', 'J', 'Z', 'F',
+                   '#', '&', '+', '-', '%', '|', '*'] {
             let s = enemy_sprite(g);
             assert!(s.row < 16, "glyph '{}' row {} out of bounds", g, s.row);
         }
@@ -599,6 +607,7 @@ mod tests {
             // Forest animals
             'r', 'a', 'w', 'i', 'b', 'B', 'L',
             'f', 'n', 'h', 'j', 'q', 'v', 'y', 'x', 'J', 'Z', 'F',
+            '#', '&', '+', '-', '%', '|', '*',
             // Forest monsters
             '1', '2', '9', '0',
             // Dungeon — shallow

@@ -15,41 +15,47 @@ pub(super) fn roll_overworld_enemy(x: i32, y: i32, rng: u64, map_height: i32) ->
 
 /// Temperate forest enemies: woodland wildlife + fey creatures.
 fn roll_temperate(roll: u64) -> EnemyStats {
-    if roll < 6        { GIANT_RAT }
-    else if roll < 11  { GIANT_BAT }
-    else if roll < 16  { FOX }
-    else if roll < 20  { BUZZARD }
-    else if roll < 25  { VIPER }
-    else if roll < 28  { COYOTE }
-    else if roll < 35  { WOLF }
-    else if roll < 42  { GIANT_SPIDER }
-    else if roll < 48  { BADGER }
-    else if roll < 52  { HONEY_BADGER }
-    else if roll < 57  { DRYAD }
-    else if roll < 62  { FOREST_SPIRIT }
-    else if roll < 68  { BOAR }
-    else if roll < 73  { COUGAR }
-    else if roll < 77  { CENTAUR }
-    else if roll < 83  { BEAR }
-    else if roll < 88  { LYCANTHROPE }
-    else if roll < 95  { WENDIGO }
+    if roll < 4        { GIANT_RAT }
+    else if roll < 8   { GIANT_BAT }
+    else if roll < 13  { FOX }
+    else if roll < 17  { BUZZARD }
+    else if roll < 22  { VIPER }
+    else if roll < 25  { COYOTE }
+    else if roll < 30  { WOLF }
+    else if roll < 35  { GIANT_SPIDER }
+    else if roll < 40  { BADGER }
+    else if roll < 44  { HONEY_BADGER }
+    else if roll < 48  { LYNX }
+    else if roll < 52  { DRYAD }
+    else if roll < 56  { FOREST_SPIRIT }
+    else if roll < 62  { BOAR }
+    else if roll < 67  { COUGAR }
+    else if roll < 71  { CENTAUR }
+    else if roll < 75  { BLACK_BEAR }
+    else if roll < 81  { BEAR }
+    else if roll < 86  { LYCANTHROPE }
+    else if roll < 93  { WENDIGO }
     else               { DIRE_WOLF }
 }
 
 /// Jungle enemies: tropical predators, reptilians, and mythical creatures.
 fn roll_jungle(roll: u64) -> EnemyStats {
-    if roll < 8        { VIPER }
-    else if roll < 16  { BLACK_MAMBA }
-    else if roll < 22  { GIANT_CENTIPEDE }
-    else if roll < 28  { GIANT_SPIDER }
-    else if roll < 34  { GIANT_ANT }
-    else if roll < 40  { HYENA }
-    else if roll < 46  { COUGAR }
-    else if roll < 52  { ALLIGATOR }
-    else if roll < 57  { MALE_LION }
-    else if roll < 62  { DRYAD }
-    else if roll < 67  { SATYR }
-    else if roll < 72  { HARPY }
+    if roll < 5        { VIPER }
+    else if roll < 10  { BLACK_MAMBA }
+    else if roll < 15  { GIANT_CENTIPEDE }
+    else if roll < 20  { GIANT_SPIDER }
+    else if roll < 24  { GIANT_ANT }
+    else if roll < 28  { JACKAL }
+    else if roll < 32  { OCELOT }
+    else if roll < 37  { HYENA }
+    else if roll < 42  { COUGAR }
+    else if roll < 46  { MONITOR_LIZARD }
+    else if roll < 51  { ALLIGATOR }
+    else if roll < 56  { MALE_LION }
+    else if roll < 60  { WATER_BUFFALO }
+    else if roll < 64  { DRYAD }
+    else if roll < 68  { SATYR }
+    else if roll < 73  { HARPY }
     else if roll < 77  { CENTAUR }
     else if roll < 82  { MANTICORE }
     else if roll < 87  { NAGA }
