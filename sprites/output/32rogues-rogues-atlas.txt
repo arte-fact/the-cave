@@ -1,0 +1,45 @@
+# Sprite Sheet Atlas: 32rogues-rogues.png
+# Total sprites: 40
+# Sheet size: 224x224
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+dwarf	0	0	32	32
+elf	32	0	32	32
+ranger	64	0	32	32
+rogue	96	0	32	32
+bandit	128	0	32	32
+knight	0	32	32	32
+male fighter	32	32	32	32
+female knight	64	32	32	32
+female knight (helmetless)	96	32	32	32
+shield knight	128	32	32	32
+monk	0	64	32	32
+priest	32	64	32	32
+female war cleric	64	64	32	32
+male war cleric	96	64	32	32
+templar	128	64	32	32
+schema monk	160	64	32	32
+elder schema monk	192	64	32	32
+male barbarian	0	96	32	32
+male winter barbarian	32	96	32	32
+female winter barbarian	64	96	32	32
+swordsman	96	96	32	32
+fencer	128	96	32	32
+female barbarian	160	96	32	32
+female wizard	0	128	32	32
+male wizard	32	128	32	32
+druid	64	128	32	32
+desert sage	96	128	32	32
+dwarf mage	128	128	32	32
+warlock	160	160	32	32
+farmer (wheat thresher)	0	192	32	32
+farmer (scythe)	32	192	32	32
+farmer (pitchfork)	64	192	32	32
+baker	96	192	32	32
+blacksmith	128	192	32	32
+scholar	160	192	32	32
+peasant / coalburner	0	224	32	32
+peasant	32	224	32	32
+shopkeep	64	224	32	32
+elderly woman	96	224	32	32
+elderly man	128	224	32	32

@@ -1,0 +1,112 @@
+# Sprite Sheet Atlas: pixel-art-rpg-spritesheet.png
+# Total sprites: 107
+# Sheet size: 352x320
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+Equipment/Bag	0	0	32	32
+Equipment/Belt	32	0	32	32
+Equipment/Helm	64	0	32	32
+Equipment/Iron Armor	96	0	32	32
+Equipment/Iron Boot	128	0	32	32
+Equipment/Iron Helmet	160	0	32	32
+Equipment/Leather Armor	192	0	32	32
+Equipment/Leather Boot	224	0	32	32
+Equipment/Leather Helmet	256	0	32	32
+Equipment/Wizard Hat	288	0	32	32
+Equipment/Wooden Armor	320	0	32	32
+Food/Apple	0	32	32	32
+Food/Beer	32	32	32	32
+Food/Bread	64	32	32	32
+Food/Cheese	96	32	32	32
+Food/Fish Steak	128	32	32	32
+Food/Green Apple	160	32	32	32
+Food/Ham	192	32	32	32
+Food/Meat	224	32	32	32
+Food/Mushroom	256	32	32	32
+Food/Wine 2	288	32	32	32
+Food/Wine	320	32	32	32
+Material/Fabric	0	64	32	32
+Material/Leather	32	64	32	32
+Material/Paper	64	64	32	32
+Material/Rope	96	64	32	32
+Material/String	128	64	32	32
+Material/Wood Log	160	64	32	32
+Material/Wooden Plank	192	64	32	32
+Material/Wool	224	64	32	32
+Misc/Book 2	256	64	32	32
+Misc/Book 3	288	64	32	32
+Misc/Book	320	64	32	32
+Misc/Candle	0	96	32	32
+Misc/Chest	32	96	32	32
+Misc/Copper Coin	64	96	32	32
+Misc/Crate	96	96	32	32
+Misc/Envolop	128	96	32	32
+Misc/Gear	160	96	32	32
+Misc/Golden Coin	192	96	32	32
+Misc/Golden Key	224	96	32	32
+Misc/Heart	256	96	32	32
+Misc/Iron Key	288	96	32	32
+Misc/Lantern	320	96	32	32
+Misc/Map	0	128	32	32
+Misc/Rune Stone	32	128	32	32
+Misc/Scroll	64	128	32	32
+Misc/Silver Coin	96	128	32	32
+Misc/Silver Key	128	128	32	32
+Monster Part/Bone	160	128	32	32
+Monster Part/Egg	192	128	32	32
+Monster Part/Feather	224	128	32	32
+Monster Part/Monster Egg	256	128	32	32
+Monster Part/Monster Eye	288	128	32	32
+Monster Part/Monster Meat	320	128	32	32
+Monster Part/Skull	0	160	32	32
+Monster Part/Slime Gel	32	160	32	32
+Ore & Gem/Coal	64	160	32	32
+Ore & Gem/Copper Ingot	96	160	32	32
+Ore & Gem/Copper Nugget	128	160	32	32
+Ore & Gem/Crystal	160	160	32	32
+Ore & Gem/Cut Emerald	192	160	32	32
+Ore & Gem/Cut Ruby	224	160	32	32
+Ore & Gem/Cut Sapphire	256	160	32	32
+Ore & Gem/Cut Topaz	288	160	32	32
+Ore & Gem/Diamond	320	160	32	32
+Ore & Gem/Emerald	0	192	32	32
+Ore & Gem/Gold Nugget	32	192	32	32
+Ore & Gem/Golden Ingot	64	192	32	32
+Ore & Gem/Obsidian	96	192	32	32
+Ore & Gem/Pearl	128	192	32	32
+Ore & Gem/Ruby	160	192	32	32
+Ore & Gem/Sapphire	192	192	32	32
+Ore & Gem/Silver Ingot	224	192	32	32
+Ore & Gem/Silver Nugget	256	192	32	32
+Ore & Gem/Topaz	288	192	32	32
+Potion/Blue Potion 2	320	192	32	32
+Potion/Blue Potion 3	0	224	32	32
+Potion/Blue Potion	32	224	32	32
+Potion/Empty Bottle	64	224	32	32
+Potion/Green Potion 2	96	224	32	32
+Potion/Green Potion 3	128	224	32	32
+Potion/Green Potion	160	224	32	32
+Potion/Red Potion 2	192	224	32	32
+Potion/Red Potion 3	224	224	32	32
+Potion/Red Potion	256	224	32	32
+Potion/Water Bottle	288	224	32	32
+Weapon & Tool/Arrow	320	224	32	32
+Weapon & Tool/Axe	0	256	32	32
+Weapon & Tool/Bow	32	256	32	32
+Weapon & Tool/Emerald Staff	64	256	32	32
+Weapon & Tool/Golden Sword	96	256	32	32
+Weapon & Tool/Hammer	128	256	32	32
+Weapon & Tool/Iron Shield	160	256	32	32
+Weapon & Tool/Iron Sword	192	256	32	32
+Weapon & Tool/Knife	224	256	32	32
+Weapon & Tool/Magic Wand	256	256	32	32
+Weapon & Tool/Pickaxe	288	256	32	32
+Weapon & Tool/Ruby Staff	320	256	32	32
+Weapon & Tool/Sapphire Staff	0	288	32	32
+Weapon & Tool/Shovel	32	288	32	32
+Weapon & Tool/Silver Sword	64	288	32	32
+Weapon & Tool/Topaz Staff	96	288	32	32
+Weapon & Tool/Torch	128	288	32	32
+Weapon & Tool/Wooden Shield	160	288	32	32
+Weapon & Tool/Wooden Staff	192	288	32	32
+Weapon & Tool/Wooden Sword	224	288	32	32

@@ -1,0 +1,101 @@
+# Sprite Sheet Atlas: 32rogues-autotiles.png
+# Total sprites: 96
+# Sheet size: 384x256
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+water tiles [row 0, col 0]	0	0	32	32
+water tiles [row 0, col 1]	32	0	32	32
+water tiles [row 0, col 2]	64	0	32	32
+water tiles [row 0, col 3]	96	0	32	32
+water tiles [row 0, col 4]	128	0	32	32
+water tiles [row 0, col 5]	160	0	32	32
+water tiles [row 0, col 6]	192	0	32	32
+water tiles [row 0, col 7]	224	0	32	32
+water tiles [row 0, col 8]	256	0	32	32
+water tiles [row 0, col 9]	288	0	32	32
+water tiles [row 0, col 10]	320	0	32	32
+water tiles [row 0, col 11]	352	0	32	32
+water tiles [row 1, col 0]	0	32	32	32
+water tiles [row 1, col 1]	32	32	32	32
+water tiles [row 1, col 2]	64	32	32	32
+water tiles [row 1, col 3]	96	32	32	32
+water tiles [row 1, col 4]	128	32	32	32
+water tiles [row 1, col 5]	160	32	32	32
+water tiles [row 1, col 6]	192	32	32	32
+water tiles [row 1, col 7]	224	32	32	32
+water tiles [row 1, col 8]	256	32	32	32
+water tiles [row 1, col 9]	288	32	32	32
+water tiles [row 1, col 10]	320	32	32	32
+water tiles [row 1, col 11]	352	32	32	32
+water tiles [row 2, col 0]	0	64	32	32
+water tiles [row 2, col 1]	32	64	32	32
+water tiles [row 2, col 2]	64	64	32	32
+water tiles [row 2, col 3]	96	64	32	32
+water tiles [row 2, col 4]	128	64	32	32
+water tiles [row 2, col 5]	160	64	32	32
+water tiles [row 2, col 6]	192	64	32	32
+water tiles [row 2, col 7]	224	64	32	32
+water tiles [row 2, col 8]	256	64	32	32
+water tiles [row 2, col 9]	288	64	32	32
+water tiles [row 2, col 10]	320	64	32	32
+water tiles [row 2, col 11]	352	64	32	32
+water tiles [row 3, col 0]	0	96	32	32
+water tiles [row 3, col 1]	32	96	32	32
+water tiles [row 3, col 2]	64	96	32	32
+water tiles [row 3, col 3]	96	96	32	32
+water tiles [row 3, col 4]	128	96	32	32
+water tiles [row 3, col 5]	160	96	32	32
+water tiles [row 3, col 6]	192	96	32	32
+water tiles [row 3, col 7]	224	96	32	32
+water tiles [row 3, col 8]	256	96	32	32
+water tiles [row 3, col 9]	288	96	32	32
+water tiles [row 3, col 10]	320	96	32	32
+water tiles [row 3, col 11]	352	96	32	32
+poison swamp tiles [row 0, col 0]	0	128	32	32
+poison swamp tiles [row 0, col 1]	32	128	32	32
+poison swamp tiles [row 0, col 2]	64	128	32	32
+poison swamp tiles [row 0, col 3]	96	128	32	32
+poison swamp tiles [row 0, col 4]	128	128	32	32
+poison swamp tiles [row 0, col 5]	160	128	32	32
+poison swamp tiles [row 0, col 6]	192	128	32	32
+poison swamp tiles [row 0, col 7]	224	128	32	32
+poison swamp tiles [row 0, col 8]	256	128	32	32
+poison swamp tiles [row 0, col 9]	288	128	32	32
+poison swamp tiles [row 0, col 10]	320	128	32	32
+poison swamp tiles [row 0, col 11]	352	128	32	32
+poison swamp tiles [row 1, col 0]	0	160	32	32
+poison swamp tiles [row 1, col 1]	32	160	32	32
+poison swamp tiles [row 1, col 2]	64	160	32	32
+poison swamp tiles [row 1, col 3]	96	160	32	32
+poison swamp tiles [row 1, col 4]	128	160	32	32
+poison swamp tiles [row 1, col 5]	160	160	32	32
+poison swamp tiles [row 1, col 6]	192	160	32	32
+poison swamp tiles [row 1, col 7]	224	160	32	32
+poison swamp tiles [row 1, col 8]	256	160	32	32
+poison swamp tiles [row 1, col 9]	288	160	32	32
+poison swamp tiles [row 1, col 10]	320	160	32	32
+poison swamp tiles [row 1, col 11]	352	160	32	32
+poison swamp tiles [row 2, col 0]	0	192	32	32
+poison swamp tiles [row 2, col 1]	32	192	32	32
+poison swamp tiles [row 2, col 2]	64	192	32	32
+poison swamp tiles [row 2, col 3]	96	192	32	32
+poison swamp tiles [row 2, col 4]	128	192	32	32
+poison swamp tiles [row 2, col 5]	160	192	32	32
+poison swamp tiles [row 2, col 6]	192	192	32	32
+poison swamp tiles [row 2, col 7]	224	192	32	32
+poison swamp tiles [row 2, col 8]	256	192	32	32
+poison swamp tiles [row 2, col 9]	288	192	32	32
+poison swamp tiles [row 2, col 10]	320	192	32	32
+poison swamp tiles [row 2, col 11]	352	192	32	32
+poison swamp tiles [row 3, col 0]	0	224	32	32
+poison swamp tiles [row 3, col 1]	32	224	32	32
+poison swamp tiles [row 3, col 2]	64	224	32	32
+poison swamp tiles [row 3, col 3]	96	224	32	32
+poison swamp tiles [row 3, col 4]	128	224	32	32
+poison swamp tiles [row 3, col 5]	160	224	32	32
+poison swamp tiles [row 3, col 6]	192	224	32	32
+poison swamp tiles [row 3, col 7]	224	224	32	32
+poison swamp tiles [row 3, col 8]	256	224	32	32
+poison swamp tiles [row 3, col 9]	288	224	32	32
+poison swamp tiles [row 3, col 10]	320	224	32	32
+poison swamp tiles [row 3, col 11]	352	224	32	32

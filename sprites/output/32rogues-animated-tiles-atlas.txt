@@ -1,0 +1,137 @@
+# Sprite Sheet Atlas: 32rogues-animated-tiles.png
+# Total sprites: 132
+# Sheet size: 352x384
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+brazier (unlit) [frame 0]	0	0	32	32
+brazier (unlit) [frame 1]	32	0	32	32
+brazier (unlit) [frame 2]	64	0	32	32
+brazier (unlit) [frame 3]	96	0	32	32
+brazier (unlit) [frame 4]	128	0	32	32
+brazier (unlit) [frame 5]	160	0	32	32
+brazier (unlit) [frame 6]	192	0	32	32
+brazier (unlit) [frame 7]	224	0	32	32
+brazier (unlit) [frame 8]	256	0	32	32
+brazier (unlit) [frame 9]	288	0	32	32
+brazier (unlit) [frame 10]	320	0	32	32
+brazier (lit) [frame 0]	0	32	32	32
+brazier (lit) [frame 1]	32	32	32	32
+brazier (lit) [frame 2]	64	32	32	32
+brazier (lit) [frame 3]	96	32	32	32
+brazier (lit) [frame 4]	128	32	32	32
+brazier (lit) [frame 5]	160	32	32	32
+brazier (lit) [frame 6]	192	32	32	32
+brazier (lit) [frame 7]	224	32	32	32
+brazier (lit) [frame 8]	256	32	32	32
+brazier (lit) [frame 9]	288	32	32	32
+brazier (lit) [frame 10]	320	32	32	32
+fire pit (unlit) [frame 0]	0	64	32	32
+fire pit (unlit) [frame 1]	32	64	32	32
+fire pit (unlit) [frame 2]	64	64	32	32
+fire pit (unlit) [frame 3]	96	64	32	32
+fire pit (unlit) [frame 4]	128	64	32	32
+fire pit (unlit) [frame 5]	160	64	32	32
+fire pit (unlit) [frame 6]	192	64	32	32
+fire pit (unlit) [frame 7]	224	64	32	32
+fire pit (unlit) [frame 8]	256	64	32	32
+fire pit (unlit) [frame 9]	288	64	32	32
+fire pit (unlit) [frame 10]	320	64	32	32
+fire pit (lit) [frame 0]	0	96	32	32
+fire pit (lit) [frame 1]	32	96	32	32
+fire pit (lit) [frame 2]	64	96	32	32
+fire pit (lit) [frame 3]	96	96	32	32
+fire pit (lit) [frame 4]	128	96	32	32
+fire pit (lit) [frame 5]	160	96	32	32
+fire pit (lit) [frame 6]	192	96	32	32
+fire pit (lit) [frame 7]	224	96	32	32
+fire pit (lit) [frame 8]	256	96	32	32
+fire pit (lit) [frame 9]	288	96	32	32
+fire pit (lit) [frame 10]	320	96	32	32
+torch (unlit) [frame 0]	0	128	32	32
+torch (unlit) [frame 1]	32	128	32	32
+torch (unlit) [frame 2]	64	128	32	32
+torch (unlit) [frame 3]	96	128	32	32
+torch (unlit) [frame 4]	128	128	32	32
+torch (unlit) [frame 5]	160	128	32	32
+torch (unlit) [frame 6]	192	128	32	32
+torch (unlit) [frame 7]	224	128	32	32
+torch (unlit) [frame 8]	256	128	32	32
+torch (unlit) [frame 9]	288	128	32	32
+torch (unlit) [frame 10]	320	128	32	32
+torch (lit) [frame 0]	0	160	32	32
+torch (lit) [frame 1]	32	160	32	32
+torch (lit) [frame 2]	64	160	32	32
+torch (lit) [frame 3]	96	160	32	32
+torch (lit) [frame 4]	128	160	32	32
+torch (lit) [frame 5]	160	160	32	32
+torch (lit) [frame 6]	192	160	32	32
+torch (lit) [frame 7]	224	160	32	32
+torch (lit) [frame 8]	256	160	32	32
+torch (lit) [frame 9]	288	160	32	32
+torch (lit) [frame 10]	320	160	32	32
+lamp (unlit) [frame 0]	0	192	32	32
+lamp (unlit) [frame 1]	32	192	32	32
+lamp (unlit) [frame 2]	64	192	32	32
+lamp (unlit) [frame 3]	96	192	32	32
+lamp (unlit) [frame 4]	128	192	32	32
+lamp (unlit) [frame 5]	160	192	32	32
+lamp (unlit) [frame 6]	192	192	32	32
+lamp (unlit) [frame 7]	224	192	32	32
+lamp (unlit) [frame 8]	256	192	32	32
+lamp (unlit) [frame 9]	288	192	32	32
+lamp (unlit) [frame 10]	320	192	32	32
+lamp (lit) [frame 0]	0	224	32	32
+lamp (lit) [frame 1]	32	224	32	32
+lamp (lit) [frame 2]	64	224	32	32
+lamp (lit) [frame 3]	96	224	32	32
+lamp (lit) [frame 4]	128	224	32	32
+lamp (lit) [frame 5]	160	224	32	32
+lamp (lit) [frame 6]	192	224	32	32
+lamp (lit) [frame 7]	224	224	32	32
+lamp (lit) [frame 8]	256	224	32	32
+lamp (lit) [frame 9]	288	224	32	32
+lamp (lit) [frame 10]	320	224	32	32
+fire [frame 0]	0	256	32	32
+fire [frame 1]	32	256	32	32
+fire [frame 2]	64	256	32	32
+fire [frame 3]	96	256	32	32
+fire [frame 4]	128	256	32	32
+fire [frame 5]	160	256	32	32
+fire [frame 6]	192	256	32	32
+fire [frame 7]	224	256	32	32
+fire [frame 8]	256	256	32	32
+fire [frame 9]	288	256	32	32
+fire [frame 10]	320	256	32	32
+small fire [frame 0]	0	288	32	32
+small fire [frame 1]	32	288	32	32
+small fire [frame 2]	64	288	32	32
+small fire [frame 3]	96	288	32	32
+small fire [frame 4]	128	288	32	32
+small fire [frame 5]	160	288	32	32
+small fire [frame 6]	192	288	32	32
+small fire [frame 7]	224	288	32	32
+small fire [frame 8]	256	288	32	32
+small fire [frame 9]	288	288	32	32
+small fire [frame 10]	320	288	32	32
+water waves [frame 0]	0	320	32	32
+water waves [frame 1]	32	320	32	32
+water waves [frame 2]	64	320	32	32
+water waves [frame 3]	96	320	32	32
+water waves [frame 4]	128	320	32	32
+water waves [frame 5]	160	320	32	32
+water waves [frame 6]	192	320	32	32
+water waves [frame 7]	224	320	32	32
+water waves [frame 8]	256	320	32	32
+water waves [frame 9]	288	320	32	32
+water waves [frame 10]	320	320	32	32
+poison bubbles [frame 0]	0	352	32	32
+poison bubbles [frame 1]	32	352	32	32
+poison bubbles [frame 2]	64	352	32	32
+poison bubbles [frame 3]	96	352	32	32
+poison bubbles [frame 4]	128	352	32	32
+poison bubbles [frame 5]	160	352	32	32
+poison bubbles [frame 6]	192	352	32	32
+poison bubbles [frame 7]	224	352	32	32
+poison bubbles [frame 8]	256	352	32	32
+poison bubbles [frame 9]	288	352	32	32
+poison bubbles [frame 10]	320	352	32	32
