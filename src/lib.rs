@@ -614,14 +614,16 @@ fn handle_menu_tap(
     let cy = area.y * dpr;
     let cw = area.w * dpr;
     let ch = area.h * dpr;
+    let compact = ch < cw;
+    let ref_dim = cw.min(ch);
 
     match &ms.app_state {
         AppState::MainMenu => {
             // Button layout matches draw_main_menu
-            let btn_w = (cw * 0.5).min(280.0 * dpr);
-            let btn_h = 44.0 * dpr;
-            let gap = 16.0 * dpr;
-            let start_y = ch * 0.45;
+            let btn_w = (ref_dim * 0.5).min(280.0 * dpr);
+            let btn_h = if compact { 36.0 * dpr } else { 44.0 * dpr };
+            let gap = if compact { 10.0 * dpr } else { 16.0 * dpr };
+            let start_y = if compact { ch * 0.38 } else { ch * 0.45 };
             let btn_x = (cw - btn_w) / 2.0;
 
             // New Game
@@ -664,12 +666,12 @@ fn handle_menu_tap(
             }
 
             // Difficulty buttons
-            let btn_w = (cw * 0.7).min(300.0 * dpr);
-            let btn_h = 52.0 * dpr;
-            let gap = 10.0 * dpr;
+            let btn_w = (ref_dim * 0.7).min(300.0 * dpr);
+            let btn_h = if compact { 36.0 * dpr } else { 52.0 * dpr };
+            let gap = if compact { 6.0 * dpr } else { 10.0 * dpr };
             let btn_x = (cw - btn_w) / 2.0;
-            let section_y = ch * 0.22;
-            let list_y = section_y + 24.0 * dpr;
+            let section_y = if compact { ch * 0.16 } else { ch * 0.22 };
+            let list_y = section_y + if compact { 18.0 * dpr } else { 24.0 * dpr };
 
             for i in 0..3 {
                 let y = list_y + (btn_h + gap) * i as f64;
@@ -685,7 +687,8 @@ fn handle_menu_tap(
             }
 
             // Seed area tap — randomize seed
-            let seed_y = list_y + (btn_h + gap) * 3.0 + 10.0 * dpr;
+            let seed_gap = if compact { 6.0 * dpr } else { 10.0 * dpr };
+            let seed_y = list_y + (btn_h + gap) * 3.0 + seed_gap;
             if cy >= seed_y - 20.0 * dpr && cy <= seed_y + 30.0 * dpr
                 && cx >= cw * 0.2 && cx <= cw * 0.8
             {
@@ -697,9 +700,10 @@ fn handle_menu_tap(
             }
 
             // Start button
-            let start_y_btn = seed_y + 44.0 * dpr;
-            let start_w = (cw * 0.5).min(220.0 * dpr);
-            let start_h = 48.0 * dpr;
+            let start_btn_gap = if compact { 28.0 * dpr } else { 44.0 * dpr };
+            let start_y_btn = seed_y + start_btn_gap;
+            let start_w = (ref_dim * 0.5).min(220.0 * dpr);
+            let start_h = if compact { 38.0 * dpr } else { 48.0 * dpr };
             let start_x = (cw - start_w) / 2.0;
             if cx >= start_x && cx <= start_x + start_w
                 && cy >= start_y_btn && cy <= start_y_btn + start_h
@@ -730,11 +734,11 @@ fn handle_menu_tap(
             }
 
             // Glyph Mode toggle — same layout as draw_settings_menu
-            let row_w = (cw * 0.8).min(340.0 * dpr);
-            let row_h = 44.0 * dpr;
+            let row_w = (ref_dim * 0.8).min(340.0 * dpr);
+            let row_h = if compact { 38.0 * dpr } else { 44.0 * dpr };
             let row_x = (cw - row_w) / 2.0;
             let pad = 14.0 * dpr;
-            let row_y = ch * 0.25;
+            let row_y = if compact { ch * 0.18 } else { ch * 0.25 };
 
             let toggle_w = 60.0 * dpr;
             let toggle_h = 28.0 * dpr;
