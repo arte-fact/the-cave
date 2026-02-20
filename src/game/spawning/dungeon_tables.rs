@@ -1,7 +1,6 @@
+use crate::game::Enemy;
 use crate::map::DungeonBiome;
-use super::super::types::Enemy;
-
-type EnemyStats = (i32, i32, i32, char, &'static str, bool);
+use super::enemies::*;
 
 /// Roll an enemy based on the dungeon biome and level.
 pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize, rng: u64) -> Enemy {
@@ -14,37 +13,23 @@ pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize
         DungeonBiome::AbyssalTemple => roll_abyssal_temple(level, roll),
         DungeonBiome::BeastDen => roll_beast_den(level, roll),
         DungeonBiome::SerpentPit => roll_serpent_pit(level, roll),
-        DungeonBiome::DragonLair => roll_cave_stats(roll),
+        DungeonBiome::DragonLair => roll_cave(roll),
     };
     let (hp, attack, def, glyph, name, ranged) = stats;
     Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged }
 }
 
-/// Roll a cave-level (dragon's lair) enemy.
-pub(super) fn roll_cave_enemy(x: i32, y: i32, rng: u64) -> Enemy {
-    let roll = rng % 100;
-    let (hp, attack, def, glyph, name, ranged) = roll_cave_stats(roll);
-    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged }
-}
+// === Dragon's Lair cave level ===
 
-fn roll_cave_stats(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (20, 7, 5, 'K', "Death Knight", false)
-    } else if roll < 35 {
-        (16, 5, 3, 'T', "Troll", false)
-    } else if roll < 50 {
-        (15, 8, 2, 'l', "Lich", false)
-    } else if roll < 60 {
-        (14, 6, 3, 'd', "Drake", false)
-    } else if roll < 70 {
-        (16, 7, 4, 'C', "Basilisk", false)
-    } else if roll < 80 {
-        (10, 6, 1, 'I', "Imp", false)
-    } else if roll < 90 {
-        (18, 7, 4, 'X', "Manticore", false)
-    } else {
-        (20, 9, 3, 'V', "Reaper", false)
-    }
+fn roll_cave(roll: u64) -> EnemyStats {
+    if roll < 20      { DEATH_KNIGHT }
+    else if roll < 35 { TROLL }
+    else if roll < 50 { LICH }
+    else if roll < 60 { DRAKE }
+    else if roll < 70 { BASILISK }
+    else if roll < 80 { IMP }
+    else if roll < 90 { MANTICORE }
+    else              { REAPER }
 }
 
 // === Goblin Warren ===
@@ -62,51 +47,30 @@ fn roll_goblin_warren(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_goblin_warren_l0(roll: u64) -> EnemyStats {
-    if roll < 15 {
-        (3, 1, 0, 'r', "Giant Rat", false)
-    } else if roll < 30 {
-        (4, 2, 1, 'c', "Kobold", false)
-    } else if roll < 42 {
-        (4, 1, 0, 'S', "Small Slime", false)
-    } else if roll < 70 {
-        (5, 2, 1, 'g', "Goblin", false)
-    } else if roll < 85 {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    } else {
-        (6, 3, 2, 's', "Skeleton", false)
-    }
+    if roll < 15      { GIANT_RAT }
+    else if roll < 30 { KOBOLD }
+    else if roll < 42 { SMALL_SLIME }
+    else if roll < 70 { GOBLIN }
+    else if roll < 85 { GIANT_CENTIPEDE }
+    else              { SKELETON }
 }
 
 fn roll_goblin_warren_l1(roll: u64) -> EnemyStats {
-    if roll < 15 {
-        (6, 3, 1, 'G', "Goblin Archer", true)
-    } else if roll < 30 {
-        (7, 5, 1, 'M', "Goblin Mage", true)
-    } else if roll < 45 {
-        (10, 2, 0, 'm', "Big Slime", false)
-    } else if roll < 65 {
-        (6, 3, 1, '3', "Goblin Brute", false)
-    } else if roll < 80 {
-        (5, 2, 1, 'g', "Goblin", false)
-    } else {
-        (10, 4, 3, 'o', "Orc", false)
-    }
+    if roll < 15      { GOBLIN_ARCHER }
+    else if roll < 30 { GOBLIN_MAGE }
+    else if roll < 45 { BIG_SLIME }
+    else if roll < 65 { GOBLIN_BRUTE }
+    else if roll < 80 { GOBLIN }
+    else              { ORC }
 }
 
 fn roll_goblin_warren_deep(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (10, 4, 3, 'o', "Orc", false)
-    } else if roll < 40 {
-        (14, 5, 4, 'O', "Orc Blademaster", false)
-    } else if roll < 55 {
-        (16, 5, 3, 'T', "Troll", false)
-    } else if roll < 70 {
-        (6, 3, 1, 'G', "Goblin Archer", true)
-    } else if roll < 85 {
-        (7, 5, 1, 'M', "Goblin Mage", true)
-    } else {
-        (12, 5, 4, '5', "Orc Warchief", false)
-    }
+    if roll < 20      { ORC }
+    else if roll < 40 { ORC_BLADEMASTER }
+    else if roll < 55 { TROLL }
+    else if roll < 70 { GOBLIN_ARCHER }
+    else if roll < 85 { GOBLIN_MAGE }
+    else              { ORC_WARCHIEF }
 }
 
 // === Undead Crypt ===
@@ -124,51 +88,30 @@ fn roll_undead_crypt(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_undead_crypt_l0(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (6, 3, 2, 's', "Skeleton", false)
-    } else if roll < 45 {
-        (10, 2, 1, 'z', "Zombie", false)
-    } else if roll < 60 {
-        (3, 1, 0, 'r', "Giant Rat", false)
-    } else if roll < 75 {
-        (4, 2, 0, 'a', "Giant Bat", false)
-    } else if roll < 88 {
-        (4, 1, 0, 'S', "Small Slime", false)
-    } else {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    }
+    if roll < 25      { SKELETON }
+    else if roll < 45 { ZOMBIE }
+    else if roll < 60 { GIANT_RAT }
+    else if roll < 75 { GIANT_BAT }
+    else if roll < 88 { SMALL_SLIME }
+    else              { GIANT_CENTIPEDE }
 }
 
 fn roll_undead_crypt_l1(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (7, 4, 2, 'k', "Skeleton Archer", true)
-    } else if roll < 40 {
-        (10, 5, 2, 'u', "Ghoul", false)
-    } else if roll < 55 {
-        (8, 6, 0, 'W', "Wraith", false)
-    } else if roll < 70 {
-        (9, 4, 1, 'H', "Hag", false)
-    } else if roll < 85 {
-        (10, 2, 1, 'z', "Zombie", false)
-    } else {
-        (6, 3, 2, 's', "Skeleton", false)
-    }
+    if roll < 20      { SKELETON_ARCHER }
+    else if roll < 40 { GHOUL }
+    else if roll < 55 { WRAITH }
+    else if roll < 70 { HAG }
+    else if roll < 85 { ZOMBIE }
+    else              { SKELETON }
 }
 
 fn roll_undead_crypt_deep(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (10, 6, 1, 'Q', "Banshee", false)
-    } else if roll < 40 {
-        (20, 7, 5, 'K', "Death Knight", false)
-    } else if roll < 55 {
-        (14, 7, 3, '7', "Unholy Cardinal", false)
-    } else if roll < 70 {
-        (8, 6, 0, 'W', "Wraith", false)
-    } else if roll < 85 {
-        (10, 5, 2, 'u', "Ghoul", false)
-    } else {
-        (15, 8, 2, 'l', "Lich", false)
-    }
+    if roll < 20      { BANSHEE }
+    else if roll < 40 { DEATH_KNIGHT }
+    else if roll < 55 { UNHOLY_CARDINAL }
+    else if roll < 70 { WRAITH }
+    else if roll < 85 { GHOUL }
+    else              { LICH }
 }
 
 // === Fungal Grotto ===
@@ -186,55 +129,30 @@ fn roll_fungal_grotto(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_fungal_grotto_l0(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (3, 1, 1, 'p', "Myconid", false)
-    } else if roll < 45 {
-        (4, 1, 0, 'S', "Small Slime", false)
-    } else if roll < 60 {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    } else if roll < 75 {
-        // Giant Earthworm — activates GiantEarthworm sprite
-        (5, 2, 0, ']', "Giant Earthworm", false)
-    } else if roll < 88 {
-        (3, 1, 0, 'r', "Giant Rat", false)
-    } else {
-        (4, 2, 1, 't', "Large Myconid", false)
-    }
+    if roll < 25      { MYCONID }
+    else if roll < 45 { SMALL_SLIME }
+    else if roll < 60 { GIANT_CENTIPEDE }
+    else if roll < 75 { GIANT_EARTHWORM }
+    else if roll < 88 { GIANT_RAT }
+    else              { LARGE_MYCONID }
 }
 
 fn roll_fungal_grotto_l1(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (4, 2, 1, 't', "Large Myconid", false)
-    } else if roll < 40 {
-        (10, 2, 0, 'm', "Big Slime", false)
-    } else if roll < 55 {
-        (8, 3, 2, 'A', "Giant Ant", false)
-    } else if roll < 70 {
-        // Lampreymander — activates Lampreymander sprite
-        (8, 4, 1, '[', "Lampreymander", false)
-    } else if roll < 85 {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    } else {
-        (5, 2, 0, ']', "Giant Earthworm", false)
-    }
+    if roll < 20      { LARGE_MYCONID }
+    else if roll < 40 { BIG_SLIME }
+    else if roll < 55 { GIANT_ANT }
+    else if roll < 70 { LAMPREYMANDER }
+    else if roll < 85 { GIANT_CENTIPEDE }
+    else              { GIANT_EARTHWORM }
 }
 
 fn roll_fungal_grotto_deep(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        // Small Writhing Mass — activates SmallWrithingMass sprite
-        (10, 5, 2, '(', "Small Writhing Mass", false)
-    } else if roll < 40 {
-        (15, 6, 2, '8', "Writhing Mass", false)
-    } else if roll < 55 {
-        // Writhing Humanoid — activates WrithingHumanoid sprite
-        (12, 6, 1, ')', "Writhing Humanoid", false)
-    } else if roll < 70 {
-        (10, 2, 0, 'm', "Big Slime", false)
-    } else if roll < 85 {
-        (8, 4, 1, '[', "Lampreymander", false)
-    } else {
-        (4, 2, 1, 't', "Large Myconid", false)
-    }
+    if roll < 20      { SM_WRITHING_MASS }
+    else if roll < 40 { LG_WRITHING_MASS }
+    else if roll < 55 { WRITHING_HUMANOID }
+    else if roll < 70 { BIG_SLIME }
+    else if roll < 85 { LAMPREYMANDER }
+    else              { LARGE_MYCONID }
 }
 
 // === Orc Stronghold ===
@@ -252,52 +170,29 @@ fn roll_orc_stronghold(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_orc_stronghold_l0(roll: u64) -> EnemyStats {
-    if roll < 30 {
-        (10, 4, 3, 'o', "Orc", false)
-    } else if roll < 50 {
-        // Kobold Canine — activates KoboldCanine sprite
-        (6, 3, 1, '{', "Kobold", false)
-    } else if roll < 70 {
-        (6, 3, 1, '3', "Goblin Brute", false)
-    } else if roll < 85 {
-        (5, 2, 1, 'g', "Goblin", false)
-    } else {
-        (8, 3, 2, 'A', "Giant Ant", false)
-    }
+    if roll < 30      { ORC }
+    else if roll < 50 { KOBOLD_CANINE }
+    else if roll < 70 { GOBLIN_BRUTE }
+    else if roll < 85 { GOBLIN }
+    else              { GIANT_ANT }
 }
 
 fn roll_orc_stronghold_l1(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (14, 5, 4, 'O', "Orc Blademaster", false)
-    } else if roll < 35 {
-        // Orc Wizard — activates OrcWizard sprite
-        (10, 6, 2, '}', "Orc Wizard", true)
-    } else if roll < 50 {
-        (16, 5, 3, 'T', "Troll", false)
-    } else if roll < 65 {
-        (8, 3, 2, 'A', "Giant Ant", false)
-    } else if roll < 80 {
-        (10, 4, 3, 'o', "Orc", false)
-    } else {
-        (6, 3, 1, '3', "Goblin Brute", false)
-    }
+    if roll < 20      { ORC_BLADEMASTER }
+    else if roll < 35 { ORC_WIZARD }
+    else if roll < 50 { TROLL }
+    else if roll < 65 { GIANT_ANT }
+    else if roll < 80 { ORC }
+    else              { GOBLIN_BRUTE }
 }
 
 fn roll_orc_stronghold_deep(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (18, 6, 4, 'E', "Ettin", false)
-    } else if roll < 40 {
-        // Two-Headed Ettin — activates TwoHeadedEttin sprite
-        (22, 7, 5, '^', "Two-Headed Ettin", false)
-    } else if roll < 55 {
-        (12, 5, 4, '5', "Orc Warchief", false)
-    } else if roll < 70 {
-        (14, 5, 4, 'O', "Orc Blademaster", false)
-    } else if roll < 85 {
-        (16, 5, 3, 'T', "Troll", false)
-    } else {
-        (10, 6, 2, '}', "Orc Wizard", true)
-    }
+    if roll < 25      { ETTIN }
+    else if roll < 40 { TWO_HEADED_ETTIN }
+    else if roll < 55 { ORC_WARCHIEF }
+    else if roll < 70 { ORC_BLADEMASTER }
+    else if roll < 85 { TROLL }
+    else              { ORC_WIZARD }
 }
 
 // === Abyssal Temple ===
@@ -315,50 +210,29 @@ fn roll_abyssal_temple(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_abyssal_temple_l0(roll: u64) -> EnemyStats {
-    if roll < 30 {
-        // Cultist — activates Cultist sprite
-        (6, 3, 1, '!', "Cultist", false)
-    } else if roll < 55 {
-        (11, 5, 2, '6', "Faceless Monk", false)
-    } else if roll < 75 {
-        (4, 1, 0, 'S', "Small Slime", false)
-    } else if roll < 88 {
-        (8, 6, 0, 'W', "Wraith", false)
-    } else {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    }
+    if roll < 30      { CULTIST }
+    else if roll < 55 { FACELESS_MONK }
+    else if roll < 75 { SMALL_SLIME }
+    else if roll < 88 { WRAITH }
+    else              { GIANT_CENTIPEDE }
 }
 
 fn roll_abyssal_temple_l1(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (14, 7, 3, '7', "Unholy Cardinal", false)
-    } else if roll < 45 {
-        (9, 4, 1, 'H', "Hag", false)
-    } else if roll < 60 {
-        (8, 6, 0, 'W', "Wraith", false)
-    } else if roll < 75 {
-        (11, 5, 2, '6', "Faceless Monk", false)
-    } else if roll < 88 {
-        (6, 3, 1, '!', "Cultist", false)
-    } else {
-        (10, 2, 0, 'm', "Big Slime", false)
-    }
+    if roll < 25      { UNHOLY_CARDINAL }
+    else if roll < 45 { HAG }
+    else if roll < 60 { WRAITH }
+    else if roll < 75 { FACELESS_MONK }
+    else if roll < 88 { CULTIST }
+    else              { BIG_SLIME }
 }
 
 fn roll_abyssal_temple_deep(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (12, 6, 1, ')', "Writhing Humanoid", false)
-    } else if roll < 35 {
-        (10, 6, 1, 'I', "Imp", false)
-    } else if roll < 50 {
-        (12, 6, 3, 'N', "Naga", false)
-    } else if roll < 65 {
-        (14, 7, 3, '7', "Unholy Cardinal", false)
-    } else if roll < 80 {
-        (8, 6, 0, 'W', "Wraith", false)
-    } else {
-        (20, 9, 3, 'V', "Reaper", false)
-    }
+    if roll < 20      { WRITHING_HUMANOID }
+    else if roll < 35 { IMP }
+    else if roll < 50 { NAGA }
+    else if roll < 65 { UNHOLY_CARDINAL }
+    else if roll < 80 { WRAITH }
+    else              { REAPER }
 }
 
 // === Beast Den ===
@@ -376,51 +250,29 @@ fn roll_beast_den(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_beast_den_l0(roll: u64) -> EnemyStats {
-    if roll < 20 {
-        (3, 1, 0, 'r', "Giant Rat", false)
-    } else if roll < 40 {
-        (4, 2, 0, 'a', "Giant Bat", false)
-    } else if roll < 55 {
-        // Lesser Giant Spider — activates LesserGiantSpider sprite
-        (4, 2, 0, '<', "Lesser Giant Spider", false)
-    } else if roll < 70 {
-        (5, 3, 0, 'n', "Viper", false)
-    } else if roll < 85 {
-        (5, 2, 1, 'w', "Wolf", false)
-    } else {
-        (4, 2, 1, 'c', "Kobold", false)
-    }
+    if roll < 20      { GIANT_RAT }
+    else if roll < 40 { GIANT_BAT }
+    else if roll < 55 { LESSER_GIANT_SPIDER }
+    else if roll < 70 { VIPER }
+    else if roll < 85 { WOLF }
+    else              { KOBOLD }
 }
 
 fn roll_beast_den_l1(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (6, 3, 0, 'i', "Giant Spider", false)
-    } else if roll < 45 {
-        // Dire Wolf — activates WargDireWolf sprite
-        (10, 4, 2, 'U', "Dire Wolf", false)
-    } else if roll < 60 {
-        (14, 5, 3, 'L', "Lycanthrope", false)
-    } else if roll < 75 {
-        (12, 4, 2, 'B', "Bear", false)
-    } else if roll < 88 {
-        (4, 2, 0, 'a', "Giant Bat", false)
-    } else {
-        (9, 4, 2, 'h', "Cougar", false)
-    }
+    if roll < 25      { GIANT_SPIDER }
+    else if roll < 45 { DIRE_WOLF }
+    else if roll < 60 { LYCANTHROPE }
+    else if roll < 75 { BEAR }
+    else if roll < 88 { GIANT_BAT }
+    else              { COUGAR }
 }
 
 fn roll_beast_den_deep(roll: u64) -> EnemyStats {
-    if roll < 30 {
-        (12, 5, 1, '0', "Wendigo", false)
-    } else if roll < 50 {
-        (18, 7, 4, 'X', "Manticore", false)
-    } else if roll < 65 {
-        (14, 5, 3, 'L', "Lycanthrope", false)
-    } else if roll < 80 {
-        (10, 4, 2, 'U', "Dire Wolf", false)
-    } else {
-        (6, 3, 0, 'i', "Giant Spider", false)
-    }
+    if roll < 30      { WENDIGO }
+    else if roll < 50 { MANTICORE }
+    else if roll < 65 { LYCANTHROPE }
+    else if roll < 80 { DIRE_WOLF }
+    else              { GIANT_SPIDER }
 }
 
 // === Serpent Pit ===
@@ -438,53 +290,30 @@ fn roll_serpent_pit(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_serpent_pit_l0(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (5, 3, 0, 'n', "Viper", false)
-    } else if roll < 45 {
-        // Lizardfolk — activates LizardfolkKobold sprite
-        (6, 3, 1, '>', "Lizardfolk", false)
-    } else if roll < 60 {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    } else if roll < 75 {
-        (4, 2, 0, 'a', "Giant Bat", false)
-    } else if roll < 88 {
-        (3, 1, 0, 'r', "Giant Rat", false)
-    } else {
-        (4, 1, 0, 'S', "Small Slime", false)
-    }
+    if roll < 25      { VIPER }
+    else if roll < 45 { LIZARDFOLK }
+    else if roll < 60 { GIANT_CENTIPEDE }
+    else if roll < 75 { GIANT_BAT }
+    else if roll < 88 { GIANT_RAT }
+    else              { SMALL_SLIME }
 }
 
 fn roll_serpent_pit_l1(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (5, 3, 0, 'v', "Black Mamba", false)
-    } else if roll < 45 {
-        // Cockatrice — activates Cockatrice sprite
-        (10, 5, 2, '~', "Cockatrice", false)
-    } else if roll < 60 {
-        (12, 6, 3, 'N', "Naga", false)
-    } else if roll < 75 {
-        (6, 3, 1, '>', "Lizardfolk", false)
-    } else if roll < 88 {
-        (5, 3, 0, 'n', "Viper", false)
-    } else {
-        (4, 2, 0, 'e', "Giant Centipede", false)
-    }
+    if roll < 25      { BLACK_MAMBA }
+    else if roll < 45 { COCKATRICE }
+    else if roll < 60 { NAGA }
+    else if roll < 75 { LIZARDFOLK }
+    else if roll < 88 { VIPER }
+    else              { GIANT_CENTIPEDE }
 }
 
 fn roll_serpent_pit_deep(roll: u64) -> EnemyStats {
-    if roll < 25 {
-        (16, 7, 4, 'C', "Basilisk", false)
-    } else if roll < 45 {
-        (12, 7, 2, 'P', "Medusa", false)
-    } else if roll < 60 {
-        (12, 6, 3, 'N', "Naga", false)
-    } else if roll < 75 {
-        (10, 5, 2, '~', "Cockatrice", false)
-    } else if roll < 88 {
-        (5, 3, 0, 'v', "Black Mamba", false)
-    } else {
-        (6, 3, 1, '>', "Lizardfolk", false)
-    }
+    if roll < 25      { BASILISK }
+    else if roll < 45 { MEDUSA }
+    else if roll < 60 { NAGA }
+    else if roll < 75 { COCKATRICE }
+    else if roll < 88 { BLACK_MAMBA }
+    else              { LIZARDFOLK }
 }
 
 #[cfg(test)]
@@ -593,14 +422,8 @@ mod tests {
 
     #[test]
     fn all_biome_enemies_have_valid_stats() {
-        let biomes = [
-            DungeonBiome::GoblinWarren, DungeonBiome::UndeadCrypt,
-            DungeonBiome::FungalGrotto, DungeonBiome::OrcStronghold,
-            DungeonBiome::AbyssalTemple, DungeonBiome::BeastDen,
-            DungeonBiome::SerpentPit,
-        ];
         let mut rng = 42u64;
-        for biome in biomes {
+        for biome in DungeonBiome::PLACEABLE {
             for level in 0..3 {
                 for _ in 0..500 {
                     rng = xorshift64(rng);
@@ -614,13 +437,7 @@ mod tests {
 
     #[test]
     fn deeper_biome_levels_are_stronger() {
-        let biomes = [
-            DungeonBiome::GoblinWarren, DungeonBiome::UndeadCrypt,
-            DungeonBiome::FungalGrotto, DungeonBiome::OrcStronghold,
-            DungeonBiome::AbyssalTemple, DungeonBiome::BeastDen,
-            DungeonBiome::SerpentPit,
-        ];
-        for biome in biomes {
+        for biome in DungeonBiome::PLACEABLE {
             let mut rng = 42u64;
             let mut l0_total_hp = 0i64;
             let mut l2_total_hp = 0i64;
@@ -640,7 +457,7 @@ mod tests {
         let mut rng = 42u64;
         for _ in 0..200 {
             rng = xorshift64(rng);
-            let e = roll_cave_enemy(5, 5, rng);
+            let e = roll_biome_enemy(5, 5, DungeonBiome::DragonLair, 0, rng);
             assert!(e.hp >= 10, "cave enemy {} has too low hp: {}", e.name, e.hp);
         }
     }

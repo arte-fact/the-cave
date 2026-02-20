@@ -78,17 +78,17 @@ pub fn tile_sprite(tile: Tile, x: i32, y: i32, wall_face: bool, dungeon_style: O
     match tile {
         Tile::Wall => {
             let (top, side) = match dungeon_style {
-                Some(DungeonStyle::DirtCaves) | Some(DungeonStyle::SerpentPit) =>
+                Some(DungeonStyle::DirtCaves) | Some(DungeonStyle::MossyTunnel) =>
                     (TileSprite::DirtWallTop, TileSprite::DirtWallSide),
                 Some(DungeonStyle::StoneBrick) | None =>
                     (TileSprite::StoneBrickWallTop, TileSprite::StoneBrickWallSide1),
-                Some(DungeonStyle::Igneous) | Some(DungeonStyle::DragonLair) | Some(DungeonStyle::AbyssalTemple) =>
+                Some(DungeonStyle::Igneous) | Some(DungeonStyle::RedCavern) | Some(DungeonStyle::BlueTemple) =>
                     (TileSprite::IgneousWallTop, TileSprite::IgneousWallSide),
                 Some(DungeonStyle::LargeStone) =>
                     (TileSprite::LargeStoneWallTop, TileSprite::LargeStoneWallSide),
-                Some(DungeonStyle::Catacombs) | Some(DungeonStyle::DarkBones) =>
+                Some(DungeonStyle::Catacombs) | Some(DungeonStyle::BoneCrypt) =>
                     (TileSprite::CatacombsWallTop, TileSprite::CatacombsWallSide),
-                Some(DungeonStyle::FungalCave) | Some(DungeonStyle::BeastDen) =>
+                Some(DungeonStyle::MossyCavern) | Some(DungeonStyle::BoneCave) =>
                     (TileSprite::RoughStoneWallTop, TileSprite::RoughStoneWallSide),
             };
             if wall_face { side.sprite_ref() } else { top.sprite_ref() }
@@ -100,10 +100,10 @@ pub fn tile_sprite(tile: Tile, x: i32, y: i32, wall_face: bool, dungeon_style: O
                 Some(DungeonStyle::Igneous) => &FLOOR_STONE_ALT,
                 Some(DungeonStyle::LargeStone) => &FLOOR_STONE_ALT,
                 Some(DungeonStyle::Catacombs) => &FLOOR_BONE,
-                Some(DungeonStyle::DragonLair) => &FLOOR_RED,
-                Some(DungeonStyle::FungalCave) | Some(DungeonStyle::SerpentPit) => &FLOOR_GREEN_DIRT,
-                Some(DungeonStyle::BeastDen) | Some(DungeonStyle::DarkBones) => &FLOOR_DARK_BONES,
-                Some(DungeonStyle::AbyssalTemple) => &FLOOR_BLUE,
+                Some(DungeonStyle::RedCavern) => &FLOOR_RED,
+                Some(DungeonStyle::MossyCavern) | Some(DungeonStyle::MossyTunnel) => &FLOOR_GREEN_DIRT,
+                Some(DungeonStyle::BoneCave) | Some(DungeonStyle::BoneCrypt) => &FLOOR_DARK_BONES,
+                Some(DungeonStyle::BlueTemple) => &FLOOR_BLUE,
             };
             variants[variation as usize].sprite_ref()
         }
@@ -452,7 +452,7 @@ mod tests {
         let styles = [
             DungeonStyle::DirtCaves, DungeonStyle::StoneBrick,
             DungeonStyle::Igneous, DungeonStyle::LargeStone,
-            DungeonStyle::Catacombs, DungeonStyle::DragonLair,
+            DungeonStyle::Catacombs, DungeonStyle::RedCavern,
         ];
         let mut wall_tops = std::collections::HashSet::new();
         for style in styles {
@@ -466,7 +466,7 @@ mod tests {
     fn dungeon_styles_give_different_floors() {
         let catacombs = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::Catacombs));
         let stone = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::StoneBrick));
-        let dragon = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::DragonLair));
+        let dragon = tile_sprite(Tile::Floor, 0, 0, false, Some(DungeonStyle::RedCavern));
         assert_ne!(catacombs, dragon);
         assert_ne!(catacombs, stone);
     }
@@ -570,7 +570,12 @@ mod tests {
             Some(DungeonStyle::Igneous),
             Some(DungeonStyle::LargeStone),
             Some(DungeonStyle::Catacombs),
-            Some(DungeonStyle::DragonLair),
+            Some(DungeonStyle::RedCavern),
+            Some(DungeonStyle::MossyCavern),
+            Some(DungeonStyle::BoneCave),
+            Some(DungeonStyle::BlueTemple),
+            Some(DungeonStyle::MossyTunnel),
+            Some(DungeonStyle::BoneCrypt),
         ];
         for tile in tiles {
             for &style in &styles {
@@ -604,6 +609,8 @@ mod tests {
             'u', 'O', 'W', 'N', 'T', 'E', 'R', 'Y', 'P', 'Q', '6', '7', '8',
             // Cave — boss
             'K', 'l', 'D', 'd', 'C', 'I', 'X', 'V',
+            // Biome-specific (previously unused sprites)
+            '$', '~', '>', '{', '}', '^', '[', ']', '<', 'U', '!', '(', ')',
             '?',
         ];
         for glyph in monster_glyphs {

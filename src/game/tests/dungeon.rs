@@ -105,22 +105,24 @@ fn dungeon_enemies_spawn_on_walkable() {
 
 #[test]
 fn dungeon_has_biome_appropriate_enemies() {
+    use crate::map::DungeonBiome;
     let mut g = overworld_game();
     g.enter_dungeon(0);
-    // Valid L0 glyphs across all dungeon biomes
-    let valid_l0_glyphs = [
-        'r', 'c', 'S', 'g', 'e', 's',   // Goblin Warren
-        'z', 'a',                          // Undead Crypt extras
-        'p', ']', 't',                     // Fungal Grotto extras
-        'o', '{', '3', 'A',               // Orc Stronghold extras
-        '!', '6', 'W',                     // Abyssal Temple extras
-        '<', 'n', 'w',                     // Beast Den extras
-        '>',                               // Serpent Pit extras
-    ];
+    let biome = g.world.dungeons[0].biome;
+    let valid_glyphs: &[char] = match biome {
+        DungeonBiome::GoblinWarren  => &['r', 'c', 'S', 'g', 'e', 's'],
+        DungeonBiome::UndeadCrypt   => &['s', 'z', 'r', 'a', 'S', 'e'],
+        DungeonBiome::FungalGrotto  => &['p', 'S', 'e', ']', 'r', 't'],
+        DungeonBiome::OrcStronghold => &['o', '{', '3', 'g', 'A'],
+        DungeonBiome::AbyssalTemple => &['!', '6', 'S', 'W', 'e'],
+        DungeonBiome::BeastDen      => &['r', 'a', '<', 'n', 'w', 'c'],
+        DungeonBiome::SerpentPit    => &['n', '>', 'e', 'a', 'r', 'S'],
+        DungeonBiome::DragonLair    => &['K', 'T', 'l', 'd', 'C', 'I', 'X', 'V'],
+    };
     for e in &g.enemies {
         assert!(
-            valid_l0_glyphs.contains(&e.glyph),
-            "unexpected dungeon L0 enemy: {} ('{}')", e.name, e.glyph
+            valid_glyphs.contains(&e.glyph),
+            "unexpected {:?} L0 enemy: {} ('{}')", biome, e.name, e.glyph
         );
     }
 }

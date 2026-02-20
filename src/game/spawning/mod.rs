@@ -1,7 +1,8 @@
+mod enemies;
 mod overworld;
 mod dungeon_tables;
 
-use crate::map::Tile;
+use crate::map::{DungeonBiome, Tile};
 use super::types::*;
 use super::{Game, xorshift64};
 
@@ -31,9 +32,9 @@ impl Game {
 
     /// Spawn enemies appropriate for a dungeon level, using the dungeon's biome.
     pub(super) fn spawn_dungeon_enemies(&mut self, dungeon_index: usize, level: usize) {
-        let total_levels = self.world.dungeons[dungeon_index].levels.len();
-        let is_cave = total_levels == 4 && level == 3;
-        let biome = self.world.dungeons[dungeon_index].biome;
+        let dungeon = &self.world.dungeons[dungeon_index];
+        let biome = dungeon.biome;
+        let is_cave = biome == DungeonBiome::DragonLair && level == dungeon.levels.len() - 1;
 
         let map = self.world.current_map();
         let seed = (dungeon_index as u64)
@@ -61,11 +62,7 @@ impl Game {
                 };
                 if rng % 100 < spawn_chance {
                     rng = xorshift64(rng);
-                    let enemy = if is_cave {
-                        dungeon_tables::roll_cave_enemy(x, y, rng)
-                    } else {
-                        dungeon_tables::roll_biome_enemy(x, y, biome, level, rng)
-                    };
+                    let enemy = dungeon_tables::roll_biome_enemy(x, y, biome, level, rng);
                     self.enemies.push(enemy);
                 }
             }

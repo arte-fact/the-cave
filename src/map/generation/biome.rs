@@ -34,7 +34,7 @@ pub enum OverworldBiome {
 
 impl DungeonBiome {
     /// All biome variants (excluding DragonLair, which is special-cased).
-    const PLACEABLE: [DungeonBiome; 7] = [
+    pub const PLACEABLE: [DungeonBiome; 7] = [
         DungeonBiome::GoblinWarren,
         DungeonBiome::UndeadCrypt,
         DungeonBiome::FungalGrotto,
@@ -47,7 +47,6 @@ impl DungeonBiome {
     /// Select a biome for a dungeon based on seed and overworld position.
     pub fn for_dungeon(seed: u64, entrance_y: i32, map_height: i32) -> Self {
         let overworld = OverworldBiome::at_y(entrance_y, map_height);
-        let mut rng = xorshift64(seed);
 
         // Filter biomes by overworld region affinity
         let candidates: &[DungeonBiome] = match overworld {
@@ -67,51 +66,41 @@ impl DungeonBiome {
             ],
         };
 
-        rng = xorshift64(rng);
+        let rng = xorshift64(seed);
         candidates[(rng % candidates.len() as u64) as usize]
     }
 
     /// Get the visual style for a specific level of this biome.
     pub fn style_for_level(&self, level: usize, is_cave: bool) -> DungeonStyle {
         if is_cave {
-            return DungeonStyle::DragonLair;
+            return DungeonStyle::RedCavern;
         }
         match self {
             DungeonBiome::GoblinWarren => match level {
-                0 => DungeonStyle::DirtCaves,
-                1 => DungeonStyle::DirtCaves,
+                0 | 1 => DungeonStyle::DirtCaves,
                 _ => DungeonStyle::StoneBrick,
             },
             DungeonBiome::UndeadCrypt => match level {
-                0 => DungeonStyle::Catacombs,
-                1 => DungeonStyle::Catacombs,
-                _ => DungeonStyle::DarkBones,
+                0 | 1 => DungeonStyle::Catacombs,
+                _ => DungeonStyle::BoneCrypt,
             },
-            DungeonBiome::FungalGrotto => match level {
-                0 => DungeonStyle::FungalCave,
-                1 => DungeonStyle::FungalCave,
-                _ => DungeonStyle::FungalCave,
-            },
+            DungeonBiome::FungalGrotto => DungeonStyle::MossyCavern,
             DungeonBiome::OrcStronghold => match level {
                 0 => DungeonStyle::StoneBrick,
-                1 => DungeonStyle::LargeStone,
                 _ => DungeonStyle::LargeStone,
             },
             DungeonBiome::AbyssalTemple => match level {
                 0 => DungeonStyle::Igneous,
-                1 => DungeonStyle::AbyssalTemple,
-                _ => DungeonStyle::AbyssalTemple,
+                _ => DungeonStyle::BlueTemple,
             },
-            DungeonBiome::DragonLair => DungeonStyle::DragonLair,
+            DungeonBiome::DragonLair => DungeonStyle::RedCavern,
             DungeonBiome::BeastDen => match level {
-                0 => DungeonStyle::BeastDen,
-                1 => DungeonStyle::BeastDen,
-                _ => DungeonStyle::DarkBones,
+                0 | 1 => DungeonStyle::BoneCave,
+                _ => DungeonStyle::BoneCrypt,
             },
             DungeonBiome::SerpentPit => match level {
-                0 => DungeonStyle::SerpentPit,
-                1 => DungeonStyle::SerpentPit,
-                _ => DungeonStyle::FungalCave,
+                0 | 1 => DungeonStyle::MossyTunnel,
+                _ => DungeonStyle::MossyCavern,
             },
         }
     }
@@ -225,41 +214,41 @@ mod tests {
     fn undead_crypt_styles() {
         let b = DungeonBiome::UndeadCrypt;
         assert_eq!(b.style_for_level(0, false), DungeonStyle::Catacombs);
-        assert_eq!(b.style_for_level(2, false), DungeonStyle::DarkBones);
+        assert_eq!(b.style_for_level(2, false), DungeonStyle::BoneCrypt);
     }
 
     #[test]
-    fn fungal_grotto_uses_fungal_style() {
+    fn fungal_grotto_uses_mossy_style() {
         let b = DungeonBiome::FungalGrotto;
-        assert_eq!(b.style_for_level(0, false), DungeonStyle::FungalCave);
-        assert_eq!(b.style_for_level(2, false), DungeonStyle::FungalCave);
+        assert_eq!(b.style_for_level(0, false), DungeonStyle::MossyCavern);
+        assert_eq!(b.style_for_level(2, false), DungeonStyle::MossyCavern);
     }
 
     #[test]
     fn abyssal_temple_uses_blue_stone() {
         let b = DungeonBiome::AbyssalTemple;
-        assert_eq!(b.style_for_level(1, false), DungeonStyle::AbyssalTemple);
-        assert_eq!(b.style_for_level(2, false), DungeonStyle::AbyssalTemple);
+        assert_eq!(b.style_for_level(1, false), DungeonStyle::BlueTemple);
+        assert_eq!(b.style_for_level(2, false), DungeonStyle::BlueTemple);
     }
 
     #[test]
-    fn beast_den_uses_dark_bones() {
+    fn beast_den_uses_bone_cave() {
         let b = DungeonBiome::BeastDen;
-        assert_eq!(b.style_for_level(0, false), DungeonStyle::BeastDen);
-        assert_eq!(b.style_for_level(2, false), DungeonStyle::DarkBones);
+        assert_eq!(b.style_for_level(0, false), DungeonStyle::BoneCave);
+        assert_eq!(b.style_for_level(2, false), DungeonStyle::BoneCrypt);
     }
 
     #[test]
-    fn serpent_pit_uses_green_dirt() {
+    fn serpent_pit_uses_mossy_tunnel() {
         let b = DungeonBiome::SerpentPit;
-        assert_eq!(b.style_for_level(0, false), DungeonStyle::SerpentPit);
+        assert_eq!(b.style_for_level(0, false), DungeonStyle::MossyTunnel);
     }
 
     #[test]
-    fn cave_level_always_dragon_lair_style() {
+    fn cave_level_always_red_cavern_style() {
         for biome in DungeonBiome::PLACEABLE {
-            assert_eq!(biome.style_for_level(3, true), DungeonStyle::DragonLair,
-                "{:?} cave level should be DragonLair", biome);
+            assert_eq!(biome.style_for_level(3, true), DungeonStyle::RedCavern,
+                "{:?} cave level should be RedCavern", biome);
         }
     }
 
