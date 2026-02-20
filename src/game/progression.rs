@@ -97,6 +97,14 @@ impl Game {
             self.ground_items.push(GroundItem { x: ex, y: ey, item: meat });
             self.messages.push("It dropped some meat.".into());
         }
+        if super::spawning::is_rare_monster(name) {
+            let mut loot_rng = (ex as u64).wrapping_mul(31).wrapping_add(ey as u64).wrapping_mul(6364136223846793005);
+            if let Some(loot) = super::items::monster_loot_drop(name, &mut loot_rng) {
+                let loot_name = loot.name;
+                self.ground_items.push(GroundItem { x: ex, y: ey, item: loot });
+                self.messages.push(format!("The {name} dropped {loot_name}!"));
+            }
+        }
         if self.enemies[enemy_idx].glyph == 'D' {
             self.won = true;
             self.messages.push("You conquered the cave!".into());

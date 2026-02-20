@@ -179,6 +179,17 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
     }
 }
 
+/// Returns a strong item drop for rare overworld monsters.
+/// Weaker monsters drop tier 1, strongest drop tier 2.
+pub(super) fn monster_loot_drop(enemy_name: &str, rng: &mut u64) -> Option<Item> {
+    let tier = match enemy_name {
+        "Dryad" | "Forest Spirit" | "Dire Wolf" => 1,
+        "Centaur" | "Lycanthrope" | "Wendigo" => 2,
+        _ => return None,
+    };
+    Some(random_item(tier, rng))
+}
+
 /// Returns a meat/food item if the killed enemy is a beast or has rations.
 /// Stats scale with animal size: tiny(8-10), small(12-15), medium(16-22), large(25-35).
 /// Snakes always have a Poison side effect.

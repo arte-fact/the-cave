@@ -178,7 +178,13 @@ use super::{test_game, overworld_game, rusty_sword};
         assert_eq!(xp_for_enemy("Giant Spider"), 6);
         assert_eq!(xp_for_enemy("Boar"), 7);
         assert_eq!(xp_for_enemy("Bear"), 12);
-        assert_eq!(xp_for_enemy("Lycanthrope"), 18);
+        // Rare overworld monsters (buffed)
+        assert_eq!(xp_for_enemy("Dryad"), 20);
+        assert_eq!(xp_for_enemy("Forest Spirit"), 18);
+        assert_eq!(xp_for_enemy("Centaur"), 25);
+        assert_eq!(xp_for_enemy("Dire Wolf"), 22);
+        assert_eq!(xp_for_enemy("Lycanthrope"), 35);
+        assert_eq!(xp_for_enemy("Wendigo"), 40);
         // Dungeon shallow
         assert_eq!(xp_for_enemy("Kobold"), 3);
         assert_eq!(xp_for_enemy("Small Slime"), 3);

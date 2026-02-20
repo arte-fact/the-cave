@@ -2,6 +2,8 @@ mod enemies;
 mod overworld;
 mod dungeon_tables;
 
+pub(super) use overworld::is_rare_monster;
+
 use crate::map::{DungeonBiome, Tile};
 use super::types::*;
 use super::{Game, xorshift64};
