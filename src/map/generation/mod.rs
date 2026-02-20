@@ -5,7 +5,7 @@ mod roads;
 pub(crate) mod biome;
 
 pub use dungeon::{Dungeon, DungeonStyle};
-pub use biome::{DungeonBiome, OverworldBiome};
+pub use biome::DungeonBiome;
 
 use super::{Map, Tile};
 

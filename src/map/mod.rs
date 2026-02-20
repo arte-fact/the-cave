@@ -1,7 +1,7 @@
 mod generation;
 mod fov;
 
-pub use generation::{Dungeon, DungeonBiome, DungeonStyle, OverworldBiome};
+pub use generation::{Dungeon, DungeonBiome, DungeonStyle};
 pub use fov::bresenham_line;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
