@@ -57,13 +57,13 @@ fn dungeon_footprints_dont_overlap() {
 
 #[test]
 fn dungeon_has_correct_level_count() {
-    let d = Dungeon::generate(3, 42, false);
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
     assert_eq!(d.levels.len(), 3);
 }
 
 #[test]
 fn dungeon_level_sizes_scale_with_depth() {
-    let d = Dungeon::generate(3, 42, false);
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
     assert_eq!((d.levels[0].width, d.levels[0].height), (40, 30));
     assert_eq!((d.levels[1].width, d.levels[1].height), (50, 35));
     assert_eq!((d.levels[2].width, d.levels[2].height), (60, 40));
@@ -71,7 +71,7 @@ fn dungeon_level_sizes_scale_with_depth() {
 
 #[test]
 fn dungeon_levels_have_stairs() {
-    let d = Dungeon::generate(3, 42, false);
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
     for (i, level) in d.levels.iter().enumerate() {
         let has_up = (0..level.height)
             .flat_map(|y| (0..level.width).map(move |x| (x, y)))
@@ -89,7 +89,7 @@ fn dungeon_levels_have_stairs() {
 
 #[test]
 fn dungeon_deepest_level_has_no_stairs_down() {
-    let d = Dungeon::generate(3, 42, false);
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
     let last = &d.levels[2];
     let has_down = (0..last.height)
         .flat_map(|y| (0..last.width).map(move |x| (x, y)))
@@ -99,7 +99,7 @@ fn dungeon_deepest_level_has_no_stairs_down() {
 
 #[test]
 fn dungeon_rooms_reachable_from_stairs() {
-    let d = Dungeon::generate(3, 42, false);
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
     for (i, level) in d.levels.iter().enumerate() {
         // Find StairsUp as the starting point
         let stairs_up = (0..level.height)
@@ -147,7 +147,7 @@ fn dungeon_rooms_reachable_from_stairs() {
 
 #[test]
 fn dungeon_bsp_produces_valid_rooms() {
-    let d = Dungeon::generate(1, 42, false);
+    let d = Dungeon::generate(1, 42, false, DungeonBiome::GoblinWarren);
     let level = &d.levels[0];
     let floor_count = (0..level.height)
         .flat_map(|y| (0..level.width).map(move |x| (x, y)))

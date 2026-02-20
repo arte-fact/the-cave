@@ -31,15 +31,19 @@ use super::{test_game, rusty_sword};
     }
 
     #[test]
-    fn overworld_has_forest_animals() {
+    fn overworld_has_biome_enemies() {
         let g = test_game();
-        let forest_glyphs = [
-            'r', 'a', 'f', 'q', 'n', 'v', 'w', 'y', 'x', 'i', 'j', 'J',
-            '1', '2', 'b', 'h', 'Z', '9', 'B', 'L', 'F', '0',
+        // All valid overworld glyphs (temperate + jungle biomes)
+        let valid_glyphs = [
+            // Temperate forest
+            'r', 'a', 'f', 'q', 'n', 'y', 'w', 'i', 'j', 'J',
+            '1', '2', 'b', 'h', '9', 'B', 'L', '0', 'U',
+            // Jungle
+            'v', 'e', 'A', 'x', 'Z', 'F', '4', '$', 'X', 'N', 'P', '~',
         ];
         for e in &g.enemies {
             assert!(
-                forest_glyphs.contains(&e.glyph),
+                valid_glyphs.contains(&e.glyph),
                 "unexpected overworld enemy: {} ('{}')", e.name, e.glyph
             );
         }

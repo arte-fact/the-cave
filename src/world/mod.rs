@@ -1,5 +1,5 @@
 use crate::game::{Enemy, GroundItem};
-use crate::map::{Dungeon, DungeonStyle, Map};
+use crate::map::{Dungeon, DungeonBiome, DungeonStyle, Map};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Location {
@@ -30,11 +30,17 @@ impl World {
         } else {
             (seed % dungeon_entrances.len() as u64) as usize
         };
-        for i in 0..dungeon_entrances.len() {
+        let map_height = overworld.height;
+        for (i, &(_, ey)) in dungeon_entrances.iter().enumerate() {
             rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
             let depth = 3;
             let has_cave = i == cave_index;
-            dungeons.push(Dungeon::generate(depth, rng, has_cave));
+            let biome = if has_cave {
+                DungeonBiome::DragonLair
+            } else {
+                DungeonBiome::for_dungeon(rng, ey, map_height)
+            };
+            dungeons.push(Dungeon::generate(depth, rng, has_cave, biome));
         }
         Self {
             overworld,

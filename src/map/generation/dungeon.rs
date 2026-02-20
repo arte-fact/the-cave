@@ -1,4 +1,5 @@
 use super::super::{Map, Tile};
+use super::biome::DungeonBiome;
 use super::xorshift64;
 
 impl Map {
@@ -126,43 +127,31 @@ fn place_stairs(map: &mut Map, rooms: &[(i32, i32, i32, i32)], level: usize, tot
 }
 
 /// Visual style of a dungeon, determining which wall/floor sprites are used.
-/// Deeper dungeons use progressively more ominous styles.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Names describe visual appearance, not thematic identity (see `DungeonBiome`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DungeonStyle {
-    /// Basic dirt/rough stone — shallow dungeons.
+    /// Dirt walls + stone floors — shallow dungeons.
     DirtCaves,
-    /// Stone brick — standard dungeons.
+    /// Stone brick walls + stone floors — standard dungeons.
     StoneBrick,
-    /// Dark igneous rock — mid-depth.
+    /// Dark igneous walls + stone-alt floors — mid-depth.
     Igneous,
-    /// Massive stone blocks — deep dungeons.
+    /// Massive stone block walls + stone-alt floors — deep dungeons.
     LargeStone,
-    /// Skull-decorated catacombs — deepest BSP levels.
+    /// Skull-decorated catacomb walls + bone floors.
     Catacombs,
-    /// Open cave with red stone — dragon's lair.
-    DragonLair,
-}
-
-impl DungeonStyle {
-    /// Pick a dungeon style based on which dungeon and how deep.
-    pub fn for_level(dungeon_seed: u64, level: usize, is_cave: bool) -> Self {
-        if is_cave {
-            return Self::DragonLair;
-        }
-        // Use dungeon seed to vary base style per dungeon, then escalate with depth
-        let base = dungeon_seed % 3;
-        match (base, level) {
-            (0, 0) => Self::DirtCaves,
-            (0, 1) => Self::StoneBrick,
-            (0, _) => Self::Catacombs,
-            (1, 0) => Self::StoneBrick,
-            (1, 1) => Self::Igneous,
-            (1, _) => Self::LargeStone,
-            (_, 0) => Self::DirtCaves,
-            (_, 1) => Self::LargeStone,
-            (_, _) => Self::Catacombs,
-        }
-    }
+    /// Igneous walls + red stone floors — volcanic cavern.
+    RedCavern,
+    /// Rough stone walls + green dirt floors — mossy underground.
+    MossyCavern,
+    /// Rough stone walls + dark brown bone floors — primal den.
+    BoneCave,
+    /// Igneous walls + blue stone floors — dark arcane.
+    BlueTemple,
+    /// Dirt walls + green dirt floors — earthy tunnels.
+    MossyTunnel,
+    /// Catacombs walls + dark brown bone floors — deep crypts.
+    BoneCrypt,
 }
 
 /// A dungeon complex with multiple levels, each a self-contained Map.
@@ -170,14 +159,16 @@ pub struct Dungeon {
     pub levels: Vec<Map>,
     /// Visual style per level (determines wall/floor sprites).
     pub styles: Vec<DungeonStyle>,
+    /// Thematic biome of this dungeon (determines enemies, visuals, boss).
+    pub biome: DungeonBiome,
 }
 
 impl Dungeon {
-    /// Generate a dungeon with `depth` BSP levels.
+    /// Generate a dungeon with `depth` BSP levels and a specific biome.
     /// Level 0 = 40x30, level 1 = 50x35, level 2 = 60x40.
     /// If `has_cave` is true, appends a cellular automata cave (80x60)
     /// as the deepest level — the dragon's lair.
-    pub fn generate(depth: usize, seed: u64, has_cave: bool) -> Self {
+    pub fn generate(depth: usize, seed: u64, has_cave: bool, biome: DungeonBiome) -> Self {
         let mut levels = Vec::new();
         let mut styles = Vec::new();
         let mut rng = seed;
@@ -190,7 +181,7 @@ impl Dungeon {
             rng = xorshift64(rng);
             let map = Map::generate_bsp_dungeon(w, h, rng, level, total);
             levels.push(map);
-            styles.push(DungeonStyle::for_level(seed, level, false));
+            styles.push(biome.style_for_level(level, false));
         }
 
         // Append cave level if this is the dragon's dungeon
@@ -198,10 +189,10 @@ impl Dungeon {
             rng = xorshift64(rng);
             let cave = Map::generate_cave(80, 60, rng);
             levels.push(cave);
-            styles.push(DungeonStyle::DragonLair);
+            styles.push(DungeonStyle::RedCavern);
         }
 
-        Dungeon { levels, styles }
+        Dungeon { levels, styles, biome }
     }
 }
 
