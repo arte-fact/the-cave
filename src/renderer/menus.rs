@@ -41,6 +41,7 @@ impl Renderer {
         let d = self.dpr;
         let canvas_w = ctx.canvas().unwrap().width() as f64;
         let canvas_h = ctx.canvas().unwrap().height() as f64;
+        let compact = canvas_h < canvas_w;
 
         // Background
         ctx.set_fill_style_str("#0a0a14");
@@ -52,24 +53,26 @@ impl Renderer {
         ctx.stroke_rect(20.0 * d, 20.0 * d, canvas_w - 40.0 * d, canvas_h - 40.0 * d);
 
         // Title
-        let title_size = (canvas_w * 0.08).min(60.0 * d).round();
+        let ref_dim = canvas_w.min(canvas_h);
+        let title_size = (ref_dim * 0.08).min(60.0 * d).round();
         ctx.set_font(&format!("bold {title_size}px monospace"));
         ctx.set_fill_style_str("#c8e0ff");
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text("THE CAVE", canvas_w / 2.0, canvas_h * 0.22);
+        let title_y = if compact { canvas_h * 0.15 } else { canvas_h * 0.22 };
+        let _ = ctx.fill_text("THE CAVE", canvas_w / 2.0, title_y);
 
         // Subtitle
         let sub_size = (title_size * 0.3).round();
         ctx.set_font(&format!("{sub_size}px monospace"));
         ctx.set_fill_style_str("#667");
-        let _ = ctx.fill_text("A roguelike adventure", canvas_w / 2.0, canvas_h * 0.22 + title_size * 0.8);
+        let _ = ctx.fill_text("A roguelike adventure", canvas_w / 2.0, title_y + title_size * 0.8);
 
         // Menu buttons
-        let btn_w = (canvas_w * 0.5).min(280.0 * d);
-        let btn_h = 44.0 * d;
-        let gap = 16.0 * d;
-        let start_y = canvas_h * 0.45;
+        let btn_w = (ref_dim * 0.5).min(280.0 * d);
+        let btn_h = if compact { 36.0 * d } else { 44.0 * d };
+        let gap = if compact { 10.0 * d } else { 16.0 * d };
+        let start_y = if compact { canvas_h * 0.38 } else { canvas_h * 0.45 };
         let btn_x = (canvas_w - btn_w) / 2.0;
 
         // New Game
@@ -126,18 +129,21 @@ impl Renderer {
         let d = self.dpr;
         let canvas_w = ctx.canvas().unwrap().width() as f64;
         let canvas_h = ctx.canvas().unwrap().height() as f64;
+        let compact = canvas_h < canvas_w;
+        let ref_dim = canvas_w.min(canvas_h);
 
         // Background
         ctx.set_fill_style_str("#0a0a14");
         ctx.fill_rect(0.0, 0.0, canvas_w, canvas_h);
 
         // Title
-        let title_size = (canvas_w * 0.06).min(40.0 * d).round();
+        let title_size = (ref_dim * 0.06).min(40.0 * d).round();
         ctx.set_font(&format!("bold {title_size}px monospace"));
         ctx.set_fill_style_str("#c8e0ff");
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text("NEW GAME", canvas_w / 2.0, canvas_h * 0.12);
+        let title_y = if compact { canvas_h * 0.08 } else { canvas_h * 0.12 };
+        let _ = ctx.fill_text("NEW GAME", canvas_w / 2.0, title_y);
 
         // Back button (top-left)
         let back_size = (12.0 * d).round();
@@ -148,7 +154,7 @@ impl Renderer {
         let _ = ctx.fill_text("< Back", 16.0 * d, 12.0 * d);
 
         // Difficulty selection
-        let section_y = canvas_h * 0.22;
+        let section_y = if compact { canvas_h * 0.16 } else { canvas_h * 0.22 };
         let label_size = (13.0 * d).round();
         ctx.set_font(&format!("bold {label_size}px monospace"));
         ctx.set_fill_style_str("#aab");
@@ -156,11 +162,11 @@ impl Renderer {
         let _ = ctx.fill_text("DIFFICULTY", canvas_w / 2.0, section_y);
 
         let difficulties = [Difficulty::Easy, Difficulty::Normal, Difficulty::Hard];
-        let btn_w = (canvas_w * 0.7).min(300.0 * d);
-        let btn_h = 52.0 * d;
-        let gap = 10.0 * d;
+        let btn_w = (ref_dim * 0.7).min(300.0 * d);
+        let btn_h = if compact { 36.0 * d } else { 52.0 * d };
+        let gap = if compact { 6.0 * d } else { 10.0 * d };
         let btn_x = (canvas_w - btn_w) / 2.0;
-        let list_y = section_y + 24.0 * d;
+        let list_y = section_y + if compact { 18.0 * d } else { 24.0 * d };
 
         for (i, diff) in difficulties.iter().enumerate() {
             let y = list_y + (btn_h + gap) * i as f64;
@@ -189,16 +195,19 @@ impl Renderer {
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text(diff.label(), btn_x + 14.0 * d, y + 8.0 * d);
 
-            // Description
-            let desc_size = (10.0 * d).round();
-            ctx.set_font(&format!("{desc_size}px monospace"));
-            if selected { ctx.set_fill_style_str("#8af"); } else { ctx.set_fill_style_str("#556"); }
-            ctx.set_text_baseline("bottom");
-            let _ = ctx.fill_text(diff.description(), btn_x + 14.0 * d, y + btn_h - 8.0 * d);
+            // Description (skip in compact when button is too short)
+            if !compact {
+                let desc_size = (10.0 * d).round();
+                ctx.set_font(&format!("{desc_size}px monospace"));
+                if selected { ctx.set_fill_style_str("#8af"); } else { ctx.set_fill_style_str("#556"); }
+                ctx.set_text_baseline("bottom");
+                let _ = ctx.fill_text(diff.description(), btn_x + 14.0 * d, y + btn_h - 8.0 * d);
+            }
         }
 
         // Seed display
-        let seed_y = list_y + (btn_h + gap) * 3.0 + 10.0 * d;
+        let seed_gap = if compact { 6.0 * d } else { 10.0 * d };
+        let seed_y = list_y + (btn_h + gap) * 3.0 + seed_gap;
         let seed_size = (11.0 * d).round();
         ctx.set_font(&format!("{seed_size}px monospace"));
         ctx.set_fill_style_str("#556");
@@ -214,9 +223,10 @@ impl Renderer {
         let _ = ctx.fill_text("Tap seed to randomize", canvas_w / 2.0, seed_y + 16.0 * d);
 
         // Start button
-        let start_y = seed_y + 44.0 * d;
-        let start_w = (canvas_w * 0.5).min(220.0 * d);
-        let start_h = 48.0 * d;
+        let start_gap = if compact { 28.0 * d } else { 44.0 * d };
+        let start_y = seed_y + start_gap;
+        let start_w = (ref_dim * 0.5).min(220.0 * d);
+        let start_h = if compact { 38.0 * d } else { 48.0 * d };
         let start_x = (canvas_w - start_w) / 2.0;
         ctx.set_fill_style_str("rgba(40,160,80,0.4)");
         self.fill_rounded_rect(start_x, start_y, start_w, start_h, 8.0 * d);
@@ -238,18 +248,21 @@ impl Renderer {
         let d = self.dpr;
         let canvas_w = ctx.canvas().unwrap().width() as f64;
         let canvas_h = ctx.canvas().unwrap().height() as f64;
+        let compact = canvas_h < canvas_w;
+        let ref_dim = canvas_w.min(canvas_h);
 
         // Background
         ctx.set_fill_style_str("#0a0a14");
         ctx.fill_rect(0.0, 0.0, canvas_w, canvas_h);
 
         // Title
-        let title_size = (canvas_w * 0.06).min(40.0 * d).round();
+        let title_size = (ref_dim * 0.06).min(40.0 * d).round();
         ctx.set_font(&format!("bold {title_size}px monospace"));
         ctx.set_fill_style_str("#c8e0ff");
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        let _ = ctx.fill_text("SETTINGS", canvas_w / 2.0, canvas_h * 0.12);
+        let title_y = if compact { canvas_h * 0.08 } else { canvas_h * 0.12 };
+        let _ = ctx.fill_text("SETTINGS", canvas_w / 2.0, title_y);
 
         // Back button
         let back_size = (12.0 * d).round();
@@ -260,14 +273,14 @@ impl Renderer {
         let _ = ctx.fill_text("< Back", 16.0 * d, 12.0 * d);
 
         // Settings rows
-        let row_w = (canvas_w * 0.8).min(340.0 * d);
-        let row_h = 44.0 * d;
+        let row_w = (ref_dim * 0.8).min(340.0 * d);
+        let row_h = if compact { 38.0 * d } else { 44.0 * d };
         let gap = 8.0 * d;
         let row_x = (canvas_w - row_w) / 2.0;
         let pad = 14.0 * d;
 
         // Glyph Mode row
-        let row_y = canvas_h * 0.25;
+        let row_y = if compact { canvas_h * 0.18 } else { canvas_h * 0.25 };
         ctx.set_fill_style_str("rgba(30,30,50,0.5)");
         self.fill_rounded_rect(row_x, row_y, row_w, row_h, 6.0 * d);
 
@@ -291,7 +304,7 @@ impl Renderer {
         ctx.set_text_baseline("top");
         let _ = ctx.fill_text("Classic ASCII rendering", row_x + pad, row_y + row_h + 4.0 * d);
 
-        // FOV Radius row
+        // Controls row
         let row2_y = row_y + row_h + gap + 20.0 * d;
         ctx.set_fill_style_str("rgba(30,30,50,0.5)");
         self.fill_rounded_rect(row_x, row2_y, row_w, row_h, 6.0 * d);

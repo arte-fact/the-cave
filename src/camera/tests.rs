@@ -42,15 +42,17 @@ fn set_viewport_for_area_matches_set_viewport_when_equal() {
 }
 
 #[test]
-fn landscape_tiles_fit_game_area() {
-    let mut cam = Camera::new();
-    // Simulate landscape: 1600×720 canvas, 440px side panel
-    let game_w = 1600.0 - 440.0;
-    let cell = cam.set_viewport_for_area(1600.0, 720.0, game_w);
-    // ~15 tiles should fit in the game area
-    let tiles_in_game_area = game_w / cell;
-    assert!((tiles_in_game_area - 15.0).abs() < 0.1,
-        "expected ~15 tiles in game area, got {tiles_in_game_area}");
+fn landscape_tile_density_matches_portrait() {
+    // Portrait: 720×1600, cell_size from 720
+    let mut portrait = Camera::new();
+    let portrait_cell = portrait.set_viewport(720.0, 1600.0);
+
+    // Landscape: 1600×720, cell_size from height (720) to match portrait density
+    let mut landscape = Camera::new();
+    let landscape_cell = landscape.set_viewport_for_area(1600.0, 720.0, 720.0);
+
+    assert_eq!(portrait_cell, landscape_cell,
+        "landscape tile size should match portrait for same device");
 }
 
 // --- Clamping ---
