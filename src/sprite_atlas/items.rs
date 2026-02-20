@@ -368,7 +368,7 @@ impl ItemSprite {
             Self::Bread => (25, 1),
             Self::Apple => (25, 2),
             Self::BottleOfBeer => (25, 3),
-            Self::BottleOfWater => (24, 4),
+            Self::BottleOfWater => (25, 4),
         };
         SpriteRef::new(Sheet::Items, row, col)
     }
