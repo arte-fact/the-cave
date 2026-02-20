@@ -33,7 +33,7 @@ use super::{test_game, rusty_sword};
     #[test]
     fn overworld_has_forest_animals() {
         let g = test_game();
-        let forest_glyphs = ['r', 'a', 'w', 'i', 'b', 'B', 'L'];
+        let forest_glyphs = ['r', 'a', 'f', 'n', 'w', 'i', 'j', 'b', 'h', 'B', 'L'];
         for e in &g.enemies {
             assert!(
                 forest_glyphs.contains(&e.glyph),

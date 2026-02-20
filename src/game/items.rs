@@ -4,111 +4,173 @@ use super::{Game, xorshift64};
 
 /// Generate a random item appropriate for the given dungeon tier.
 /// Tier 0 = shallow/overworld, 1 = mid, 2+ = deep.
+/// Each tier has expanded weapon/armor/item variety using all available sprites.
 pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
     *rng = xorshift64(*rng);
     let roll = *rng % 100;
     // Sub-roll for variant selection within a category
     *rng = xorshift64(*rng);
-    let sub = *rng % 3;
+    let sub = (*rng % 6) as usize;
     match tier {
         0 => {
-            if roll < 28 {
+            if roll < 26 {
                 Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
-            } else if roll < 40 {
-                Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
-            } else if roll < 50 {
+            } else if roll < 36 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) },
+                    _ => Item { kind: ItemKind::Scroll, name: "Scroll of Ice", glyph: '?', effect: ItemEffect::DamageAoe(7) },
+                }
+            } else if roll < 48 {
                 match sub {
                     0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) },
                     1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(1) },
-                    _ => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(2) },
+                    2 => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(2) },
+                    3 => Item { kind: ItemKind::Weapon, name: "Hand Axe", glyph: '/', effect: ItemEffect::BuffAttack(2) },
+                    4 => Item { kind: ItemKind::Weapon, name: "Wooden Spear", glyph: '/', effect: ItemEffect::BuffAttack(2) },
+                    _ => Item { kind: ItemKind::Weapon, name: "Kukri", glyph: '/', effect: ItemEffect::BuffAttack(2) },
                 }
-            } else if roll < 56 {
-                match sub {
+            } else if roll < 54 {
+                match sub % 2 {
                     0 => Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(2) },
                     _ => Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(3) },
                 }
-            } else if roll < 62 {
-                Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
-            } else if roll < 67 {
-                Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1) }
-            } else if roll < 72 {
+            } else if roll < 60 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) },
+                    _ => Item { kind: ItemKind::Armor, name: "Cloth Armor", glyph: '[', effect: ItemEffect::BuffDefense(1) },
+                }
+            } else if roll < 65 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1) },
+                    _ => Item { kind: ItemKind::Helmet, name: "Cloth Hood", glyph: '^', effect: ItemEffect::BuffDefense(1) },
+                }
+            } else if roll < 70 {
                 Item { kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1) }
-            } else if roll < 77 {
-                Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1) }
-            } else if roll < 84 {
+            } else if roll < 75 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1) },
+                    _ => Item { kind: ItemKind::Boots, name: "Shoes", glyph: '{', effect: ItemEffect::BuffDefense(1) },
+                }
+            } else if roll < 82 {
                 Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1) }
             } else {
-                match sub {
+                match sub % 4 {
                     0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None) },
                     1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(12, FoodSideEffect::None) },
-                    _ => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::Heal(2)) },
+                    2 => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::Heal(2)) },
+                    _ => Item { kind: ItemKind::Food, name: "Cheese Wedge", glyph: '%', effect: ItemEffect::Feed(14, FoodSideEffect::Heal(1)) },
                 }
             }
         }
         1 => {
-            if roll < 24 {
-                Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10) }
-            } else if roll < 36 {
-                Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12) }
+            if roll < 22 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10) },
+                    _ => Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::Heal(8) },
+                }
+            } else if roll < 32 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12) },
+                    _ => Item { kind: ItemKind::Scroll, name: "Scroll of Wrath", glyph: '?', effect: ItemEffect::DamageAoe(10) },
+                }
             } else if roll < 46 {
                 match sub {
                     0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) },
                     1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(5) },
-                    _ => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                    2 => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                    3 => Item { kind: ItemKind::Weapon, name: "Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                    4 => Item { kind: ItemKind::Weapon, name: "Mace", glyph: '/', effect: ItemEffect::BuffAttack(3) },
+                    _ => match sub % 3 {
+                        0 => Item { kind: ItemKind::Weapon, name: "Spear", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                        1 => Item { kind: ItemKind::Weapon, name: "Flail", glyph: '/', effect: ItemEffect::BuffAttack(4) },
+                        _ => Item { kind: ItemKind::Weapon, name: "Rapier", glyph: '/', effect: ItemEffect::BuffAttack(3) },
+                    },
                 }
             } else if roll < 52 {
-                match sub {
+                match sub % 2 {
                     0 => Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(4) },
                     _ => Item { kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(5) },
                 }
             } else if roll < 58 {
-                Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) },
+                    _ => Item { kind: ItemKind::Armor, name: "Scale Mail", glyph: '[', effect: ItemEffect::BuffDefense(3) },
+                }
             } else if roll < 63 {
-                Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3) }
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3) },
+                    _ => Item { kind: ItemKind::Helmet, name: "Chain Coif", glyph: '^', effect: ItemEffect::BuffDefense(2) },
+                }
             } else if roll < 68 {
-                Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3) }
+                match sub % 3 {
+                    0 => Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3) },
+                    1 => Item { kind: ItemKind::Shield, name: "Cross Shield", glyph: ')', effect: ItemEffect::BuffDefense(3) },
+                    _ => Item { kind: ItemKind::Shield, name: "Round Shield", glyph: ')', effect: ItemEffect::BuffDefense(2) },
+                }
             } else if roll < 73 {
                 Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2) }
             } else if roll < 80 {
-                match sub {
+                match sub % 3 {
                     0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2) },
-                    _ => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3) },
+                    1 => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3) },
+                    _ => Item { kind: ItemKind::Ring, name: "Jade Ring", glyph: '=', effect: ItemEffect::BuffDefense(2) },
                 }
             } else {
-                match sub {
+                match sub % 3 {
                     0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None) },
-                    _ => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Sicken(10)) },
+                    1 => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Sicken(10)) },
+                    _ => Item { kind: ItemKind::Food, name: "Cheese Wedge", glyph: '%', effect: ItemEffect::Feed(14, FoodSideEffect::Heal(1)) },
                 }
             }
         }
         _ => {
-            if roll < 18 {
-                Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15) }
-            } else if roll < 32 {
+            if roll < 16 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15) },
+                    _ => Item { kind: ItemKind::Potion, name: "Elixir of Power", glyph: '!', effect: ItemEffect::Heal(20) },
+                }
+            } else if roll < 28 {
                 Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16) }
-            } else if roll < 42 {
+            } else if roll < 44 {
                 match sub {
                     0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(6) },
-                    1 => Item { kind: ItemKind::Weapon, name: "Crystal Staff", glyph: '/', effect: ItemEffect::BuffAttack(7) },
-                    _ => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                    1 => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                    2 => Item { kind: ItemKind::Weapon, name: "Great Axe", glyph: '/', effect: ItemEffect::BuffAttack(7) },
+                    3 => Item { kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/', effect: ItemEffect::BuffAttack(7) },
+                    4 => Item { kind: ItemKind::Weapon, name: "Trident", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                    _ => match sub % 5 {
+                        0 => Item { kind: ItemKind::Weapon, name: "Bastard Sword", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                        1 => Item { kind: ItemKind::Weapon, name: "Evil Blade", glyph: '/', effect: ItemEffect::BuffAttack(7) },
+                        2 => Item { kind: ItemKind::Weapon, name: "Halberd", glyph: '/', effect: ItemEffect::BuffAttack(7) },
+                        3 => Item { kind: ItemKind::Weapon, name: "Great Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(6) },
+                        _ => Item { kind: ItemKind::Weapon, name: "Flamberge", glyph: '/', effect: ItemEffect::BuffAttack(7) },
+                    },
                 }
-            } else if roll < 48 {
+            } else if roll < 50 {
                 Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6) }
-            } else if roll < 54 {
+            } else if roll < 56 {
                 Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6) }
-            } else if roll < 59 {
-                Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5) }
-            } else if roll < 64 {
-                Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5) }
-            } else if roll < 69 {
+            } else if roll < 61 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5) },
+                    _ => Item { kind: ItemKind::Helmet, name: "Plate Helm", glyph: '^', effect: ItemEffect::BuffDefense(4) },
+                }
+            } else if roll < 66 {
+                match sub % 2 {
+                    0 => Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5) },
+                    _ => Item { kind: ItemKind::Shield, name: "Dark Shield", glyph: ')', effect: ItemEffect::BuffDefense(4) },
+                }
+            } else if roll < 71 {
                 Item { kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4) }
             } else if roll < 80 {
-                match sub {
+                match sub % 4 {
                     0 => Item { kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4) },
-                    _ => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4) },
+                    1 => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4) },
+                    2 => Item { kind: ItemKind::Ring, name: "Emerald Ring", glyph: '=', effect: ItemEffect::BuffAttack(4) },
+                    _ => Item { kind: ItemKind::Ring, name: "Onyx Ring", glyph: '=', effect: ItemEffect::BuffDefense(3) },
                 }
             } else {
-                match sub {
+                match sub % 2 {
                     0 => Item { kind: ItemKind::Food, name: "Elven Waybread", glyph: '%', effect: ItemEffect::Feed(25, FoodSideEffect::Heal(5)) },
                     _ => Item { kind: ItemKind::Food, name: "Honey Mead", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Energize(15)) },
                 }
@@ -117,7 +179,7 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
     }
 }
 
-/// Returns a meat/food item if the killed enemy is a beast.
+/// Returns a meat/food item if the killed enemy is a beast or has rations.
 pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
     match enemy_name {
         "Giant Rat" => Some(Item {
@@ -136,9 +198,23 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
             kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
             effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)),
         }),
-        "Goblin" | "Goblin Archer" => {
-            // 20% chance to drop stolen rations (handled by caller via RNG,
-            // but for simplicity we always drop for goblins here)
+        "Fox" => Some(Item {
+            kind: ItemKind::Food, name: "Fox Meat", glyph: '%',
+            effect: ItemEffect::Feed(16, FoodSideEffect::None),
+        }),
+        "Cougar" => Some(Item {
+            kind: ItemKind::Food, name: "Venison", glyph: '%',
+            effect: ItemEffect::Feed(22, FoodSideEffect::Energize(8)),
+        }),
+        "Viper" => Some(Item {
+            kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
+            effect: ItemEffect::Feed(12, FoodSideEffect::Poison(2)),
+        }),
+        "Badger" => Some(Item {
+            kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
+            effect: ItemEffect::Feed(12, FoodSideEffect::None),
+        }),
+        "Goblin" | "Goblin Archer" | "Goblin Mage" | "Goblin Brute" => {
             Some(Item {
                 kind: ItemKind::Food, name: "Stolen Rations", glyph: '%',
                 effect: ItemEffect::Feed(18, FoodSideEffect::None),

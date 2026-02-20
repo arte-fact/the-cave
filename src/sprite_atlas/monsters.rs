@@ -4,55 +4,185 @@ use super::{Sheet, SpriteRef};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MonsterSprite {
+    // Row 1: Orcs & Goblins
     Orc,
+    OrcWizard,
     Goblin,
     OrcBlademaster,
+    OrcWarchief,
     GoblinArcher,
+    GoblinMage,
+    GoblinBrute,
+
+    // Row 2: Ettins & Troll
+    Ettin,
+    TwoHeadedEttin,
     Troll,
+
+    // Row 3: Slimes
     SmallSlime,
     BigSlime,
+
+    // Row 4: Cultists
+    FacelessMonk,
+    UnholyCardinal,
+
+    // Row 5: Undead warriors
     Skeleton,
     SkeletonArcher,
     Lich,
     DeathKnight,
     Zombie,
     Ghoul,
+
+    // Row 6: Spectral & dark
+    Banshee,
+    Reaper,
     Wraith,
+    Cultist,
+    HagWitch,
+
+    // Row 7: Beasts & insects
+    GiantCentipede,
+    Lampreymander,
+    GiantEarthworm,
+    Manticore,
+    GiantAnt,
     Lycanthrope,
     GiantBat,
+    LesserGiantAnt,
     GiantSpider,
+    LesserGiantSpider,
     WargDireWolf,
     GiantRat,
+
+    // Row 8: Mythical
+    Dryad,
+    Wendigo,
+    RockGolem,
+    Centaur,
     Naga,
-    SmallKoboldCanine,
+    ForestSpirit,
+    Satyr,
+    Minotaur,
+    Harpy,
+    GorgonMedusa,
+
+    // Row 9: Reptilian
+    LizardfolkKobold,
+    Drake,
     Dragon,
+    Cockatrice,
+    Basilisk,
+
+    // Row 10: Canine kobolds
+    SmallKoboldCanine,
+    KoboldCanine,
+
+    // Row 11: Fungi
+    SmallMyconid,
+    LargeMyconid,
+
+    // Row 12: Celestial / Infernal
+    Angel,
+    ImpDevil,
+
+    // Row 13: Aberrations
+    SmallWrithingMass,
+    LargeWrithingMass,
+    WrithingHumanoid,
 }
 
 impl MonsterSprite {
     pub const fn sprite_ref(self) -> SpriteRef {
         let (row, col) = match self {
+            // Row 1
             Self::Orc => (0, 0),
+            Self::OrcWizard => (0, 1),
             Self::Goblin => (0, 2),
             Self::OrcBlademaster => (0, 3),
+            Self::OrcWarchief => (0, 4),
             Self::GoblinArcher => (0, 5),
+            Self::GoblinMage => (0, 6),
+            Self::GoblinBrute => (0, 7),
+
+            // Row 2
+            Self::Ettin => (1, 0),
+            Self::TwoHeadedEttin => (1, 1),
             Self::Troll => (1, 2),
+
+            // Row 3
             Self::SmallSlime => (2, 0),
             Self::BigSlime => (2, 1),
+
+            // Row 4
+            Self::FacelessMonk => (3, 0),
+            Self::UnholyCardinal => (3, 1),
+
+            // Row 5
             Self::Skeleton => (4, 0),
             Self::SkeletonArcher => (4, 1),
             Self::Lich => (4, 2),
             Self::DeathKnight => (4, 3),
             Self::Zombie => (4, 4),
             Self::Ghoul => (4, 5),
+
+            // Row 6
+            Self::Banshee => (5, 0),
+            Self::Reaper => (5, 1),
             Self::Wraith => (5, 2),
+            Self::Cultist => (5, 3),
+            Self::HagWitch => (5, 4),
+
+            // Row 7
+            Self::GiantCentipede => (6, 0),
+            Self::Lampreymander => (6, 1),
+            Self::GiantEarthworm => (6, 2),
+            Self::Manticore => (6, 3),
+            Self::GiantAnt => (6, 4),
             Self::Lycanthrope => (6, 5),
             Self::GiantBat => (6, 6),
+            Self::LesserGiantAnt => (6, 7),
             Self::GiantSpider => (6, 8),
+            Self::LesserGiantSpider => (6, 9),
             Self::WargDireWolf => (6, 10),
             Self::GiantRat => (6, 11),
+
+            // Row 8
+            Self::Dryad => (7, 0),
+            Self::Wendigo => (7, 1),
+            Self::RockGolem => (7, 2),
+            Self::Centaur => (7, 3),
             Self::Naga => (7, 4),
-            Self::SmallKoboldCanine => (9, 0),
+            Self::ForestSpirit => (7, 5),
+            Self::Satyr => (7, 6),
+            Self::Minotaur => (7, 7),
+            Self::Harpy => (7, 8),
+            Self::GorgonMedusa => (7, 9),
+
+            // Row 9
+            Self::LizardfolkKobold => (8, 0),
+            Self::Drake => (8, 1),
             Self::Dragon => (8, 2),
+            Self::Cockatrice => (8, 3),
+            Self::Basilisk => (8, 4),
+
+            // Row 10
+            Self::SmallKoboldCanine => (9, 0),
+            Self::KoboldCanine => (9, 1),
+
+            // Row 11
+            Self::SmallMyconid => (10, 0),
+            Self::LargeMyconid => (10, 1),
+
+            // Row 12
+            Self::Angel => (11, 0),
+            Self::ImpDevil => (11, 1),
+
+            // Row 13
+            Self::SmallWrithingMass => (12, 0),
+            Self::LargeWrithingMass => (12, 1),
+            Self::WrithingHumanoid => (12, 2),
         };
         SpriteRef::new(Sheet::Monsters, row, col)
     }
@@ -65,18 +195,30 @@ mod tests {
     #[test]
     fn all_monster_sprites_within_sheet_bounds() {
         let all = [
-            MonsterSprite::Orc, MonsterSprite::Goblin,
-            MonsterSprite::OrcBlademaster, MonsterSprite::GoblinArcher,
-            MonsterSprite::Troll,
+            MonsterSprite::Orc, MonsterSprite::OrcWizard, MonsterSprite::Goblin,
+            MonsterSprite::OrcBlademaster, MonsterSprite::OrcWarchief,
+            MonsterSprite::GoblinArcher, MonsterSprite::GoblinMage, MonsterSprite::GoblinBrute,
+            MonsterSprite::Ettin, MonsterSprite::TwoHeadedEttin, MonsterSprite::Troll,
             MonsterSprite::SmallSlime, MonsterSprite::BigSlime,
+            MonsterSprite::FacelessMonk, MonsterSprite::UnholyCardinal,
             MonsterSprite::Skeleton, MonsterSprite::SkeletonArcher, MonsterSprite::Lich,
             MonsterSprite::DeathKnight, MonsterSprite::Zombie, MonsterSprite::Ghoul,
-            MonsterSprite::Wraith,
-            MonsterSprite::Lycanthrope, MonsterSprite::GiantBat,
-            MonsterSprite::GiantSpider, MonsterSprite::WargDireWolf, MonsterSprite::GiantRat,
-            MonsterSprite::Naga,
-            MonsterSprite::SmallKoboldCanine,
-            MonsterSprite::Dragon,
+            MonsterSprite::Banshee, MonsterSprite::Reaper, MonsterSprite::Wraith,
+            MonsterSprite::Cultist, MonsterSprite::HagWitch,
+            MonsterSprite::GiantCentipede, MonsterSprite::Lampreymander, MonsterSprite::GiantEarthworm,
+            MonsterSprite::Manticore, MonsterSprite::GiantAnt, MonsterSprite::Lycanthrope,
+            MonsterSprite::GiantBat, MonsterSprite::LesserGiantAnt,
+            MonsterSprite::GiantSpider, MonsterSprite::LesserGiantSpider,
+            MonsterSprite::WargDireWolf, MonsterSprite::GiantRat,
+            MonsterSprite::Dryad, MonsterSprite::Wendigo, MonsterSprite::RockGolem,
+            MonsterSprite::Centaur, MonsterSprite::Naga, MonsterSprite::ForestSpirit,
+            MonsterSprite::Satyr, MonsterSprite::Minotaur, MonsterSprite::Harpy, MonsterSprite::GorgonMedusa,
+            MonsterSprite::LizardfolkKobold, MonsterSprite::Drake, MonsterSprite::Dragon,
+            MonsterSprite::Cockatrice, MonsterSprite::Basilisk,
+            MonsterSprite::SmallKoboldCanine, MonsterSprite::KoboldCanine,
+            MonsterSprite::SmallMyconid, MonsterSprite::LargeMyconid,
+            MonsterSprite::Angel, MonsterSprite::ImpDevil,
+            MonsterSprite::SmallWrithingMass, MonsterSprite::LargeWrithingMass, MonsterSprite::WrithingHumanoid,
         ];
         for sprite in all {
             let r = sprite.sprite_ref();

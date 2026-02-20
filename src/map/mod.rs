@@ -1,7 +1,7 @@
 mod generation;
 mod fov;
 
-pub use generation::Dungeon;
+pub use generation::{Dungeon, DungeonStyle};
 pub use fov::bresenham_line;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

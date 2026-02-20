@@ -102,7 +102,7 @@ use super::{test_game, overworld_game, rusty_sword};
         let mut g = overworld_game();
         g.enter_dungeon(0);
         let name = g.location_name();
-        assert!(name.starts_with("Dungeon") || name.starts_with("Dragon"),
+        assert!(name.contains("(B1)"),
             "unexpected location name: {name}");
         assert!(name.contains("B1"));
     }
