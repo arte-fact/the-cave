@@ -1,16 +1,20 @@
-/// Sprites from `animals.png` (9 cols x 17 rows, 32x32 cells).
+/// Sprites from `animals.png` (9 cols x 16 rows, 32x32 cells).
 /// Positions from `32rogues/animals.txt`.
+///
+/// NOTE: The txt file labels orangutan as "3.c." but it's actually at row 2
+/// (same row as chimp/gorilla) — the image has 16 rows, not 17. All rows
+/// from txt row 4 onward are offset by -1 compared to the txt numbering.
 use super::{Sheet, SpriteRef};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AnimalSprite {
-    // Row 1: Bears
+    // Row 0: Bears
     GrizzlyBear,
     BlackBear,
     PolarBear,
     Panda,
 
-    // Row 5: Cats
+    // Row 3: Cats (txt row 5)
     Cat,
     Bobcat,
     Cougar,
@@ -20,7 +24,7 @@ pub enum AnimalSprite {
     MaleLion,
     FemaleLion,
 
-    // Row 6: Canines
+    // Row 4: Canines (txt row 6)
     Dog,
     Hyena,
     Fox,
@@ -28,31 +32,31 @@ pub enum AnimalSprite {
     Coyote,
     Wolf,
 
-    // Row 7: Rodents
+    // Row 5: Rodents (txt row 7)
     Capybara,
     Beaver,
 
-    // Row 8: Misc mammals
+    // Row 6: Misc mammals (txt row 8)
     Badger,
     Honeybadger,
     Rabbit,
     Hare,
     Rat,
 
-    // Row 9: Snakes
+    // Row 7: Snakes (txt row 9)
     Snake,
     Cobra,
     Kingsnake,
     BlackMamba,
 
-    // Row 10: Reptiles
+    // Row 8: Reptiles (txt row 10)
     Alligator,
     MonitorLizard,
     Iguana,
     Tortoise,
     SnappingTurtle,
 
-    // Row 11-12: Farm/large animals
+    // Row 9-10: Farm/large animals (txt rows 11-12)
     Cow,
     Horse,
     Donkey,
@@ -62,16 +66,16 @@ pub enum AnimalSprite {
     WaterBuffalo,
     Yak,
 
-    // Row 13: Birds
+    // Row 11: Birds (txt row 13)
     Seagull,
     BarnOwl,
     Buzzard,
 
-    // Row 16: Poultry
+    // Row 14: Poultry (txt row 16)
     Chicken,
     Rooster,
 
-    // Row 17: Goats/sheep
+    // Row 15: Goats/sheep (txt row 17)
     Goat,
     MountainGoat,
     Ibex,
@@ -81,78 +85,78 @@ pub enum AnimalSprite {
 impl AnimalSprite {
     pub const fn sprite_ref(self) -> SpriteRef {
         let (row, col) = match self {
-            // Row 1: Bears
+            // Row 0: Bears
             Self::GrizzlyBear => (0, 0),
             Self::BlackBear => (0, 1),
             Self::PolarBear => (0, 2),
             Self::Panda => (0, 3),
 
-            // Row 5: Cats
-            Self::Cat => (4, 0),
-            Self::Bobcat => (4, 1),
-            Self::Cougar => (4, 2),
-            Self::Cheetah => (4, 3),
-            Self::Lynx => (4, 4),
-            Self::Ocelot => (4, 5),
-            Self::MaleLion => (4, 6),
-            Self::FemaleLion => (4, 7),
+            // Row 3: Cats (txt row 5, image row 3)
+            Self::Cat => (3, 0),
+            Self::Bobcat => (3, 1),
+            Self::Cougar => (3, 2),
+            Self::Cheetah => (3, 3),
+            Self::Lynx => (3, 4),
+            Self::Ocelot => (3, 5),
+            Self::MaleLion => (3, 6),
+            Self::FemaleLion => (3, 7),
 
-            // Row 6: Canines
-            Self::Dog => (5, 0),
-            Self::Hyena => (5, 2),
-            Self::Fox => (5, 3),
-            Self::Jackal => (5, 4),
-            Self::Coyote => (5, 5),
-            Self::Wolf => (5, 6),
+            // Row 4: Canines (txt row 6, image row 4)
+            Self::Dog => (4, 0),
+            Self::Hyena => (4, 2),
+            Self::Fox => (4, 3),
+            Self::Jackal => (4, 4),
+            Self::Coyote => (4, 5),
+            Self::Wolf => (4, 6),
 
-            // Row 7: Rodents
-            Self::Capybara => (6, 0),
-            Self::Beaver => (6, 1),
+            // Row 5: Rodents (txt row 7, image row 5)
+            Self::Capybara => (5, 0),
+            Self::Beaver => (5, 1),
 
-            // Row 8: Misc mammals
-            Self::Badger => (7, 2),
-            Self::Honeybadger => (7, 3),
-            Self::Rabbit => (7, 6),
-            Self::Hare => (7, 7),
-            Self::Rat => (7, 8),
+            // Row 6: Misc mammals (txt row 8, image row 6)
+            Self::Badger => (6, 2),
+            Self::Honeybadger => (6, 3),
+            Self::Rabbit => (6, 6),
+            Self::Hare => (6, 7),
+            Self::Rat => (6, 8),
 
-            // Row 9: Snakes
-            Self::Snake => (8, 0),
-            Self::Cobra => (8, 1),
-            Self::Kingsnake => (8, 2),
-            Self::BlackMamba => (8, 3),
+            // Row 7: Snakes (txt row 9, image row 7)
+            Self::Snake => (7, 0),
+            Self::Cobra => (7, 1),
+            Self::Kingsnake => (7, 2),
+            Self::BlackMamba => (7, 3),
 
-            // Row 10: Reptiles
-            Self::Alligator => (9, 0),
-            Self::MonitorLizard => (9, 1),
-            Self::Iguana => (9, 2),
-            Self::Tortoise => (9, 3),
-            Self::SnappingTurtle => (9, 4),
+            // Row 8: Reptiles (txt row 10, image row 8)
+            Self::Alligator => (8, 0),
+            Self::MonitorLizard => (8, 1),
+            Self::Iguana => (8, 2),
+            Self::Tortoise => (8, 3),
+            Self::SnappingTurtle => (8, 4),
 
-            // Row 11-12: Farm/large
-            Self::Cow => (10, 0),
-            Self::Horse => (10, 1),
-            Self::Donkey => (10, 2),
-            Self::Pig => (10, 6),
-            Self::Boar => (10, 7),
-            Self::Camel => (11, 0),
-            Self::WaterBuffalo => (11, 2),
-            Self::Yak => (11, 3),
+            // Row 9-10: Farm/large (txt rows 11-12, image rows 9-10)
+            Self::Cow => (9, 0),
+            Self::Horse => (9, 1),
+            Self::Donkey => (9, 2),
+            Self::Pig => (9, 6),
+            Self::Boar => (9, 7),
+            Self::Camel => (10, 0),
+            Self::WaterBuffalo => (10, 2),
+            Self::Yak => (10, 3),
 
-            // Row 13: Birds
-            Self::Seagull => (12, 0),
-            Self::BarnOwl => (12, 1),
-            Self::Buzzard => (12, 2),
+            // Row 11: Birds (txt row 13, image row 11)
+            Self::Seagull => (11, 0),
+            Self::BarnOwl => (11, 1),
+            Self::Buzzard => (11, 2),
 
-            // Row 16: Poultry
-            Self::Chicken => (15, 0),
-            Self::Rooster => (15, 1),
+            // Row 14: Poultry (txt row 16, image row 14)
+            Self::Chicken => (14, 0),
+            Self::Rooster => (14, 1),
 
-            // Row 17: Goats/sheep
-            Self::Goat => (16, 0),
-            Self::MountainGoat => (16, 1),
-            Self::Ibex => (16, 2),
-            Self::Sheep => (16, 3),
+            // Row 15: Goats/sheep (txt row 17, image row 15)
+            Self::Goat => (15, 0),
+            Self::MountainGoat => (15, 1),
+            Self::Ibex => (15, 2),
+            Self::Sheep => (15, 3),
         };
         SpriteRef::new(Sheet::Animals, row, col)
     }
@@ -183,7 +187,7 @@ mod tests {
         for sprite in all {
             let r = sprite.sprite_ref();
             assert_eq!(r.sheet, Sheet::Animals);
-            assert!(r.row < 17, "{:?} row {} >= 17", sprite, r.row);
+            assert!(r.row < 16, "{:?} row {} >= 16", sprite, r.row);
             assert!(r.col < 9, "{:?} col {} >= 9", sprite, r.col);
         }
     }

@@ -529,7 +529,7 @@ mod tests {
         // Forest animals (Animals sheet)
         for g in ['f', 'n', 'h', 'j', 'q', 'v', 'y', 'x', 'J', 'Z', 'F'] {
             let s = enemy_sprite(g);
-            assert!(s.row < 17, "glyph '{}' row {} out of bounds", g, s.row);
+            assert!(s.row < 16, "glyph '{}' row {} out of bounds", g, s.row);
         }
         // Forest + dungeon monsters (Monsters sheet)
         for g in ['1', '2', '9', '0', 't', '3', '4', '5', '6', '7', '8',
@@ -621,7 +621,7 @@ mod tests {
                     assert!(s.col < 12, "glyph '{}' col {} >= 12", glyph, s.col);
                 }
                 Sheet::Animals => {
-                    assert!(s.row < 17, "glyph '{}' row {} >= 17", glyph, s.row);
+                    assert!(s.row < 16, "glyph '{}' row {} >= 16", glyph, s.row);
                     assert!(s.col < 9, "glyph '{}' col {} >= 9", glyph, s.col);
                 }
                 _ => panic!("glyph '{}' uses unexpected sheet {:?}", glyph, s.sheet),

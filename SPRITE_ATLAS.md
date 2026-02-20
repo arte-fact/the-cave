@@ -79,9 +79,14 @@ Source: `32rogues/monsters.txt` | Code: `src/sprite_atlas/monsters.rs`
 
 ---
 
-## animals.png (9 cols x 17 rows, 32x32 cells)
+## animals.png (9 cols x 16 rows, 32x32 cells)
 
 Source: `32rogues/animals.txt` | Code: `src/sprite_atlas/animals.rs`
+
+> **Errata:** The txt file labels orangutan as "3.c." but the actual PNG has
+> only 16 rows (512px tall). The orangutan is at row 1 col 2 (same row as
+> chimp/gorilla). All rows from txt row 4 onward are -1 compared to the
+> txt numbering. The row numbers below reflect the **actual image**.
 
 | Row | Col | Sprite | Rust Enum |
 |-----|-----|--------|-----------|
@@ -91,86 +96,86 @@ Source: `32rogues/animals.txt` | Code: `src/sprite_atlas/animals.rs`
 | 0 | 3 | Panda | `Panda` |
 | 1 | 0 | Chimpanzee | *(not mapped)* |
 | 1 | 1 | Gorilla | *(not mapped)* |
-| 2 | 2 | Orangutan | *(not mapped)* |
-| 3 | 0 | Aye Aye | *(not mapped)* |
-| 3 | 1 | Gibbon | *(not mapped)* |
-| 3 | 2 | Mandrill | *(not mapped)* |
-| 3 | 3 | Capuchin | *(not mapped)* |
-| 3 | 4 | Langur | *(not mapped)* |
-| 4 | 0 | Cat | `Cat` |
-| 4 | 1 | Bobcat | `Bobcat` |
-| 4 | 2 | Cougar | `Cougar` |
-| 4 | 3 | Cheetah | `Cheetah` |
-| 4 | 4 | Lynx | `Lynx` |
-| 4 | 5 | Ocelot | `Ocelot` |
-| 4 | 6 | Male Lion | `MaleLion` |
-| 4 | 7 | Female Lion | `FemaleLion` |
-| 5 | 0 | Dog | `Dog` |
-| 5 | 1 | Puppy | *(not mapped)* |
-| 5 | 2 | Hyena | `Hyena` |
-| 5 | 3 | Fox | `Fox` |
-| 5 | 4 | Jackal | `Jackal` |
-| 5 | 5 | Coyote | `Coyote` |
-| 5 | 6 | Wolf | `Wolf` |
-| 6 | 0 | Capybara | `Capybara` |
-| 6 | 1 | Beaver | `Beaver` |
-| 6 | 2 | Mink | *(not mapped)* |
-| 6 | 3 | Mongoose | *(not mapped)* |
-| 6 | 4 | Marmot | *(not mapped)* |
-| 6 | 5 | Groundhog | *(not mapped)* |
-| 6 | 6 | Chinchilla | *(not mapped)* |
-| 6 | 7 | Echidna | *(not mapped)* |
-| 7 | 0 | Aardvark | *(not mapped)* |
-| 7 | 1 | Armadillo | *(not mapped)* |
-| 7 | 2 | Badger | `Badger` |
-| 7 | 3 | Honeybadger | `Honeybadger` |
-| 7 | 4 | Coati | *(not mapped)* |
-| 7 | 5 | Opossum | *(not mapped)* |
-| 7 | 6 | Rabbit | `Rabbit` |
-| 7 | 7 | Hare | `Hare` |
-| 7 | 8 | Rat | `Rat` |
-| 8 | 0 | Snake | `Snake` |
-| 8 | 1 | Cobra | `Cobra` |
-| 8 | 2 | Kingsnake | `Kingsnake` |
-| 8 | 3 | Black Mamba | `BlackMamba` |
-| 9 | 0 | Alligator | `Alligator` |
-| 9 | 1 | Monitor Lizard | `MonitorLizard` |
-| 9 | 2 | Iguana | `Iguana` |
-| 9 | 3 | Tortoise | `Tortoise` |
-| 9 | 4 | Snapping Turtle | `SnappingTurtle` |
-| 9 | 5 | Alligator Snapping Turtle | *(not mapped)* |
-| 10 | 0 | Cow | `Cow` |
-| 10 | 1 | Horse | `Horse` |
-| 10 | 2 | Donkey | `Donkey` |
-| 10 | 3 | Mule | *(not mapped)* |
-| 10 | 4 | Alpaca | *(not mapped)* |
-| 10 | 5 | Llama | *(not mapped)* |
-| 10 | 6 | Pig | `Pig` |
-| 10 | 7 | Boar | `Boar` |
-| 11 | 0 | Camel | `Camel` |
-| 11 | 1 | Reindeer / Caribou | *(not mapped)* |
-| 11 | 2 | Water Buffalo | `WaterBuffalo` |
-| 11 | 3 | Yak | `Yak` |
-| 12 | 0 | Seagull | `Seagull` |
-| 12 | 1 | Barn Owl | `BarnOwl` |
-| 12 | 2 | Common Buzzard | `Buzzard` |
-| 13 | 0 | Kangaroo | *(not mapped)* |
-| 13 | 1 | Koala | *(not mapped)* |
-| 14 | 0 | Penguin | *(not mapped)* |
-| 14 | 1 | Little Penguin | *(not mapped)* |
-| 14 | 2 | Cassowary | *(not mapped)* |
-| 14 | 3 | Emu | *(not mapped)* |
-| 15 | 0 | Chicken | `Chicken` |
-| 15 | 1 | Rooster | `Rooster` |
-| 15 | 2 | Mallard Duck | *(not mapped)* |
-| 15 | 3 | Swan | *(not mapped)* |
-| 15 | 4 | Turkey | *(not mapped)* |
-| 15 | 5 | Guineafowl | *(not mapped)* |
-| 15 | 6 | Peacock | *(not mapped)* |
-| 16 | 0 | Goat | `Goat` |
-| 16 | 1 | Mountain Goat | `MountainGoat` |
-| 16 | 2 | Ibex | `Ibex` |
-| 16 | 3 | Sheep (Ram) | `Sheep` |
+| 1 | 2 | Orangutan | *(not mapped)* |
+| 2 | 0 | Aye Aye | *(not mapped)* |
+| 2 | 1 | Gibbon | *(not mapped)* |
+| 2 | 2 | Mandrill | *(not mapped)* |
+| 2 | 3 | Capuchin | *(not mapped)* |
+| 2 | 4 | Langur | *(not mapped)* |
+| 3 | 0 | Cat | `Cat` |
+| 3 | 1 | Bobcat | `Bobcat` |
+| 3 | 2 | Cougar | `Cougar` |
+| 3 | 3 | Cheetah | `Cheetah` |
+| 3 | 4 | Lynx | `Lynx` |
+| 3 | 5 | Ocelot | `Ocelot` |
+| 3 | 6 | Male Lion | `MaleLion` |
+| 3 | 7 | Female Lion | `FemaleLion` |
+| 4 | 0 | Dog | `Dog` |
+| 4 | 1 | Puppy | *(not mapped)* |
+| 4 | 2 | Hyena | `Hyena` |
+| 4 | 3 | Fox | `Fox` |
+| 4 | 4 | Jackal | `Jackal` |
+| 4 | 5 | Coyote | `Coyote` |
+| 4 | 6 | Wolf | `Wolf` |
+| 5 | 0 | Capybara | `Capybara` |
+| 5 | 1 | Beaver | `Beaver` |
+| 5 | 2 | Mink | *(not mapped)* |
+| 5 | 3 | Mongoose | *(not mapped)* |
+| 5 | 4 | Marmot | *(not mapped)* |
+| 5 | 5 | Groundhog | *(not mapped)* |
+| 5 | 6 | Chinchilla | *(not mapped)* |
+| 5 | 7 | Echidna | *(not mapped)* |
+| 6 | 0 | Aardvark | *(not mapped)* |
+| 6 | 1 | Armadillo | *(not mapped)* |
+| 6 | 2 | Badger | `Badger` |
+| 6 | 3 | Honeybadger | `Honeybadger` |
+| 6 | 4 | Coati | *(not mapped)* |
+| 6 | 5 | Opossum | *(not mapped)* |
+| 6 | 6 | Rabbit | `Rabbit` |
+| 6 | 7 | Hare | `Hare` |
+| 6 | 8 | Rat | `Rat` |
+| 7 | 0 | Snake | `Snake` |
+| 7 | 1 | Cobra | `Cobra` |
+| 7 | 2 | Kingsnake | `Kingsnake` |
+| 7 | 3 | Black Mamba | `BlackMamba` |
+| 8 | 0 | Alligator | `Alligator` |
+| 8 | 1 | Monitor Lizard | `MonitorLizard` |
+| 8 | 2 | Iguana | `Iguana` |
+| 8 | 3 | Tortoise | `Tortoise` |
+| 8 | 4 | Snapping Turtle | `SnappingTurtle` |
+| 8 | 5 | Alligator Snapping Turtle | *(not mapped)* |
+| 9 | 0 | Cow | `Cow` |
+| 9 | 1 | Horse | `Horse` |
+| 9 | 2 | Donkey | `Donkey` |
+| 9 | 3 | Mule | *(not mapped)* |
+| 9 | 4 | Alpaca | *(not mapped)* |
+| 9 | 5 | Llama | *(not mapped)* |
+| 9 | 6 | Pig | `Pig` |
+| 9 | 7 | Boar | `Boar` |
+| 10 | 0 | Camel | `Camel` |
+| 10 | 1 | Reindeer / Caribou | *(not mapped)* |
+| 10 | 2 | Water Buffalo | `WaterBuffalo` |
+| 10 | 3 | Yak | `Yak` |
+| 11 | 0 | Seagull | `Seagull` |
+| 11 | 1 | Barn Owl | `BarnOwl` |
+| 11 | 2 | Common Buzzard | `Buzzard` |
+| 12 | 0 | Kangaroo | *(not mapped)* |
+| 12 | 1 | Koala | *(not mapped)* |
+| 13 | 0 | Penguin | *(not mapped)* |
+| 13 | 1 | Little Penguin | *(not mapped)* |
+| 13 | 2 | Cassowary | *(not mapped)* |
+| 13 | 3 | Emu | *(not mapped)* |
+| 14 | 0 | Chicken | `Chicken` |
+| 14 | 1 | Rooster | `Rooster` |
+| 14 | 2 | Mallard Duck | *(not mapped)* |
+| 14 | 3 | Swan | *(not mapped)* |
+| 14 | 4 | Turkey | *(not mapped)* |
+| 14 | 5 | Guineafowl | *(not mapped)* |
+| 14 | 6 | Peacock | *(not mapped)* |
+| 15 | 0 | Goat | `Goat` |
+| 15 | 1 | Mountain Goat | `MountainGoat` |
+| 15 | 2 | Ibex | `Ibex` |
+| 15 | 3 | Sheep (Ram) | `Sheep` |
 
 ---
 
