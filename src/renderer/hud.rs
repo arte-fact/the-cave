@@ -1,7 +1,7 @@
 use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
 use crate::sprites;
 
-use super::{item_kind_color, Renderer};
+use super::{item_kind_color, Renderer, StatBar};
 
 impl Renderer {
     // ---- Landscape side panel (permanent right drawer) ----
@@ -37,23 +37,35 @@ impl Renderer {
         // --- HP bar ---
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
         let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
-        self.draw_stat_bar(x, y, inner_w, bar_h, bar_r, hp_frac, "#2a0a0a", hp_color,
-            &format!("HP {}/{}", game.player_hp, game.player_max_hp), 8.0, text_inset);
+        self.draw_stat_bar(&StatBar {
+            x, y, w: inner_w, h: bar_h, r: bar_r, frac: hp_frac,
+            bg_color: "#2a0a0a", fill_color: hp_color,
+            label: &format!("HP {}/{}", game.player_hp, game.player_max_hp),
+            font_size: 8.0, text_inset,
+        });
         y += bar_h + bar_gap;
 
         // --- Stamina bar ---
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
         let stam_color = if game.sprinting { "#4af" } else { "#28a" };
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
-        self.draw_stat_bar(x, y, inner_w, bar_h, bar_r, stam_frac, "#0a0a2a", stam_color,
-            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina), 8.0, text_inset);
+        self.draw_stat_bar(&StatBar {
+            x, y, w: inner_w, h: bar_h, r: bar_r, frac: stam_frac,
+            bg_color: "#0a0a2a", fill_color: stam_color,
+            label: &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
+            font_size: 8.0, text_inset,
+        });
         y += bar_h + bar_gap;
 
         // --- Hunger bar ---
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
         let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
-        self.draw_stat_bar(x, y, inner_w, bar_h, bar_r, hunger_frac, "#2a1a0a", hunger_color,
-            &format!("FOOD {}/{}", game.hunger, game.max_hunger), 8.0, text_inset);
+        self.draw_stat_bar(&StatBar {
+            x, y, w: inner_w, h: bar_h, r: bar_r, frac: hunger_frac,
+            bg_color: "#2a1a0a", fill_color: hunger_color,
+            label: &format!("FOOD {}/{}", game.hunger, game.max_hunger),
+            font_size: 8.0, text_inset,
+        });
         y += bar_h + bar_gap * 2.0;
 
         // --- Combat stats ---
@@ -616,23 +628,35 @@ impl Renderer {
         let row1_y = 5.0 * d;
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
         let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
-        self.draw_stat_bar(bar_x, row1_y, bar_w, bar_h, bar_r, hp_frac, "#2a0a0a", hp_color,
-            &format!("HP {}/{}", game.player_hp, game.player_max_hp), 10.0, text_inset);
+        self.draw_stat_bar(&StatBar {
+            x: bar_x, y: row1_y, w: bar_w, h: bar_h, r: bar_r, frac: hp_frac,
+            bg_color: "#2a0a0a", fill_color: hp_color,
+            label: &format!("HP {}/{}", game.player_hp, game.player_max_hp),
+            font_size: 10.0, text_inset,
+        });
 
         // Row 2: Stamina bar
         let row2_y = row1_y + bar_h + bar_gap;
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
         let stam_color = if game.sprinting { "#4af" } else { "#28a" };
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
-        self.draw_stat_bar(bar_x, row2_y, bar_w, bar_h, bar_r, stam_frac, "#0a0a2a", stam_color,
-            &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina), 10.0, text_inset);
+        self.draw_stat_bar(&StatBar {
+            x: bar_x, y: row2_y, w: bar_w, h: bar_h, r: bar_r, frac: stam_frac,
+            bg_color: "#0a0a2a", fill_color: stam_color,
+            label: &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
+            font_size: 10.0, text_inset,
+        });
 
         // Row 3: Hunger bar
         let row3_y = row2_y + bar_h + bar_gap;
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
         let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
-        self.draw_stat_bar(bar_x, row3_y, bar_w, bar_h, bar_r, hunger_frac, "#2a1a0a", hunger_color,
-            &format!("FOOD {}/{}", game.hunger, game.max_hunger), 10.0, text_inset);
+        self.draw_stat_bar(&StatBar {
+            x: bar_x, y: row3_y, w: bar_w, h: bar_h, r: bar_r, frac: hunger_frac,
+            bg_color: "#2a1a0a", fill_color: hunger_color,
+            label: &format!("FOOD {}/{}", game.hunger, game.max_hunger),
+            font_size: 10.0, text_inset,
+        });
 
         // Right column: location + stats + XP
         ctx.set_text_align("right");

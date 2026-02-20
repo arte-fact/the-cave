@@ -1,19 +1,25 @@
 use super::{Map, Visibility};
 
+/// FOV origin parameters (invariant across recursive shadowcast calls).
+struct FovOrigin {
+    px: i32,
+    py: i32,
+    radius: i32,
+}
+
 impl Map {
     // --- Visibility / FOV ---
 
     pub fn get_visibility(&self, x: i32, y: i32) -> Visibility {
-        if x < 0 || y < 0 || x >= self.width || y >= self.height {
+        if !self.in_bounds(x, y) {
             return Visibility::Hidden;
         }
         self.visibility[(y * self.width + x) as usize]
     }
 
     fn set_visible(&mut self, x: i32, y: i32) {
-        if x >= 0 && y >= 0 && x < self.width && y < self.height {
-            self.visibility[(y * self.width + x) as usize] = Visibility::Visible;
-        }
+        if !self.in_bounds(x, y) { return; }
+        self.visibility[(y * self.width + x) as usize] = Visibility::Visible;
     }
 
     /// Demote all Visible tiles to Seen (called before recomputing FOV).
@@ -43,8 +49,9 @@ impl Map {
             [-1,  0,  0,  1],  // W-SW
         ];
 
+        let origin = FovOrigin { px, py, radius };
         for oct in &OCTANTS {
-            self.cast_light(px, py, radius, 1, 1.0, 0.0, oct);
+            self.cast_light(&origin, 1, 1.0, 0.0, oct);
         }
     }
 
@@ -54,28 +61,27 @@ impl Map {
     /// Scans columns from high (diagonal) to low (axis), recurses when blocked.
     fn cast_light(
         &mut self,
-        px: i32, py: i32,
-        radius: i32,
+        origin: &FovOrigin,
         depth: i32,
         mut start_slope: f64,
         end_slope: f64,
         oct: &[i32; 4],
     ) {
-        if start_slope < end_slope || depth > radius {
+        if start_slope < end_slope || depth > origin.radius {
             return;
         }
 
-        let radius_sq = radius * radius;
+        let radius_sq = origin.radius * origin.radius;
 
-        for d in depth..=radius {
+        for d in depth..=origin.radius {
             let mut blocked = false;
             let mut new_start = start_slope;
 
             // Scan columns from high (near diagonal) to low (near axis)
             let mut col = d;
             while col >= 0 {
-                let map_x = px + col * oct[0] + d * oct[1];
-                let map_y = py + col * oct[2] + d * oct[3];
+                let map_x = origin.px + col * oct[0] + d * oct[1];
+                let map_y = origin.py + col * oct[2] + d * oct[3];
 
                 // Slopes for this cell's edges
                 let l_slope = (col as f64 + 0.5) / (d as f64 - 0.5);
@@ -94,8 +100,7 @@ impl Map {
                     self.set_visible(map_x, map_y);
                 }
 
-                let is_opaque = map_x < 0 || map_y < 0
-                    || map_x >= self.width || map_y >= self.height
+                let is_opaque = !self.in_bounds(map_x, map_y)
                     || self.get(map_x, map_y).is_opaque();
 
                 if blocked {
@@ -107,7 +112,7 @@ impl Map {
                     }
                 } else if is_opaque {
                     blocked = true;
-                    self.cast_light(px, py, radius, d + 1, start_slope, l_slope, oct);
+                    self.cast_light(origin, d + 1, start_slope, l_slope, oct);
                     new_start = r_slope;
                 }
 
@@ -204,10 +209,7 @@ impl Map {
             if x == x1 && y == y1 {
                 break; // endpoint reached, don't check it
             }
-            if x < 0 || y < 0 || x >= self.width || y >= self.height {
-                return false;
-            }
-            if self.tiles[(y * self.width + x) as usize].is_opaque() {
+            if !self.in_bounds(x, y) || self.get(x, y).is_opaque() {
                 return false;
             }
         }
