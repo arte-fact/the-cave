@@ -156,10 +156,10 @@ fn hit_test_side_panel_buttons(
         return None;
     }
 
-    // Button layout mirrors draw_side_panel: 2×2 grid
-    // Location at: panel_x + pad, y offset depends on bars + stats drawn above.
-    // The buttons start roughly after: location(16) + 3 bars(3×14) + stats(2×14) + gap + separator
-    // Approximate: ~130 CSS px from top of panel (tuned to match renderer).
+    // Button layout mirrors draw_side_panel: 2×2 grid.
+    // Stats are now in the top bar, so the panel starts directly with
+    // optional tile detail + quick-bar + buttons.
+    // Layout: pad(10) + [detail(44+6)] + quickbar(30+6) + buttons
     let pad = 10.0;
     let x = panel_x + pad;
     let inner_w = panel_css_w - pad * 2.0;
@@ -167,22 +167,10 @@ fn hit_test_side_panel_buttons(
     let btn_gap = 4.0;
     let btn_w = (inner_w - btn_gap) / 2.0;
 
-    // We need to find the button area. The y-offset of buttons in the side panel
-    // is variable (depends on whether tile detail is showing). Scan a reasonable range.
-    // The buttons are: pad(10) + location(16) + 3 bars(3*(10+4)) + stats_text(14+18) + sep(6+1+6)
-    // = 10 + 16 + 42 + 32 + 13 = ~113 CSS px. Without detail strip.
-    // With detail: add ~50 CSS px. We can't know exactly, so use a generous range.
-    // Actually, let's compute from known CSS values matching the renderer.
-    let base_y = pad + 16.0 + 3.0 * (10.0 + 4.0) + 4.0 + 14.0 + 18.0 + 1.0 + 6.0;
-    // base_y is approx 101 CSS px. The detail strip adds ~50px if present.
-    // We'll check the tap against button positions at base_y and base_y+50.
-    // For simplicity, just check if tap is within any of the 4 button cells.
-
-    // Quick bar adds ~36 CSS px (30 slot_size + 6 gap) between detail and buttons.
-    // Try combinations: with/without detail, plus quick bar offset.
-    let qbar_offset = 36.0;
+    let qbar_offset = 36.0; // quick-bar: 30 slot + 6 gap
+    // Try with/without detail strip (44 + 6 = 50 CSS px)
     for detail_offset in &[0.0_f64, 50.0] {
-        let by = base_y + detail_offset + qbar_offset;
+        let by = pad + detail_offset + qbar_offset;
         for i in 0..4 {
             let col = i % 2;
             let row = i / 2;
@@ -206,7 +194,7 @@ fn hit_test_side_panel_buttons(
 }
 
 /// Hit-test the landscape side panel quick-bar. Returns Some(slot) if tapped.
-/// The quick bar sits between the tile detail area and the button grid.
+/// The quick bar sits between the optional tile detail and the button grid.
 fn hit_test_side_panel_quickbar(
     css_x: f64,
     css_y: f64,
@@ -222,10 +210,10 @@ fn hit_test_side_panel_quickbar(
     let inner_w = panel_css_w - pad * 2.0;
     let x = panel_x + pad;
 
-    // Quick bar y offset: after location + bars + stats + separator + optional detail
-    let base_y = pad + 16.0 + 3.0 * (10.0 + 4.0) + 4.0 + 14.0 + 18.0 + 1.0 + 6.0;
+    // Quick bar y offset: pad + optional detail (44+6=50)
+    // Stats are in the top bar, so the panel starts directly with content.
     let detail_offset = if has_detail { 50.0 } else { 0.0 };
-    let qbar_y = base_y + detail_offset;
+    let qbar_y = pad + detail_offset;
     let slot_size = 30.0;
     let slot_pad = 4.0;
 
@@ -265,15 +253,16 @@ fn hit_test_side_panel_drawer(
     let x = panel_x + pad;
     let inner_w = panel_css_w - pad * 2.0;
 
-    // The drawer content starts below the buttons area.
-    // Buttons end at approximately: base_y + 2*(btn_h+gap) + gap = ~101 + 68 + 6 = 175 CSS px
-    // With detail offset: +50. We use a conservative drawer_start.
+    // Drawer content starts below buttons. Stats are in the top bar now, so the
+    // panel layout is: pad + [detail(50)] + quickbar(36) + buttons(68) + separator(13).
+    // We scan both with/without detail by using the larger offset (always safe).
     let btn_h = 30.0;
     let btn_gap = 4.0;
-    let base_y = pad + 16.0 + 3.0 * (10.0 + 4.0) + 4.0 + 14.0 + 18.0 + 1.0 + 6.0;
-    // Quick bar (30 + 6) sits between detail/base and buttons
     let qbar_offset = 36.0;
-    let drawer_start = base_y + qbar_offset + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
+    // Without detail: pad(10) + qbar(36) + buttons(68) + sep(13) = 127
+    // With detail:    pad(10) + detail(50) + qbar(36) + buttons(68) + sep(13) = 177
+    // Use the larger to be safe — drawer items only exist below both possible positions.
+    let drawer_start = pad + 50.0 + qbar_offset + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
 
     // Settings drawer
     if state.drawer == Drawer::Settings {
@@ -558,10 +547,9 @@ fn hit_test_inventory_item_row_landscape(
     let pad = 10.0;
     let btn_h = 30.0;
     let btn_gap = 4.0;
-    let base_y = pad + 16.0 + 3.0 * (10.0 + 4.0) + 4.0 + 14.0 + 18.0 + 1.0 + 6.0;
-    // Quick bar + buttons
+    // Stats are in the top bar; panel layout: pad + [detail(50)] + qbar(36) + buttons + sep
     let qbar_size = 30.0 + 6.0;
-    let drawer_start = base_y + qbar_size + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
+    let drawer_start = pad + 50.0 + qbar_size + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
     // Items start after: title(16) + 6 eq slots(6*(22+2)) + gap(4)
     let eq_h = 22.0;
     let eq_gap = 2.0;

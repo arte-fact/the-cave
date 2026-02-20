@@ -82,6 +82,12 @@ const DRAWER_ANIM_SPEED: f64 = 0.15;
 /// Width of the right-side panel in landscape mode (CSS pixels).
 const SIDE_PANEL_CSS_W: f64 = 220.0;
 
+/// Height of the compact top bar in landscape mode (CSS pixels).
+const LANDSCAPE_TOP_BAR_BASE: f64 = 34.0;
+
+/// Height of the bottom message strip in landscape mode (CSS pixels).
+const LANDSCAPE_MSG_BAR_BASE: f64 = 26.0;
+
 pub struct Renderer {
     pub(super) ctx: CanvasRenderingContext2d,
     pub camera: Camera,
@@ -132,9 +138,9 @@ impl Renderer {
         self.landscape = width > height;
         let cell = self.camera.set_viewport(width, height);
         if self.landscape {
-            // In landscape: no top/bottom bars, pad right for side panel.
-            self.camera.pad_top = 0.0;
-            self.camera.pad_bottom = 0.0;
+            // In landscape: compact top bar, bottom message strip, side panel on right.
+            self.camera.pad_top = self.landscape_top_bar_h() / cell;
+            self.camera.pad_bottom = self.landscape_msg_bar_h() / cell;
             self.camera.pad_right = self.side_panel_w() / cell / 2.0;
         } else {
             // Portrait: original top/bottom bar layout + quick bar.
@@ -155,6 +161,8 @@ impl Renderer {
     pub(super) fn bottom_bar_h(&self) -> f64 { BOTTOM_BAR_BASE * self.dpr }
     pub(super) fn quickbar_h(&self) -> f64 { QUICKBAR_BASE * self.dpr }
     pub(super) fn msg_area_h(&self) -> f64 { MSG_AREA_BASE * self.dpr }
+    pub(super) fn landscape_top_bar_h(&self) -> f64 { LANDSCAPE_TOP_BAR_BASE * self.dpr }
+    pub(super) fn landscape_msg_bar_h(&self) -> f64 { LANDSCAPE_MSG_BAR_BASE * self.dpr }
 
     /// Trigger a flash animation on a quick-bar slot.
     pub fn flash_quickbar_slot(&mut self, slot: usize) {
@@ -320,10 +328,15 @@ impl Renderer {
         self.draw_world(game, preview_path);
 
         if self.landscape {
-            // Landscape: full-height game view + permanent side panel on right
+            // Landscape: compact top bar + streamlined side panel + bottom messages
             let panel_w = self.side_panel_w();
             let panel_x = canvas_w - panel_w;
+            let top_h = self.landscape_top_bar_h();
+            let msg_h = self.landscape_msg_bar_h();
+
+            self.draw_landscape_top_bar(game, panel_x, top_h);
             self.draw_side_panel(game, panel_x, panel_w, canvas_h);
+            self.draw_landscape_messages(game, panel_x, canvas_h, msg_h);
         } else {
             // Portrait: original top/bottom bar layout + quick bar
             let top_h = self.top_bar_h();
