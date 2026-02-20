@@ -4,7 +4,122 @@ use crate::sprites;
 use super::{item_kind_color, Renderer, StatBar};
 
 impl Renderer {
-    // ---- Landscape side panel (permanent right drawer) ----
+    // ---- Landscape compact top bar (stats + combat info) ----
+
+    pub(super) fn draw_landscape_top_bar(&self, game: &Game, bar_w: f64, top_h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let pad = 8.0 * d;
+
+        // Background
+        ctx.set_fill_style_str("rgba(0,0,0,0.78)");
+        ctx.fill_rect(0.0, 0.0, bar_w, top_h);
+        // Bottom accent
+        ctx.set_fill_style_str("rgba(80,130,255,0.15)");
+        ctx.fill_rect(0.0, top_h - 1.0 * d, bar_w, 1.0 * d);
+
+        let bar_h = 8.0 * d;
+        let bar_gap = 2.0 * d;
+        let bar_r = 2.0 * d;
+        let text_inset = 3.0 * d;
+        let bars_w = bar_w * 0.44;
+
+        // --- Row 1: HP bar ---
+        let row1_y = 3.0 * d;
+        let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
+        let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
+        self.draw_stat_bar(&StatBar {
+            x: pad, y: row1_y, w: bars_w, h: bar_h, r: bar_r, frac: hp_frac,
+            bg_color: "#2a0a0a", fill_color: hp_color,
+            label: &format!("HP {}/{}", game.player_hp, game.player_max_hp),
+            font_size: 7.0, text_inset,
+        });
+
+        // --- Row 2: Stamina bar ---
+        let row2_y = row1_y + bar_h + bar_gap;
+        let stam_frac = game.stamina as f64 / game.max_stamina as f64;
+        let stam_color = if game.sprinting { "#4af" } else { "#28a" };
+        let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
+        self.draw_stat_bar(&StatBar {
+            x: pad, y: row2_y, w: bars_w, h: bar_h, r: bar_r, frac: stam_frac,
+            bg_color: "#0a0a2a", fill_color: stam_color,
+            label: &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
+            font_size: 7.0, text_inset,
+        });
+
+        // --- Row 3: Hunger bar ---
+        let row3_y = row2_y + bar_h + bar_gap;
+        let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
+        let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
+        self.draw_stat_bar(&StatBar {
+            x: pad, y: row3_y, w: bars_w, h: bar_h, r: bar_r, frac: hunger_frac,
+            bg_color: "#2a1a0a", fill_color: hunger_color,
+            label: &format!("FOOD {}/{}", game.hunger, game.max_hunger),
+            font_size: 7.0, text_inset,
+        });
+
+        // --- Right side: location + combat stats + XP ---
+        ctx.set_text_align("right");
+        ctx.set_text_baseline("middle");
+
+        // Location (top right)
+        ctx.set_font(&self.font(9.0, "bold"));
+        ctx.set_fill_style_str("#c8e0ff");
+        let _ = ctx.fill_text(&game.location_name(), bar_w - pad, row1_y + bar_h / 2.0);
+
+        // ATK / DEF / LVL
+        let atk = game.effective_attack();
+        let def = game.effective_defense();
+        ctx.set_font(&self.font(8.0, ""));
+        ctx.set_fill_style_str("#8cf");
+        let _ = ctx.fill_text(
+            &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
+            bar_w - pad, row2_y + bar_h / 2.0,
+        );
+
+        // XP
+        let xp_needed = game.xp_to_next_level();
+        ctx.set_fill_style_str("#a8f");
+        let _ = ctx.fill_text(
+            &format!("XP {}/{}", game.player_xp, xp_needed),
+            bar_w - pad, row3_y + bar_h / 2.0,
+        );
+    }
+
+    // ---- Landscape bottom message strip ----
+
+    pub(super) fn draw_landscape_messages(&self, game: &Game, bar_w: f64, canvas_h: f64, msg_h: f64) {
+        let ctx = &self.ctx;
+        let d = self.dpr;
+        let msg_y = canvas_h - msg_h;
+        let pad = 8.0 * d;
+
+        // Background
+        ctx.set_fill_style_str("rgba(0,0,0,0.6)");
+        ctx.fill_rect(0.0, msg_y, bar_w, msg_h);
+        // Top accent
+        ctx.set_fill_style_str("rgba(255,255,255,0.06)");
+        ctx.fill_rect(0.0, msg_y, bar_w, 1.0 * d);
+
+        let msg_count = game.messages.len();
+        let show = msg_count.min(2);
+        if show == 0 { return; }
+
+        ctx.set_font(&self.font(8.0, ""));
+        ctx.set_text_align("left");
+        ctx.set_text_baseline("middle");
+        let line_h = 11.0 * d;
+        let start_y = msg_y + (msg_h - show as f64 * line_h) / 2.0 + line_h / 2.0;
+
+        for i in 0..show {
+            let msg = &game.messages[msg_count - show + i];
+            let color = if i == show - 1 { "#bbb" } else { "#666" };
+            ctx.set_fill_style_str(color);
+            let _ = ctx.fill_text(msg, pad, start_y + i as f64 * line_h);
+        }
+    }
+
+    // ---- Landscape side panel (permanent right panel, interactive elements only) ----
 
     pub(super) fn draw_side_panel(&self, game: &Game, panel_x: f64, panel_w: f64, canvas_h: f64) {
         let ctx = &self.ctx;
@@ -21,75 +136,6 @@ impl Renderer {
 
         let mut y = pad;
         let x = panel_x + pad;
-        let bar_h = 10.0 * d;
-        let bar_gap = 4.0 * d;
-        let bar_r = 3.0 * d;
-        let text_inset = 4.0 * d;
-
-        // --- Location name ---
-        ctx.set_font(&self.font(11.0, "bold"));
-        ctx.set_fill_style_str("#c8e0ff");
-        ctx.set_text_align("center");
-        ctx.set_text_baseline("top");
-        let _ = ctx.fill_text(&game.location_name(), panel_x + panel_w / 2.0, y);
-        y += 16.0 * d;
-
-        // --- HP bar ---
-        let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
-        let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
-        self.draw_stat_bar(&StatBar {
-            x, y, w: inner_w, h: bar_h, r: bar_r, frac: hp_frac,
-            bg_color: "#2a0a0a", fill_color: hp_color,
-            label: &format!("HP {}/{}", game.player_hp, game.player_max_hp),
-            font_size: 8.0, text_inset,
-        });
-        y += bar_h + bar_gap;
-
-        // --- Stamina bar ---
-        let stam_frac = game.stamina as f64 / game.max_stamina as f64;
-        let stam_color = if game.sprinting { "#4af" } else { "#28a" };
-        let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
-        self.draw_stat_bar(&StatBar {
-            x, y, w: inner_w, h: bar_h, r: bar_r, frac: stam_frac,
-            bg_color: "#0a0a2a", fill_color: stam_color,
-            label: &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
-            font_size: 8.0, text_inset,
-        });
-        y += bar_h + bar_gap;
-
-        // --- Hunger bar ---
-        let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
-        let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
-        self.draw_stat_bar(&StatBar {
-            x, y, w: inner_w, h: bar_h, r: bar_r, frac: hunger_frac,
-            bg_color: "#2a1a0a", fill_color: hunger_color,
-            label: &format!("FOOD {}/{}", game.hunger, game.max_hunger),
-            font_size: 8.0, text_inset,
-        });
-        y += bar_h + bar_gap * 2.0;
-
-        // --- Combat stats ---
-        let atk = game.effective_attack();
-        let def = game.effective_defense();
-        ctx.set_font(&self.font(9.0, ""));
-        ctx.set_fill_style_str("#8cf");
-        ctx.set_text_align("left");
-        ctx.set_text_baseline("top");
-        let _ = ctx.fill_text(
-            &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
-            x, y,
-        );
-        y += 14.0 * d;
-
-        let xp_needed = game.xp_to_next_level();
-        ctx.set_fill_style_str("#a8f");
-        let _ = ctx.fill_text(&format!("XP {}/{}", game.player_xp, xp_needed), x, y);
-        y += 18.0 * d;
-
-        // --- Separator ---
-        ctx.set_fill_style_str("rgba(255,255,255,0.08)");
-        ctx.fill_rect(x, y, inner_w, 1.0 * d);
-        y += 6.0 * d;
 
         // --- Tile detail (if inspecting) ---
         if let Some(ref info) = game.inspected {
@@ -257,24 +303,8 @@ impl Renderer {
                 Drawer::None => {}
             }
             ctx.restore();
-            return; // drawer takes remaining space
         }
-
-        // --- Messages (when no drawer open) ---
-        let msg_count = game.messages.len();
-        let show = msg_count.min(5);
-        ctx.set_font(&self.font(8.0, ""));
-        ctx.set_text_align("left");
-        ctx.set_text_baseline("top");
-        let line_h = 12.0 * d;
-        for i in 0..show {
-            let msg = &game.messages[msg_count - show + i];
-            let alpha_val = if i == show - 1 { "#ccc" }
-                else if i == show - 2 { "#888" }
-                else { "#555" };
-            ctx.set_fill_style_str(alpha_val);
-            let _ = ctx.fill_text(msg, x, y + i as f64 * line_h);
-        }
+        // Messages are shown in the bottom bar (draw_landscape_messages), not here.
     }
 
     /// Draw inventory content inside the landscape side panel.

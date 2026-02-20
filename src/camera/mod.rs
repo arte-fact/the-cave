@@ -52,9 +52,17 @@ impl Camera {
     /// Recalculate viewport dimensions from canvas pixel size.
     /// Returns the computed cell_size (pixels per tile).
     pub fn set_viewport(&mut self, canvas_w: f64, canvas_h: f64) -> f64 {
+        self.set_viewport_for_area(canvas_w, canvas_h, canvas_w)
+    }
+
+    /// Like `set_viewport`, but computes cell_size from `game_area_w` instead
+    /// of the full canvas width. Use this in landscape mode where a side panel
+    /// reduces the playable area — tiles should be sized so that
+    /// `VIEWPORT_TILES_WIDE` fit within the game area, not the full canvas.
+    pub fn set_viewport_for_area(&mut self, canvas_w: f64, canvas_h: f64, game_area_w: f64) -> f64 {
         self.canvas_w = canvas_w;
         self.canvas_h = canvas_h;
-        self.cell_size = (canvas_w / VIEWPORT_TILES_WIDE).floor().max(1.0);
+        self.cell_size = (game_area_w / VIEWPORT_TILES_WIDE).floor().max(1.0);
         self.viewport_w = canvas_w / self.cell_size;
         self.viewport_h = canvas_h / self.cell_size;
         self.cell_size
