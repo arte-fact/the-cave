@@ -102,7 +102,7 @@ Source: `32rogues/animals.txt` | Code: `src/sprite_atlas/animals.rs`
 | 2 | 2 | Mandrill | *(not mapped)* |
 | 2 | 3 | Capuchin | *(not mapped)* |
 | 2 | 4 | Langur | *(not mapped)* |
-| 3 | 0 | Cat | `Cat` |
+| 3 | 0 | Cat | *(domestic, removed)* |
 | 3 | 1 | Bobcat | `Bobcat` |
 | 3 | 2 | Cougar | `Cougar` |
 | 3 | 3 | Cheetah | `Cheetah` |
@@ -110,8 +110,8 @@ Source: `32rogues/animals.txt` | Code: `src/sprite_atlas/animals.rs`
 | 3 | 5 | Ocelot | `Ocelot` |
 | 3 | 6 | Male Lion | `MaleLion` |
 | 3 | 7 | Female Lion | `FemaleLion` |
-| 4 | 0 | Dog | `Dog` |
-| 4 | 1 | Puppy | *(not mapped)* |
+| 4 | 0 | Dog | *(domestic, removed)* |
+| 4 | 1 | Puppy | *(domestic, removed)* |
 | 4 | 2 | Hyena | `Hyena` |
 | 4 | 3 | Fox | `Fox` |
 | 4 | 4 | Jackal | `Jackal` |
@@ -144,15 +144,15 @@ Source: `32rogues/animals.txt` | Code: `src/sprite_atlas/animals.rs`
 | 8 | 3 | Tortoise | `Tortoise` |
 | 8 | 4 | Snapping Turtle | `SnappingTurtle` |
 | 8 | 5 | Alligator Snapping Turtle | *(not mapped)* |
-| 9 | 0 | Cow | `Cow` |
-| 9 | 1 | Horse | `Horse` |
-| 9 | 2 | Donkey | `Donkey` |
-| 9 | 3 | Mule | *(not mapped)* |
+| 9 | 0 | Cow | *(domestic, removed)* |
+| 9 | 1 | Horse | *(domestic, removed)* |
+| 9 | 2 | Donkey | *(domestic, removed)* |
+| 9 | 3 | Mule | *(domestic, removed)* |
 | 9 | 4 | Alpaca | *(not mapped)* |
 | 9 | 5 | Llama | *(not mapped)* |
-| 9 | 6 | Pig | `Pig` |
+| 9 | 6 | Pig | *(domestic, removed)* |
 | 9 | 7 | Boar | `Boar` |
-| 10 | 0 | Camel | `Camel` |
+| 10 | 0 | Camel | *(domestic, removed)* |
 | 10 | 1 | Reindeer / Caribou | *(not mapped)* |
 | 10 | 2 | Water Buffalo | `WaterBuffalo` |
 | 10 | 3 | Yak | `Yak` |
@@ -165,17 +165,17 @@ Source: `32rogues/animals.txt` | Code: `src/sprite_atlas/animals.rs`
 | 13 | 1 | Little Penguin | *(not mapped)* |
 | 13 | 2 | Cassowary | *(not mapped)* |
 | 13 | 3 | Emu | *(not mapped)* |
-| 14 | 0 | Chicken | `Chicken` |
-| 14 | 1 | Rooster | `Rooster` |
+| 14 | 0 | Chicken | *(domestic, removed)* |
+| 14 | 1 | Rooster | *(domestic, removed)* |
 | 14 | 2 | Mallard Duck | *(not mapped)* |
 | 14 | 3 | Swan | *(not mapped)* |
 | 14 | 4 | Turkey | *(not mapped)* |
 | 14 | 5 | Guineafowl | *(not mapped)* |
 | 14 | 6 | Peacock | *(not mapped)* |
-| 15 | 0 | Goat | `Goat` |
+| 15 | 0 | Goat | *(domestic, removed)* |
 | 15 | 1 | Mountain Goat | `MountainGoat` |
 | 15 | 2 | Ibex | `Ibex` |
-| 15 | 3 | Sheep (Ram) | `Sheep` |
+| 15 | 3 | Sheep (Ram) | *(domestic, removed)* |
 
 ---
 
