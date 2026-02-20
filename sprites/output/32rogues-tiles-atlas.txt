@@ -1,0 +1,137 @@
+# Sprite Sheet Atlas: 32rogues-tiles.png
+# Total sprites: 132
+# Sheet size: 544x832
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+dirt wall (top)	0	0	32	32
+dirt wall (side)	32	0	32	32
+inner wall	64	0	32	32
+rough stone wall (top)	0	32	32	32
+rough stone wall (side)	32	32	32	32
+stone brick wall (top)	0	64	32	32
+stone brick wall (side 1)	32	64	32	32
+stone brick wall (side 2)	64	64	32	32
+igneous wall (top)	0	96	32	32
+igneous wall (side)	32	96	32	32
+large stone wall (top)	0	128	32	32
+large stone wall (side)	32	128	32	32
+catacombs / skull wall (top)	0	160	32	32
+catacombs / skull walls (side)	32	160	32	32
+blank floor (dark grey)	0	192	32	32
+floor stone 1	32	192	32	32
+floor stone 2	64	192	32	32
+floor stone 3	96	192	32	32
+floor stone 1 (no bg)	128	192	32	32
+floor stone 2 (no bg)	160	192	32	32
+floor stone 3 (no bg)	192	192	32	32
+blank floor (dark purple)	0	224	32	32
+grass 1	32	224	32	32
+grass 2	64	224	32	32
+grass 3	96	224	32	32
+grass 1 (no bg)	128	224	32	32
+grass 2 (no bg)	160	224	32	32
+grass 3 (no bg)	192	224	32	32
+empty	0	256	32	32
+dirt 1	32	256	32	32
+dirt 2	64	256	32	32
+dirt 3	96	256	32	32
+dirt 1 (no bg)	128	256	32	32
+dirt 2 (no bg)	160	256	32	32
+dirt 3 (no bg)	192	256	32	32
+empty	0	288	32	32
+stone floor 1	32	288	32	32
+stone floor 2	64	288	32	32
+stone floor 3	96	288	32	32
+stone floor 1 (no bg)	128	288	32	32
+stone floor 2 (no bg)	160	288	32	32
+stone floor 3 (no bg)	192	288	32	32
+empty	0	320	32	32
+bone 1	32	320	32	32
+bone 2	64	320	32	32
+bone 3	96	320	32	32
+bone 1 (no bg)	128	320	32	32
+bone 2 (no bg)	160	320	32	32
+bone 3 (no bg)	192	320	32	32
+blank red floor	0	352	32	32
+red stone floor 1 (red bg)	32	352	32	32
+red stone floor 2 (red bg)	64	352	32	32
+red stone floor 3 (red bg)	96	352	32	32
+red stone floor 1 (no bg)	128	352	32	32
+red stone floor 2 (no bg)	160	352	32	32
+red stone floor 3 (no bg)	192	352	32	32
+blank blue floor	0	384	32	32
+blue stone floor 1 (blue bg)	32	384	32	32
+blue stone floor 2 (blue bg)	64	384	32	32
+blue stone floor 3 (blue bg)	96	384	32	32
+blank green floor	0	416	32	32
+dirt 1 (green bg)	32	416	32	32
+dirt 2 (green bg)	64	416	32	32
+dirt 3 (green bg)	96	416	32	32
+empty	0	448	32	32
+grass 1 (green bg)	32	448	32	32
+grass 2 (green bg)	64	448	32	32
+grass 3 (green bg)	96	448	32	32
+dark brown bg	0	480	32	32
+bones 1 (dark brown bg)	32	480	32	32
+bones 2 (dark brown bg)	64	480	32	32
+bones 3 (dark brown bg)	96	480	32	32
+door 1	0	512	32	32
+door 2	32	512	32	32
+framed door 1 (shut)	64	512	32	32
+framed door 1 (open)	96	512	32	32
+framed door 2 (shut)	128	512	32	32
+framed door 2 (open)	160	512	32	32
+grated door	192	512	32	32
+staircase down	224	512	32	32
+staircase up	256	512	32	32
+pressure plate (up)	288	512	32	32
+pressure plate (down)	320	512	32	32
+chute	352	512	32	32
+pit	384	512	32	32
+trap door	416	512	32	32
+pentagram	448	512	32	32
+spikes (down)	480	512	32	32
+spites (up)	512	512	32	32
+chest (closed)	0	544	32	32
+chest (open)	32	544	32	32
+jar (closed)	64	544	32	32
+jar (open)	96	544	32	32
+barrel	128	544	32	32
+ore sack	160	544	32	32
+log pile	192	544	32	32
+large rock 1	0	576	32	32
+large rock 2	32	576	32	32
+buckwheet	0	608	32	32
+flax	32	608	32	32
+papyrus sedge	64	608	32	32
+kenaf	96	608	32	32
+ramie	128	608	32	32
+jute	160	608	32	32
+rice	192	608	32	32
+wheat	224	608	32	32
+maize / corn	256	608	32	32
+amaranth	288	608	32	32
+quinoa	320	608	32	32
+bitter vetch	352	608	32	32
+sorghum	384	608	32	32
+red spinach	416	608	32	32
+cotton	448	608	32	32
+alfalfa	480	608	32	32
+small mushrooms	0	640	32	32
+large mushroom	32	640	32	32
+corpse (bones) 1	0	672	32	32
+corpse (bones) 2	32	672	32	32
+blood spatter 1	0	704	32	32
+blood spatter 2	32	704	32	32
+slime (small)	64	704	32	32
+slime (large)	96	704	32	32
+coffin (closed)	0	736	32	32
+coffin (ajar)	32	736	32	32
+coffin (open)	64	736	32	32
+sarcophagus (closed)	96	736	32	32
+sarcophagus (ajar)	128	736	32	32
+sarcophagus (open)	160	736	32	32
+sapling	0	800	32	32
+small tree	32	800	32	32
+tree	64	800	32	32
+two tile tree	96	800	32	32

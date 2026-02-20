@@ -1,0 +1,69 @@
+# Sprite Sheet Atlas: 32rogues-monsters.png
+# Total sprites: 64
+# Sheet size: 384x416
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+orc	0	0	32	32
+orc wizard	32	0	32	32
+goblin	64	0	32	32
+orc blademaster	96	0	32	32
+orc warchief	128	0	32	32
+goblin archer	160	0	32	32
+goblin mage	192	0	32	32
+goblin brute	224	0	32	32
+ettin	0	32	32	32
+two headed ettin	32	32	32	32
+troll	64	32	32	32
+small slime	0	64	32	32
+big slime	32	64	32	32
+slimebody	64	64	32	32
+merged slimebodies	96	64	32	32
+faceless monk	0	96	32	32
+unholy cardinal	32	96	32	32
+skeleton	0	128	32	32
+skeleton archer	32	128	32	32
+lich	64	128	32	32
+death knight	96	128	32	32
+zombie	128	128	32	32
+ghoul	160	128	32	32
+banshee	0	160	32	32
+reaper	32	160	32	32
+wraith	64	160	32	32
+cultist	96	160	32	32
+hag/witch	128	160	32	32
+giant centipede	0	192	32	32
+lampreymander	32	192	32	32
+giant earthworm	64	192	32	32
+manticore	96	192	32	32
+giant ant	128	192	32	32
+lycanthrope	160	192	32	32
+giant bata	192	192	32	32
+lesser giant ant	224	192	32	32
+giant spider	256	192	32	32
+lesser giant spider	288	192	32	32
+warg/dire wolf	320	192	32	32
+giant rat	352	192	32	32
+dryad	0	224	32	32
+wendigo	32	224	32	32
+rock golem	64	224	32	32
+centaur	96	224	32	32
+naga	128	224	32	32
+forest spirit	160	224	32	32
+satyr	192	224	32	32
+minotaur	224	224	32	32
+harpy	256	224	32	32
+gorgon/medusa	288	224	32	32
+lizardfolk / kobold (reptile)	0	256	32	32
+drake / lesser dragon	32	256	32	32
+dragon	64	256	32	32
+cockatrice	96	256	32	32
+basilisk	128	256	32	32
+small kobold (canine)	0	288	32	32
+kobold (canine)	32	288	32	32
+small myconid	0	320	32	32
+large myconid	32	320	32	32
+angel / archangel	0	352	32	32
+imp / devil	32	352	32	32
+small writhing mass	0	384	32	32
+large writhing mass	32	384	32	32
+writhing humanoid	64	384	32	32

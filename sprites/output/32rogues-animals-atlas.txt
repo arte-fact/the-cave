@@ -1,0 +1,92 @@
+# Sprite Sheet Atlas: 32rogues-animals.png
+# Total sprites: 87
+# Sheet size: 288x512
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+grizzly bear	0	0	32	32
+black bear	32	0	32	32
+polar bear	64	0	32	32
+panda	96	0	32	32
+chimpanzee	0	32	32	32
+gorilla	32	32	32	32
+orangutan	64	64	32	32
+aye aye	0	96	32	32
+gibbon	32	96	32	32
+mandrill	64	96	32	32
+capuchin	96	96	32	32
+langur	128	96	32	32
+cat	0	128	32	32
+bobcat	32	128	32	32
+cougar	64	128	32	32
+cheetah	96	128	32	32
+lynx	128	128	32	32
+ocelot	160	128	32	32
+male lion	192	128	32	32
+female lion	224	128	32	32
+dog	0	160	32	32
+puppy	32	160	32	32
+hyena	64	160	32	32
+fox	96	160	32	32
+jackal	128	160	32	32
+coyote	160	160	32	32
+wolf	192	160	32	32
+capybara	0	192	32	32
+beaver	32	192	32	32
+mink	64	192	32	32
+mongoose	96	192	32	32
+marmot	128	192	32	32
+groundhog	160	192	32	32
+chinchilla	192	192	32	32
+echidna	224	192	32	32
+aardvark	0	224	32	32
+armadillo	32	224	32	32
+badger	64	224	32	32
+honeybadger	96	224	32	32
+coati	128	224	32	32
+opossum	160	224	32	32
+rabbit	192	224	32	32
+hare	224	224	32	32
+rat	256	224	32	32
+snake	0	256	32	32
+cobra	32	256	32	32
+kingsnake	64	256	32	32
+black mamba	96	256	32	32
+alligator	0	288	32	32
+monitor lizard	32	288	32	32
+iguana	64	288	32	32
+tortoise	96	288	32	32
+snapping turtle	128	288	32	32
+alligator snapping turtle	160	288	32	32
+cow	0	320	32	32
+horse	32	320	32	32
+donkey	64	320	32	32
+mule	96	320	32	32
+alpaca	128	320	32	32
+llama	160	320	32	32
+pig	192	320	32	32
+boar	224	320	32	32
+camel	0	352	32	32
+reindeer/caribou	32	352	32	32
+water buffalo	64	352	32	32
+yak	96	352	32	32
+seagull	0	384	32	32
+barn owl	32	384	32	32
+common buzzard	64	384	32	32
+kangaroo	0	416	32	32
+koala	32	416	32	32
+penguin	0	448	32	32
+little penguin	32	448	32	32
+cassowary	64	448	32	32
+emu	96	448	32	32
+chicken	0	480	32	32
+rooster	32	480	32	32
+mallard duck	64	480	32	32
+swan	96	480	32	32
+turkey	128	480	32	32
+guineafowl	160	480	32	32
+peacock	192	480	32	32
+goat	0	512	32	32
+mountain goat	32	512	32	32
+ibex	64	512	32	32
+sheep (ram)	96	512	32	32
+sheep (ewe)	128	480	32	32

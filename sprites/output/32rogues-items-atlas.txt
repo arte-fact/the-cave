@@ -1,0 +1,154 @@
+# Sprite Sheet Atlas: 32rogues-items.png
+# Total sprites: 149
+# Sheet size: 352x832
+# Icon size: 32x32
+# Format: name\tx\ty\twidth\theight
+dagger	0	0	32	32
+short sword	32	0	32	32
+short sword 2	64	0	32	32
+long sword	96	0	32	32
+bastard sword	128	0	32	32
+zweihander	160	0	32	32
+sanguine dagger	192	0	32	32
+magic dagger	224	0	32	32
+crystal sword	256	0	32	32
+evil sword	288	0	32	32
+flame sword	320	0	32	32
+wide short sword	0	32	32	32
+wide long sword	32	32	32	32
+rapier	64	32	32	32
+long rapier	96	32	32	32
+flamberge	128	32	32	32
+large flamberge	160	32	32	32
+great sword	192	32	32	32
+shotel	0	64	32	32
+scimitar	32	64	32	32
+large scimitar	64	64	32	32
+great scimitar	96	64	32	32
+kukri	128	64	32	32
+hand axe	0	96	32	32
+battle axe	32	96	32	32
+halberd	64	96	32	32
+great axe	96	96	32	32
+giant axe	128	96	32	32
+hatchet	160	96	32	32
+woodcutter's axe	192	96	32	32
+blacksmiths hammer	0	128	32	32
+short warhammer	32	128	32	32
+long warhammer	64	128	32	32
+hammer	96	128	32	32
+great hammer	128	128	32	32
+mace 1	0	160	32	32
+mace 2	32	160	32	32
+great mace	64	160	32	32
+spiked bat	96	160	32	32
+spear	0	192	32	32
+short spear	32	192	32	32
+pitchfork	64	192	32	32
+trident	96	192	32	32
+magic spear	128	192	32	32
+flail 1	0	224	32	32
+flail 2	32	224	32	32
+flail 3	64	224	32	32
+club	0	256	32	32
+spiked club	32	256	32	32
+great club	64	256	32	32
+club with nails	96	256	32	32
+crossbow	0	288	32	32
+short bow	32	288	32	32
+long bow	64	288	32	32
+long bow 2	96	288	32	32
+large crossbow	128	288	32	32
+crystal staff	0	320	32	32
+holy staff	32	320	32	32
+druid staff	64	320	32	32
+blue staff	96	320	32	32
+golden staff	128	320	32	32
+red crystal staff	160	320	32	32
+flame staff	192	320	32	32
+blue crystal staff	224	320	32	32
+cross staff	256	320	32	32
+saint's staff	288	320	32	32
+buckler	0	352	32	32
+kite shield	32	352	32	32
+cross shield	64	352	32	32
+dark shield	96	352	32	32
+round shield	128	352	32	32
+buckler 2	160	352	32	32
+large shield	192	352	32	32
+cloth armor	0	384	32	32
+leather armor	32	384	32	32
+robe	64	384	32	32
+chain mail	96	384	32	32
+scale mail	128	384	32	32
+chest plate	160	384	32	32
+cloth gloves	0	416	32	32
+leather gloves	32	416	32	32
+blue cloth gloves	64	416	32	32
+gauntlets	96	416	32	32
+shoes	0	448	32	32
+leather boots	32	448	32	32
+high blue boots	64	448	32	32
+greaves	96	448	32	32
+cloth hood	0	480	32	32
+leather helm	32	480	32	32
+wide-brimmed hat	64	480	32	32
+chain mail coif	96	480	32	32
+helm	128	480	32	32
+helm with chain mail	160	480	32	32
+plate helm 1	192	480	32	32
+plate helm 2	224	480	32	32
+red pendant	0	512	32	32
+metal pendant	32	512	32	32
+crystal pendant	64	512	32	32
+disc pendant	96	512	32	32
+cross pendant	128	512	32	32
+stone pendant	160	512	32	32
+ankh	192	512	32	32
+gold emerald ring	0	544	32	32
+gold band ring	32	544	32	32
+green signet ring	64	544	32	32
+ruby ring	96	544	32	32
+sapphire ring	128	544	32	32
+onyx ring	160	544	32	32
+gold signet ring	0	576	32	32
+silver signet ring	32	576	32	32
+jade ring	64	576	32	32
+silver signet ring	96	576	32	32
+twisted gold ring	128	576	32	32
+twisted metal ring	160	576	32	32
+purple potion	0	608	32	32
+red potion	32	608	32	32
+brown vial	64	608	32	32
+large dark potion	96	608	32	32
+green potion	128	608	32	32
+black potion	0	640	32	32
+bright green potion	32	640	32	32
+pink vial	64	640	32	32
+blue potion	96	640	32	32
+orange potion	128	640	32	32
+scroll	0	672	32	32
+book	32	672	32	32
+red book	64	672	32	32
+dark tome	96	672	32	32
+tome	128	672	32	32
+tome 2	160	672	32	32
+scroll 2	192	672	32	32
+page	224	672	32	32
+gold key	0	704	32	32
+ornate key	32	704	32	32
+metal key	64	704	32	32
+primitive key	96	704	32	32
+arrow	0	736	32	32
+arrows	32	736	32	32
+bolt	64	736	32	32
+bolts	96	736	32	32
+coin	0	768	32	32
+small stacks of coins	32	768	32	32
+large stacks of coins	64	768	32	32
+coin purse	96	768	32	32
+cheese	0	800	32	32
+bread	32	800	32	32
+apple	64	800	32	32
+bottle of beer	96	800	32	32
+bottle of water	128	768	32	32
