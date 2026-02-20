@@ -259,19 +259,23 @@ fn roll_beast_den_l0(roll: u64) -> EnemyStats {
 }
 
 fn roll_beast_den_l1(roll: u64) -> EnemyStats {
-    if roll < 25      { GIANT_SPIDER }
-    else if roll < 45 { DIRE_WOLF }
-    else if roll < 60 { LYCANTHROPE }
-    else if roll < 75 { BEAR }
+    if roll < 18      { GIANT_SPIDER }
+    else if roll < 33 { DIRE_WOLF }
+    else if roll < 45 { LYCANTHROPE }
+    else if roll < 57 { BEAR }
+    else if roll < 67 { LYNX }
+    else if roll < 77 { BLACK_BEAR }
     else if roll < 88 { GIANT_BAT }
     else              { COUGAR }
 }
 
 fn roll_beast_den_deep(roll: u64) -> EnemyStats {
-    if roll < 30      { WENDIGO }
-    else if roll < 50 { MANTICORE }
-    else if roll < 65 { LYCANTHROPE }
-    else if roll < 80 { DIRE_WOLF }
+    if roll < 22      { WENDIGO }
+    else if roll < 38 { MANTICORE }
+    else if roll < 50 { LYCANTHROPE }
+    else if roll < 62 { DIRE_WOLF }
+    else if roll < 74 { WATER_BUFFALO }
+    else if roll < 86 { YAK }
     else              { GIANT_SPIDER }
 }
 
@@ -290,10 +294,11 @@ fn roll_serpent_pit(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_serpent_pit_l0(roll: u64) -> EnemyStats {
-    if roll < 25      { VIPER }
-    else if roll < 45 { LIZARDFOLK }
-    else if roll < 60 { GIANT_CENTIPEDE }
-    else if roll < 75 { GIANT_BAT }
+    if roll < 22      { VIPER }
+    else if roll < 40 { LIZARDFOLK }
+    else if roll < 52 { GIANT_CENTIPEDE }
+    else if roll < 65 { MONITOR_LIZARD }
+    else if roll < 77 { GIANT_BAT }
     else if roll < 88 { GIANT_RAT }
     else              { SMALL_SLIME }
 }
