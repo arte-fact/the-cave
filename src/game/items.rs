@@ -180,80 +180,106 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
 }
 
 /// Returns a meat/food item if the killed enemy is a beast or has rations.
+/// Stats scale with animal size: tiny(8-10), small(12-15), medium(16-22), large(25-35).
+/// Snakes always have a Poison side effect.
+/// Large beasts have a Heal side effect (rich, hearty meat).
+/// Canines/cats have an Energize side effect (lean, energizing meat).
 pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
     match enemy_name {
+        // --- Tiny/vermin ---
         "Giant Rat" => Some(Item {
             kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
-            effect: ItemEffect::Feed(10, FoodSideEffect::Sicken(5)),
+            effect: ItemEffect::Feed(8, FoodSideEffect::Sicken(5)),
         }),
+        // --- Small animals ---
+        "Fox" => Some(Item {
+            kind: ItemKind::Food, name: "Fox Meat", glyph: '%',
+            effect: ItemEffect::Feed(14, FoodSideEffect::None),
+        }),
+        "Badger" => Some(Item {
+            kind: ItemKind::Food, name: "Badger Meat", glyph: '%',
+            effect: ItemEffect::Feed(12, FoodSideEffect::None),
+        }),
+        "Honey Badger" => Some(Item {
+            kind: ItemKind::Food, name: "Badger Meat", glyph: '%',
+            effect: ItemEffect::Feed(14, FoodSideEffect::None),
+        }),
+        "Buzzard" => Some(Item {
+            kind: ItemKind::Food, name: "Fowl Meat", glyph: '%',
+            effect: ItemEffect::Feed(12, FoodSideEffect::None),
+        }),
+        "Jackal" => Some(Item {
+            kind: ItemKind::Food, name: "Jackal Meat", glyph: '%',
+            effect: ItemEffect::Feed(14, FoodSideEffect::None),
+        }),
+        "Ocelot" => Some(Item {
+            kind: ItemKind::Food, name: "Ocelot Meat", glyph: '%',
+            effect: ItemEffect::Feed(14, FoodSideEffect::None),
+        }),
+        // --- Snakes (always poisonous) ---
+        "Viper" => Some(Item {
+            kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
+            effect: ItemEffect::Feed(10, FoodSideEffect::Poison(2)),
+        }),
+        "Black Mamba" => Some(Item {
+            kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
+            effect: ItemEffect::Feed(12, FoodSideEffect::Poison(3)),
+        }),
+        // --- Medium animals ---
         "Wolf" => Some(Item {
             kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
-            effect: ItemEffect::Feed(20, FoodSideEffect::Energize(10)),
+            effect: ItemEffect::Feed(18, FoodSideEffect::Energize(8)),
         }),
+        "Coyote" => Some(Item {
+            kind: ItemKind::Food, name: "Coyote Meat", glyph: '%',
+            effect: ItemEffect::Feed(16, FoodSideEffect::Energize(6)),
+        }),
+        "Hyena" => Some(Item {
+            kind: ItemKind::Food, name: "Hyena Meat", glyph: '%',
+            effect: ItemEffect::Feed(16, FoodSideEffect::Energize(6)),
+        }),
+        "Lynx" => Some(Item {
+            kind: ItemKind::Food, name: "Lynx Meat", glyph: '%',
+            effect: ItemEffect::Feed(16, FoodSideEffect::None),
+        }),
+        "Cougar" => Some(Item {
+            kind: ItemKind::Food, name: "Cougar Meat", glyph: '%',
+            effect: ItemEffect::Feed(20, FoodSideEffect::Energize(8)),
+        }),
+        "Monitor Lizard" => Some(Item {
+            kind: ItemKind::Food, name: "Lizard Meat", glyph: '%',
+            effect: ItemEffect::Feed(18, FoodSideEffect::None),
+        }),
+        // --- Large animals ---
         "Boar" => Some(Item {
             kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
             effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)),
         }),
-        "Bear" => Some(Item {
+        "Black Bear" => Some(Item {
             kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
             effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)),
         }),
-        "Fox" => Some(Item {
-            kind: ItemKind::Food, name: "Fox Meat", glyph: '%',
-            effect: ItemEffect::Feed(16, FoodSideEffect::None),
-        }),
-        "Cougar" => Some(Item {
-            kind: ItemKind::Food, name: "Venison", glyph: '%',
-            effect: ItemEffect::Feed(22, FoodSideEffect::Energize(8)),
-        }),
-        "Viper" => Some(Item {
-            kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
-            effect: ItemEffect::Feed(12, FoodSideEffect::Poison(2)),
-        }),
-        "Badger" | "Honey Badger" => Some(Item {
-            kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
-            effect: ItemEffect::Feed(12, FoodSideEffect::None),
-        }),
-        "Coyote" | "Hyena" | "Jackal" => Some(Item {
-            kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
-            effect: ItemEffect::Feed(18, FoodSideEffect::Energize(8)),
-        }),
-        "Lynx" | "Ocelot" => Some(Item {
-            kind: ItemKind::Food, name: "Venison", glyph: '%',
-            effect: ItemEffect::Feed(16, FoodSideEffect::None),
-        }),
-        "Black Bear" => Some(Item {
+        "Bear" => Some(Item {
             kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
-            effect: ItemEffect::Feed(22, FoodSideEffect::Heal(2)),
-        }),
-        "Monitor Lizard" => Some(Item {
-            kind: ItemKind::Food, name: "Gator Meat", glyph: '%',
-            effect: ItemEffect::Feed(18, FoodSideEffect::None),
-        }),
-        "Water Buffalo" => Some(Item {
-            kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
-            effect: ItemEffect::Feed(30, FoodSideEffect::Heal(5)),
-        }),
-        "Yak" => Some(Item {
-            kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
-            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)),
-        }),
-        "Black Mamba" => Some(Item {
-            kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
-            effect: ItemEffect::Feed(14, FoodSideEffect::Poison(3)),
+            effect: ItemEffect::Feed(30, FoodSideEffect::Heal(4)),
         }),
         "Alligator" => Some(Item {
             kind: ItemKind::Food, name: "Gator Meat", glyph: '%',
             effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)),
         }),
+        "Yak" => Some(Item {
+            kind: ItemKind::Food, name: "Yak Meat", glyph: '%',
+            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)),
+        }),
+        "Water Buffalo" => Some(Item {
+            kind: ItemKind::Food, name: "Buffalo Meat", glyph: '%',
+            effect: ItemEffect::Feed(35, FoodSideEffect::Heal(5)),
+        }),
         "Male Lion" => Some(Item {
             kind: ItemKind::Food, name: "Lion Meat", glyph: '%',
-            effect: ItemEffect::Feed(30, FoodSideEffect::Energize(15)),
+            effect: ItemEffect::Feed(30, FoodSideEffect::Energize(12)),
         }),
-        "Buzzard" => Some(Item {
-            kind: ItemKind::Food, name: "Fowl Meat", glyph: '%',
-            effect: ItemEffect::Feed(14, FoodSideEffect::None),
-        }),
+        // --- Humanoid rations ---
         "Goblin" | "Goblin Archer" | "Goblin Mage" | "Goblin Brute" => {
             Some(Item {
                 kind: ItemKind::Food, name: "Stolen Rations", glyph: '%',
