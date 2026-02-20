@@ -518,6 +518,84 @@ use super::{test_game, rusty_sword};
             "tier 2 should generate Elven Bow");
     }
 
+    // --- Stamina cost for attacks ---
+
+    #[test]
+    fn melee_attack_drains_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        let stam_before = g.stamina;
+        g.attack_adjacent(gx, gy);
+        let expected = stam_before - g.config.combat.melee_stamina_cost;
+        // tick_survival regens stamina when not sprinting (+5), so account for that
+        assert_eq!(g.stamina, expected + g.config.survival.stamina_regen);
+    }
+
+    #[test]
+    fn melee_attack_blocked_without_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.stamina = 0;
+        let result = g.attack_adjacent(gx, gy);
+        assert!(matches!(result, TurnResult::Blocked));
+        assert_eq!(g.enemies[0].hp, 50, "enemy should not take damage when attack blocked");
+        assert!(g.messages.iter().any(|m| m.contains("stamina")));
+    }
+
+    #[test]
+    fn ranged_attack_drains_stamina() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        let stam_before = g.stamina;
+        g.ranged_attack(8, 5);
+        let expected = stam_before - g.config.combat.ranged_stamina_cost;
+        assert_eq!(g.stamina, expected + g.config.survival.stamina_regen);
+    }
+
+    #[test]
+    fn ranged_attack_blocked_without_stamina() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100;
+        g.equipped_weapon = Some(short_bow());
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.stamina = 0;
+        let result = g.ranged_attack(8, 5);
+        assert!(matches!(result, TurnResult::Blocked));
+        assert_eq!(g.enemies[0].hp, 100, "enemy should not take damage when attack blocked");
+        assert!(g.messages.iter().any(|m| m.contains("stamina")));
+    }
+
+    #[test]
+    fn melee_attack_allowed_with_exact_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.stamina = g.config.combat.melee_stamina_cost;
+        let result = g.attack_adjacent(gx, gy);
+        assert!(!matches!(result, TurnResult::Blocked));
+        assert!(g.enemies[0].hp < 50, "attack should land with exact stamina");
+    }
+
     #[test]
     fn ranged_attack_costs_a_turn() {
         let mut map = Map::new_filled(20, 20, Tile::Floor);
