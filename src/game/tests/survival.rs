@@ -129,6 +129,39 @@ use super::{test_game, health_potion};
         }
     }
 
+    #[test]
+    fn sprint_alternates_which_enemies_skip() {
+        // The fix: sprint uses (i + turn) % 2 to alternate which enemies
+        // are skipped each turn, so no enemy is permanently disabled.
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        g.stamina = 100;
+        // Place enemy far enough that it's within chase range but won't
+        // reach the player in 2 moves. We'll track whether it acts at all.
+        let ex = g.player_x + 3;
+        let ey = g.player_y;
+        if !g.current_map().is_walkable(ex, ey) { return; }
+        g.enemies.push(Enemy {
+            x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin",
+            facing_left: false, defense: 0, is_ranged: false,
+        });
+
+        // Turn 0: (0 + 0) % 2 == 0 → enemy skipped
+        let ny = g.player_y + 1;
+        if !g.current_map().is_walkable(g.player_x, ny) { return; }
+        g.move_player(0, 1);
+        let pos_after_t0 = (g.enemies[0].x, g.enemies[0].y);
+        assert_eq!(pos_after_t0, (ex, ey), "enemy at index 0 should be skipped on turn 0");
+
+        // Turn 1: (0 + 1) % 2 == 1 → enemy acts
+        let ny2 = g.player_y + 1;
+        if !g.current_map().is_walkable(g.player_x, ny2) { return; }
+        g.move_player(0, 1);
+        let pos_after_t1 = (g.enemies[0].x, g.enemies[0].y);
+        assert_ne!(pos_after_t1, (ex, ey), "enemy at index 0 should act on turn 1");
+    }
+
     // --- Hunger ---
 
     #[test]

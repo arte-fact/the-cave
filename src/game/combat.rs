@@ -115,7 +115,10 @@ impl Game {
         self.enemy_turn_inner(false);
     }
 
-    /// Core enemy AI. If `half_speed` is true, only odd-indexed enemies act (sprint mode).
+    /// Core enemy AI. If `half_speed` is true, half the enemies skip their turn
+    /// (sprint mode). Uses the turn counter to alternate which enemies are skipped,
+    /// so every enemy acts every other turn rather than the same ones being
+    /// permanently disabled.
     pub(super) fn enemy_turn_inner(&mut self, half_speed: bool) {
         let px = self.player_x;
         let py = self.player_y;
@@ -123,7 +126,7 @@ impl Game {
 
         for i in 0..self.enemies.len() {
             if self.enemies[i].hp <= 0 { continue; }
-            if half_speed && i % 2 == 0 { continue; }
+            if half_speed && (i + self.turn as usize) % 2 == 0 { continue; }
 
             let ex = self.enemies[i].x;
             let ey = self.enemies[i].y;
