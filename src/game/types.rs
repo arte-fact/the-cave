@@ -44,6 +44,9 @@ pub struct Item {
     pub name: &'static str,
     pub glyph: char,
     pub effect: ItemEffect,
+    /// Weight of the item (0–5). Heavier weapons cost more stamina to swing.
+    /// 0 = non-weapon/weightless, 1 = very light, 5 = very heavy.
+    pub weight: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -338,11 +341,25 @@ pub(super) fn xp_for_enemy(name: &str) -> u32 {
     }
 }
 
+/// Stamina cost to attack with a weapon of the given weight.
+/// Melee: base 6 + weight * 2 (range: 8–16 for weights 1–5).
+/// Ranged: base 4 + weight (range: 5–9 for weights 1–5).
+/// Unarmed (no weapon / weight 0): uses melee formula → 6.
+pub fn weapon_stamina_cost(kind: &ItemKind, weight: i32) -> i32 {
+    match kind {
+        ItemKind::RangedWeapon => 4 + weight,
+        _ => 6 + weight * 2,
+    }
+}
+
 pub(super) fn item_info_desc(item: &Item) -> String {
     let effect = match &item.effect {
         ItemEffect::Heal(n) => format!("Restores {} HP", n),
         ItemEffect::DamageAoe(n) => format!("Deals {} damage in area", n),
-        ItemEffect::BuffAttack(n) => format!("+{} Attack", n),
+        ItemEffect::BuffAttack(n) => {
+            let cost = weapon_stamina_cost(&item.kind, item.weight);
+            format!("+{} Attack, {} stamina", n, cost)
+        }
         ItemEffect::BuffDefense(n) => format!("+{} Defense", n),
         ItemEffect::Feed(n, side) => {
             let base = format!("Restores {} hunger", n);

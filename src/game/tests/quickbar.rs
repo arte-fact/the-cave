@@ -2,19 +2,19 @@ use super::*;
 use super::test_game;
 
     fn potion() -> Item {
-        Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(10) }
+        Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(10), weight: 0 }
     }
     fn scroll() -> Item {
-        Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(5) }
+        Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(5), weight: 0 }
     }
     fn food() -> Item {
-        Item { kind: ItemKind::Food, name: "Bread", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None) }
+        Item { kind: ItemKind::Food, name: "Bread", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None), weight: 0 }
     }
     fn sword() -> Item {
-        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(3) }
+        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2 }
     }
     fn armor() -> Item {
-        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(2) }
+        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0 }
     }
 
     #[test]

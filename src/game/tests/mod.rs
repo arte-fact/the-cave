@@ -18,11 +18,11 @@ pub(super) fn test_game() -> Game {
 }
 
 pub(super) fn health_potion() -> Item {
-    Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5) }
+    Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5), weight: 0 }
 }
 
 pub(super) fn rusty_sword() -> Item {
-    Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(2) }
+    Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2 }
 }
 
 pub(super) fn overworld_game() -> Game {

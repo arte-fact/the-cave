@@ -2,16 +2,16 @@ use super::*;
 use super::{test_game, health_potion, rusty_sword};
 
 fn scroll_fire() -> Item {
-    Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8) }
+    Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0 }
 }
 fn iron_sword() -> Item {
-    Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(4) }
+    Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2 }
 }
 fn leather_armor() -> Item {
-    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2) }
+    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0 }
 }
 fn chain_mail() -> Item {
-    Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4) }
+    Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0 }
 }
 
     // --- Pickup ---
@@ -142,7 +142,7 @@ fn chain_mail() -> Item {
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
         assert_eq!(g.equipped_weapon.as_ref().unwrap().name, "Rusty Sword");
-        assert_eq!(g.effective_attack(), 5 + 2);
+        assert_eq!(g.effective_attack(), 5 + 3); // Rusty Sword: +3 ATK
     }
 
     #[test]
@@ -167,7 +167,7 @@ fn chain_mail() -> Item {
         assert_eq!(g.equipped_weapon.as_ref().unwrap().name, "Iron Sword");
         assert_eq!(g.inventory.len(), 1);
         assert_eq!(g.inventory[0].name, "Rusty Sword");
-        assert_eq!(g.effective_attack(), 5 + 4);
+        assert_eq!(g.effective_attack(), 5 + 5); // Iron Sword: +5 ATK
     }
 
     #[test]
@@ -226,8 +226,8 @@ fn chain_mail() -> Item {
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
         g.attack_adjacent(gx, gy);
-        // Base attack 5 + weapon 2 = 7 damage
-        assert_eq!(g.enemies[0].hp, 20 - 7);
+        // Base attack 5 + weapon 3 = 8 damage (calc_damage(8, 0) = 8)
+        assert_eq!(g.enemies[0].hp, 20 - 8);
     }
 
     #[test]
@@ -253,7 +253,7 @@ fn chain_mail() -> Item {
         // Defense higher than enemy attack
         g.equipped_armor = Some(Item {
             kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[',
-            effect: ItemEffect::BuffDefense(6),
+            effect: ItemEffect::BuffDefense(6), weight: 0,
         });
         let hp_before = g.player_hp;
         let gx = g.player_x + 1;

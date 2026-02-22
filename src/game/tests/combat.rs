@@ -207,16 +207,16 @@ use super::{test_game, rusty_sword};
     }
 
     fn short_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(2) }
+        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2 }
     }
     fn crossbow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(3) }
+        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3 }
     }
     fn long_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(4) }
+        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2 }
     }
     fn elven_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6) }
+        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1 }
     }
 
     #[test]
@@ -257,8 +257,8 @@ use super::{test_game, rusty_sword};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_weapon = Some(short_bow());
-        // Base attack 5 + bow 2 = 7
-        assert_eq!(g.effective_attack(), 7);
+        // Base attack 5 + bow 1 = 6
+        assert_eq!(g.effective_attack(), 6);
     }
 
     #[test]
@@ -528,8 +528,9 @@ use super::{test_game, rusty_sword};
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
         let stam_before = g.stamina;
+        let cost = g.melee_stamina_cost(); // per-weapon stamina cost
         g.attack_adjacent(gx, gy);
-        let expected = stam_before - g.config.combat.melee_stamina_cost;
+        let expected = stam_before - cost;
         // tick_survival regens stamina when not sprinting (+5), so account for that
         assert_eq!(g.stamina, expected + g.config.survival.stamina_regen);
     }
@@ -560,8 +561,9 @@ use super::{test_game, rusty_sword};
         g.equipped_weapon = Some(short_bow());
         g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
         let stam_before = g.stamina;
+        let cost = g.ranged_stamina_cost(); // per-weapon stamina cost
         g.ranged_attack(8, 5);
-        let expected = stam_before - g.config.combat.ranged_stamina_cost;
+        let expected = stam_before - cost;
         assert_eq!(g.stamina, expected + g.config.survival.stamina_regen);
     }
 
@@ -590,10 +592,114 @@ use super::{test_game, rusty_sword};
         let gx = g.player_x + 1;
         let gy = g.player_y;
         g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.stamina = g.config.combat.melee_stamina_cost;
+        g.stamina = g.melee_stamina_cost(); // per-weapon cost
         let result = g.attack_adjacent(gx, gy);
         assert!(!matches!(result, TurnResult::Blocked));
         assert!(g.enemies[0].hp < 50, "attack should land with exact stamina");
+    }
+
+    // --- Weapon-based stamina cost ---
+
+    #[test]
+    fn unarmed_melee_stamina_cost() {
+        let g = test_game();
+        // Unarmed: base 6 + weight 0 * 2 = 6
+        assert_eq!(g.melee_stamina_cost(), 6);
+    }
+
+    #[test]
+    fn light_weapon_costs_less_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Iron Dagger: weight 1 → cost = 6 + 1*2 = 8
+        g.equipped_weapon = Some(Item {
+            kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/',
+            effect: ItemEffect::BuffAttack(2), weight: 1,
+        });
+        assert_eq!(g.melee_stamina_cost(), 8);
+    }
+
+    #[test]
+    fn heavy_weapon_costs_more_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Great Hammer: weight 5 → cost = 6 + 5*2 = 16
+        g.equipped_weapon = Some(Item {
+            kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/',
+            effect: ItemEffect::BuffAttack(8), weight: 5,
+        });
+        assert_eq!(g.melee_stamina_cost(), 16);
+    }
+
+    #[test]
+    fn ranged_weapon_stamina_cost_uses_weight() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Short Bow: weight 2 → cost = 4 + 2 = 6
+        g.equipped_weapon = Some(short_bow());
+        assert_eq!(g.ranged_stamina_cost(), 6);
+        // Heavy Crossbow: weight 4 → cost = 4 + 4 = 8
+        g.equipped_weapon = Some(Item {
+            kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}',
+            effect: ItemEffect::BuffAttack(4), weight: 4,
+        });
+        assert_eq!(g.ranged_stamina_cost(), 8);
+    }
+
+    #[test]
+    fn rare_weapons_have_low_stamina_cost() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Enchanted Blade: weight 1, +9 ATK → cost = 6 + 1*2 = 8
+        g.equipped_weapon = Some(Item {
+            kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/',
+            effect: ItemEffect::BuffAttack(9), weight: 1,
+        });
+        assert_eq!(g.melee_stamina_cost(), 8);
+        // Elven Bow: weight 1, +6 ATK → cost = 4 + 1 = 5
+        g.equipped_weapon = Some(elven_bow());
+        assert_eq!(g.ranged_stamina_cost(), 5);
+    }
+
+    #[test]
+    fn heavy_weapon_stamina_cost_in_combat() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Equip a heavy weapon (weight 5, cost 16)
+        g.equipped_weapon = Some(Item {
+            kind: ItemKind::Weapon, name: "Great Axe", glyph: '/',
+            effect: ItemEffect::BuffAttack(8), weight: 5,
+        });
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        let stam_before = g.stamina;
+        g.attack_adjacent(gx, gy);
+        // Cost 16, then regen +5
+        assert_eq!(g.stamina, stam_before - 16 + g.config.survival.stamina_regen);
+    }
+
+    #[test]
+    fn melee_weapons_deal_more_damage_than_ranged_same_tier() {
+        // For each tier, melee BuffAttack should be >= ranged BuffAttack
+        let mut rng = 42u64;
+        for tier in 0..=2 {
+            let items: Vec<_> = (0..1000).map(|_| random_item(tier, &mut rng)).collect();
+            let melee_atks: Vec<i32> = items.iter()
+                .filter(|i| i.kind == ItemKind::Weapon)
+                .filter_map(|i| match i.effect { ItemEffect::BuffAttack(n) => Some(n), _ => None })
+                .collect();
+            let ranged_atks: Vec<i32> = items.iter()
+                .filter(|i| i.kind == ItemKind::RangedWeapon)
+                .filter_map(|i| match i.effect { ItemEffect::BuffAttack(n) => Some(n), _ => None })
+                .collect();
+            if !melee_atks.is_empty() && !ranged_atks.is_empty() {
+                let avg_melee: f64 = melee_atks.iter().sum::<i32>() as f64 / melee_atks.len() as f64;
+                let avg_ranged: f64 = ranged_atks.iter().sum::<i32>() as f64 / ranged_atks.len() as f64;
+                assert!(avg_melee > avg_ranged,
+                    "tier {tier}: melee avg {avg_melee} should be > ranged avg {avg_ranged}");
+            }
+        }
     }
 
     #[test]
