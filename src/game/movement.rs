@@ -55,7 +55,7 @@ impl Game {
         }
 
         // Survival tick: stamina drain/regen, hunger
-        self.tick_survival();
+        self.tick_survival(true);
 
         // Update fog of war
         self.update_fov();
