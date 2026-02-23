@@ -18,8 +18,8 @@ impl Renderer {
         }
 
         // Use current drawer if open, or last_drawer during close animation
-        let which = if game.drawer != Drawer::None {
-            game.drawer
+        let which = if game.ui.drawer != Drawer::None {
+            game.ui.drawer
         } else {
             self.last_drawer
         };
@@ -124,7 +124,7 @@ impl Renderer {
         let icon_size = 28.0 * d;
 
         // Detail bar at bottom when an item or equipment slot is selected, otherwise just slot count
-        let has_selection = game.selected_inventory_item.is_some() || game.selected_equipment_slot.is_some();
+        let has_selection = game.ui.selected_inventory_item.is_some() || game.selected_equipment_slot.is_some();
         let detail_bar_h = if has_selection { 46.0 * d } else { 20.0 * d };
         let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
@@ -138,10 +138,10 @@ impl Renderer {
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("No items", pad + 4.0 * d, list_y + 4.0 * d);
         } else {
-            let scroll = game.inventory_scroll;
+            let scroll = game.ui.inventory_scroll;
             let total = game.inventory.len();
             let end = (scroll + max_visible).min(total);
-            let selected = game.selected_inventory_item;
+            let selected = game.ui.selected_inventory_item;
 
             for (vi, idx) in (scroll..end).enumerate() {
                 let item = &game.inventory[idx];
@@ -243,7 +243,7 @@ impl Renderer {
 
         // Bottom bar: detail bar if selected, slot count otherwise
         let bar_y = drawer_y + drawer_h - detail_bar_h;
-        if let Some(sel_idx) = game.selected_inventory_item {
+        if let Some(sel_idx) = game.ui.selected_inventory_item {
             if sel_idx < game.inventory.len() {
                 let item = &game.inventory[sel_idx];
 
@@ -366,7 +366,7 @@ impl Renderer {
         let slide_offset = drawer_h * (1.0 - anim_t);
         let drawer_y = base_y + slide_offset;
         let pad = 12.0 * d;
-        let scroll_off = game.stats_scroll * d;
+        let scroll_off = game.ui.stats_scroll * d;
 
         ctx.save();
         ctx.begin_path();

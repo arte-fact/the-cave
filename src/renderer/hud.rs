@@ -152,7 +152,7 @@ impl Renderer {
         let x = panel_x + pad;
 
         // --- Tile detail (if inspecting) ---
-        if let Some(ref info) = game.inspected {
+        if let Some(ref info) = game.ui.inspected {
             let detail_h = 44.0 * d;
             ctx.set_fill_style_str("rgba(0,180,255,0.08)");
             self.fill_rounded_rect(x, y, inner_w, detail_h, 4.0 * d);
@@ -266,10 +266,10 @@ impl Renderer {
         let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
 
         let buttons: [(&str, &str, bool); 4] = [
-            ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
-            ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
+            ("Inventory", if game.ui.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.ui.drawer == Drawer::Inventory),
+            ("Stats", if game.ui.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.ui.drawer == Drawer::Stats),
             (sprint_label, sprint_color, game.sprinting),
-            ("Settings", if game.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.drawer == Drawer::Settings),
+            ("Settings", if game.ui.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.ui.drawer == Drawer::Settings),
         ];
 
         for (i, (label, color, active)) in buttons.iter().enumerate() {
@@ -299,8 +299,8 @@ impl Renderer {
         y += 6.0 * d;
 
         // --- Drawer content (if open) ---
-        let which = if game.drawer != Drawer::None {
-            game.drawer
+        let which = if game.ui.drawer != Drawer::None {
+            game.ui.drawer
         } else if self.drawer_anim > 0.0 {
             self.last_drawer
         } else {
@@ -410,7 +410,7 @@ impl Renderer {
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("No items", x + pad, cy);
         } else {
-            let scroll = game.inventory_scroll;
+            let scroll = game.ui.inventory_scroll;
             let total = game.inventory.len();
             let end = (scroll + max_visible).min(total);
 
@@ -421,7 +421,7 @@ impl Renderer {
                 let item = &game.inventory[idx];
                 let iy = cy + vi as f64 * slot_h;
 
-                if game.selected_inventory_item == Some(idx) {
+                if game.ui.selected_inventory_item == Some(idx) {
                     ctx.set_fill_style_str("rgba(80,130,255,0.18)");
                     ctx.fill_rect(x, iy, w, slot_h);
                 } else if vi % 2 == 0 {
@@ -761,7 +761,7 @@ impl Renderer {
     // ---- Tile detail strip (below top bar, shown when inspecting) ----
 
     pub(super) fn draw_tile_detail(&self, game: &Game, canvas_w: f64, top_h: f64) {
-        let info = match &game.inspected {
+        let info = match &game.ui.inspected {
             Some(info) => info,
             None => return,
         };
@@ -1001,10 +1001,10 @@ impl Renderer {
         let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
 
         let buttons: [(&str, &str, bool); 4] = [
-            ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
-            ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
+            ("Inventory", if game.ui.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.ui.drawer == Drawer::Inventory),
+            ("Stats", if game.ui.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.ui.drawer == Drawer::Stats),
             (sprint_label, sprint_color, game.sprinting),
-            ("Settings", if game.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.drawer == Drawer::Settings),
+            ("Settings", if game.ui.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.ui.drawer == Drawer::Settings),
         ];
 
         for (i, (label, color, active)) in buttons.iter().enumerate() {

@@ -556,28 +556,28 @@ impl Game {
     pub fn clamp_inventory_scroll(&mut self) {
         let len = self.inventory.len();
         if len == 0 {
-            self.inventory_scroll = 0;
-        } else if self.inventory_scroll >= len {
-            self.inventory_scroll = len - 1;
+            self.ui.inventory_scroll = 0;
+        } else if self.ui.inventory_scroll >= len {
+            self.ui.inventory_scroll = len - 1;
         }
         // Also clamp selection
-        if let Some(sel) = self.selected_inventory_item {
+        if let Some(sel) = self.ui.selected_inventory_item {
             if sel >= len {
-                self.selected_inventory_item = None;
+                self.ui.selected_inventory_item = None;
             }
         }
     }
 
     /// Scroll the inventory list by `delta` items (positive = down, negative = up).
     pub fn scroll_inventory(&mut self, delta: i32) {
-        let new = self.inventory_scroll as i32 + delta;
-        self.inventory_scroll = new.max(0) as usize;
+        let new = self.ui.inventory_scroll as i32 + delta;
+        self.ui.inventory_scroll = new.max(0) as usize;
         self.clamp_inventory_scroll();
     }
 
     /// Set the inventory scroll position absolutely (clamped).
     pub fn set_inventory_scroll(&mut self, pos: usize) {
-        self.inventory_scroll = pos;
+        self.ui.inventory_scroll = pos;
         self.clamp_inventory_scroll();
     }
 
@@ -587,12 +587,12 @@ impl Game {
     }
 
     pub fn toggle_drawer(&mut self, drawer: Drawer) {
-        if self.drawer == drawer {
-            self.drawer = Drawer::None;
+        if self.ui.drawer == drawer {
+            self.ui.drawer = Drawer::None;
         } else {
-            self.drawer = drawer;
+            self.ui.drawer = drawer;
         }
-        self.selected_inventory_item = None;
+        self.ui.selected_inventory_item = None;
         self.selected_equipment_slot = None;
     }
 

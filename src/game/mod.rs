@@ -16,6 +16,33 @@ use crate::config::GameConfig;
 use crate::map::Map;
 use crate::world::{Location, World};
 
+/// UI-only state: drawer visibility, scroll offsets, selection, inspection.
+/// Separated from gameplay state for clarity.
+pub struct UIState {
+    /// Currently open drawer (slides up from bottom).
+    pub drawer: Drawer,
+    /// Scroll offset for the inventory item list (first visible item index).
+    pub inventory_scroll: usize,
+    /// Currently selected inventory item index (for detail view / drop).
+    pub selected_inventory_item: Option<usize>,
+    /// Tile currently being inspected (shown in HUD detail strip).
+    pub inspected: Option<TileInfo>,
+    /// Scroll offset for the stats drawer (in CSS-space pixels).
+    pub stats_scroll: f64,
+}
+
+impl Default for UIState {
+    fn default() -> Self {
+        Self {
+            drawer: Drawer::None,
+            inventory_scroll: 0,
+            selected_inventory_item: None,
+            inspected: None,
+            stats_scroll: 0.0,
+        }
+    }
+}
+
 pub struct Game {
     pub config: GameConfig,
     pub player_x: i32,
@@ -41,16 +68,10 @@ pub struct Game {
     pub equipped_ring: Option<Item>,
     pub player_defense: i32,
     pub ground_items: Vec<GroundItem>,
-    /// Scroll offset for the inventory item list (first visible item index).
-    pub inventory_scroll: usize,
-    /// Currently selected inventory item index (for detail view / drop).
-    pub selected_inventory_item: Option<usize>,
+    /// UI-only state (drawer, scroll, selection, inspection).
+    pub ui: UIState,
     /// Currently selected equipment slot (0–5: weapon, armor, helmet, shield, boots, ring).
     pub selected_equipment_slot: Option<usize>,
-    /// Currently open drawer (slides up from bottom).
-    pub drawer: Drawer,
-    /// Tile currently being inspected (shown in HUD detail strip).
-    pub inspected: Option<TileInfo>,
     /// Player XP and level for progression.
     pub player_xp: u32,
     pub player_level: u32,
@@ -60,8 +81,6 @@ pub struct Game {
     pub strength: i32,
     /// Vitality: bonus to max HP.
     pub vitality: i32,
-    /// Scroll offset for the stats drawer (in CSS-space pixels).
-    pub stats_scroll: f64,
     /// Stamina for sprinting. Max 100, regen 5/turn while walking.
     pub stamina: i32,
     pub max_stamina: i32,
@@ -119,18 +138,13 @@ impl Game {
             equipped_ring: None,
             player_defense: 0,
             ground_items: Vec::new(),
-            inventory_scroll: 0,
-            selected_inventory_item: None,
+            ui: UIState::default(),
             selected_equipment_slot: None,
-
-            drawer: Drawer::None,
-            inspected: None,
             player_xp: 0,
             player_level: 1,
             skill_points: 0,
             strength: 0,
             vitality: 0,
-            stats_scroll: 0.0,
             stamina: p.starting_stamina,
             max_stamina: p.starting_stamina,
             sprinting: false,
@@ -177,18 +191,13 @@ impl Game {
             equipped_ring: None,
             player_defense: 0,
             ground_items: Vec::new(),
-            inventory_scroll: 0,
-            selected_inventory_item: None,
+            ui: UIState::default(),
             selected_equipment_slot: None,
-
-            drawer: Drawer::None,
-            inspected: None,
             player_xp: 0,
             player_level: 1,
             skill_points: 0,
             strength: 0,
             vitality: 0,
-            stats_scroll: 0.0,
             stamina: p.starting_stamina,
             max_stamina: p.starting_stamina,
             sprinting: false,
