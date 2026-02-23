@@ -2,12 +2,19 @@ use crate::world::Location;
 use super::Game;
 
 impl Game {
+    /// Sprint cost per move: 2× the stamina regen rate.
+    pub fn sprint_cost(&self) -> i32 {
+        self.config.survival.stamina_regen * 2
+    }
+
     pub fn toggle_sprint(&mut self) {
         if self.sprinting {
             self.sprinting = false;
+            self.sprint_skip_turn = false;
             self.messages.push("Sprint off.".into());
-        } else if self.stamina >= self.sprint_cost {
+        } else if self.stamina >= self.sprint_cost() {
             self.sprinting = true;
+            self.sprint_skip_turn = false;
             self.messages.push("Sprint on!".into());
         } else {
             self.messages.push("Too exhausted to sprint.".into());
@@ -30,19 +37,20 @@ impl Game {
         }
     }
 
-    /// Called each turn. Handles stamina drain/regen and hunger.
+    /// Called each turn. Handles stamina regen and hunger.
     /// `regen_stamina`: true on movement turns (walking regens stamina),
     /// false on combat turns (attacking should cost stamina without immediate regen).
     pub(crate) fn tick_survival(&mut self, regen_stamina: bool) {
         self.turn += 1;
         let surv = &self.config.survival;
 
-        // Stamina: sprint always drains, walking regenerates (combat does not)
+        // Stamina: sprinting drains 2× regen rate, walking regenerates (combat does not).
         if self.sprinting {
-            self.stamina -= self.sprint_cost;
+            self.stamina -= self.sprint_cost();
             if self.stamina <= 0 {
                 self.stamina = 0;
                 self.sprinting = false;
+                self.sprint_skip_turn = false;
                 self.messages.push("Exhausted! Sprint disabled.".into());
             }
         } else if regen_stamina {

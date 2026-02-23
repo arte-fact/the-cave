@@ -263,14 +263,12 @@ use super::{test_game, overworld_game, rusty_sword};
     }
 
     #[test]
-    fn allocate_stamina_reduces_sprint_cost() {
+    fn allocate_stamina_increases_max_stamina() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.skill_points = 1;
-        let cost_before = g.sprint_cost;
         let stam_before = g.max_stamina;
         assert!(g.allocate_skill_point(SkillKind::Stamina));
-        assert_eq!(g.sprint_cost, cost_before - 1); // sprint cost -1
         assert_eq!(g.max_stamina, stam_before + 5); // max stamina +5
         assert_eq!(g.skill_points, 0);
     }

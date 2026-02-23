@@ -23,7 +23,6 @@ pub struct PlayerConfig {
 
 #[derive(Clone, Debug)]
 pub struct SurvivalConfig {
-    pub sprint_cost: i32,
     pub stamina_regen: i32,
     pub hunger_drain: i32,
     /// Hunger drains once every this many turns on the overworld.
@@ -135,7 +134,6 @@ impl GameConfig {
                 max_inventory: 10,
             },
             survival: SurvivalConfig {
-                sprint_cost: 15,
                 stamina_regen: 5,
                 hunger_drain: 1,
                 hunger_interval_overworld: 5,

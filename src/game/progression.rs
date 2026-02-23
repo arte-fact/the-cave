@@ -67,10 +67,9 @@ impl Game {
                 self.messages.push(format!("Dexterity increased to {}. Dodge {}%.", self.player_dexterity, dodge));
             }
             SkillKind::Stamina => {
-                self.sprint_cost = (self.sprint_cost - 1).max(5);
                 self.max_stamina += 5;
                 self.stamina = (self.stamina + 5).min(self.max_stamina);
-                self.messages.push(format!("Sprint cost reduced to {}. Max stamina {}.", self.sprint_cost, self.max_stamina));
+                self.messages.push(format!("Max stamina increased to {}.", self.max_stamina));
             }
         }
         true

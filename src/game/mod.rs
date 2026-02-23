@@ -72,8 +72,9 @@ pub struct Game {
     pub turn: u32,
     /// Overworld kill counter for XP diminishing returns.
     pub overworld_kills: u32,
-    /// Current sprint cost per turn (reduced by Stamina skill).
-    pub sprint_cost: i32,
+    /// Sprint parity flag: when sprinting, enemies only act every other move.
+    /// Alternates each player move while sprinting.
+    pub sprint_skip_turn: bool,
     /// Active floating text indicators.
     pub floating_texts: Vec<FloatingText>,
     /// Active bump/lunge animations.
@@ -94,7 +95,6 @@ impl Game {
     pub fn new_with_config(map: Map, config: GameConfig) -> Self {
         let (px, py) = map.find_spawn();
         let p = &config.player;
-        let sprint_cost = config.survival.sprint_cost;
         Self {
             player_x: px,
             player_y: py,
@@ -135,7 +135,7 @@ impl Game {
             max_hunger: p.starting_hunger,
             turn: 0,
             overworld_kills: 0,
-            sprint_cost,
+            sprint_skip_turn: false,
             floating_texts: Vec::new(),
             bump_anims: Vec::new(),
             visual_effects: Vec::new(),
@@ -152,7 +152,6 @@ impl Game {
     pub fn new_overworld_with_config(world: World, config: GameConfig) -> Self {
         let (px, py) = world.overworld.find_road_spawn();
         let p = &config.player;
-        let sprint_cost = config.survival.sprint_cost;
         Self {
             player_x: px,
             player_y: py,
@@ -193,7 +192,7 @@ impl Game {
             max_hunger: p.starting_hunger,
             turn: 0,
             overworld_kills: 0,
-            sprint_cost,
+            sprint_skip_turn: false,
             floating_texts: Vec::new(),
             bump_anims: Vec::new(),
             visual_effects: Vec::new(),
@@ -244,7 +243,10 @@ impl Game {
     pub fn advance_turn(&mut self) {
         if !self.alive || self.won { return; }
         if self.sprinting {
-            self.enemy_turn_inner(true);
+            self.sprint_skip_turn = !self.sprint_skip_turn;
+            if !self.sprint_skip_turn {
+                self.enemy_turn();
+            }
         } else {
             self.enemy_turn();
         }
