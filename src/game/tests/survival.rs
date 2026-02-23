@@ -64,17 +64,16 @@ use super::{test_game, health_potion};
     }
 
     #[test]
-    fn sprint_denied_when_low_stamina() {
+    fn sprint_always_allowed() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        g.stamina = 5; // below SPRINT_COST (15)
+        g.stamina = 0;
         g.toggle_sprint();
-        assert!(!g.sprinting, "sprint should be denied when stamina too low");
-        assert!(g.messages.iter().any(|m| m.contains("exhausted")));
+        assert!(g.sprinting, "sprint should always be allowed regardless of stamina");
     }
 
     #[test]
-    fn sprint_drains_stamina_on_move() {
+    fn sprint_does_not_drain_stamina() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.sprinting = true;
@@ -84,33 +83,14 @@ use super::{test_game, health_potion};
             let (nx, ny) = (g.player_x + dx, g.player_y + dy);
             if g.current_map().is_walkable(nx, ny) {
                 g.move_player(dx, dy);
-                assert_eq!(g.stamina, stam_before - 15, "sprint should drain 15 stamina");
+                assert_eq!(g.stamina, stam_before, "sprint should not drain stamina");
                 return;
             }
         }
     }
 
     #[test]
-    fn sprint_auto_disables_when_exhausted() {
-        let map = Map::generate(30, 20, 42);
-        let mut g = Game::new(map);
-        g.sprinting = true;
-        g.stamina = 15; // exactly one sprint move left
-        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-        for (dx, dy) in dirs {
-            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
-            if g.current_map().is_walkable(nx, ny) {
-                g.move_player(dx, dy);
-                assert_eq!(g.stamina, 0);
-                assert!(!g.sprinting, "sprint should auto-disable at 0 stamina");
-                assert!(g.messages.iter().any(|m| m.contains("Exhausted")));
-                return;
-            }
-        }
-    }
-
-    #[test]
-    fn sprint_skips_enemy_turn() {
+    fn sprint_skips_enemy_turn_on_first_move() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.sprinting = true;
@@ -122,11 +102,64 @@ use super::{test_game, health_potion};
             // Move away from enemy
             if g.current_map().is_walkable(g.player_x, g.player_y + 1) {
                 g.move_player(0, 1);
-                // Enemy should NOT have moved because player is sprinting
-                assert_eq!(g.enemies[0].x, ex, "enemy should not chase during sprint");
-                assert_eq!(g.enemies[0].y, ey, "enemy should not chase during sprint");
+                // First sprint move: enemy should NOT have moved
+                assert_eq!(g.enemies[0].x, ex, "enemy should not chase on first sprint move");
+                assert_eq!(g.enemies[0].y, ey, "enemy should not chase on first sprint move");
             }
         }
+    }
+
+    #[test]
+    fn sprint_enemies_act_every_other_move() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        // Place enemy 4 tiles away so it chases but can't attack
+        let ex = g.player_x + 4;
+        let ey = g.player_y;
+        if !g.current_map().is_walkable(ex, ey) { return; }
+        g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+
+        // First move: enemies should be skipped
+        let dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+        let mut moved = false;
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                moved = true;
+                break;
+            }
+        }
+        if !moved { return; }
+        let pos_after_first = (g.enemies[0].x, g.enemies[0].y);
+        assert_eq!(pos_after_first, (ex, ey), "enemy should not move on first sprint move");
+
+        // Second move: enemies should act
+        moved = false;
+        let dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                moved = true;
+                break;
+            }
+        }
+        if !moved { return; }
+        let pos_after_second = (g.enemies[0].x, g.enemies[0].y);
+        assert_ne!(pos_after_second, (ex, ey), "enemy should move on second sprint move");
+    }
+
+    #[test]
+    fn sprint_toggle_off_resets_skip() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        g.sprint_skip_turn = true;
+        g.toggle_sprint();
+        assert!(!g.sprinting);
+        assert!(!g.sprint_skip_turn, "toggling sprint off should reset skip counter");
     }
 
     // --- Hunger ---

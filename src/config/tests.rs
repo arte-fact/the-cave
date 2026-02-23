@@ -9,7 +9,6 @@ fn normal_defaults_match_original_hardcoded_values() {
     assert_eq!(cfg.player.starting_stamina, 100);
     assert_eq!(cfg.player.starting_hunger, 100);
     assert_eq!(cfg.player.max_inventory, 10);
-    assert_eq!(cfg.survival.sprint_cost, 15);
     assert_eq!(cfg.survival.stamina_regen, 5);
     assert_eq!(cfg.survival.hunger_drain, 1);
     assert_eq!(cfg.survival.hunger_interval_overworld, 5);

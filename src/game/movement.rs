@@ -47,14 +47,17 @@ impl Game {
             return TurnResult::MapChanged;
         }
 
-        // Enemies take a turn (half speed when sprinting — player is faster but not invincible)
+        // Enemies take a turn (when sprinting, enemies only act every other move)
         if self.sprinting {
-            self.enemy_turn_inner(true);
+            self.sprint_skip_turn = !self.sprint_skip_turn;
+            if !self.sprint_skip_turn {
+                self.enemy_turn();
+            }
         } else {
             self.enemy_turn();
         }
 
-        // Survival tick: stamina drain/regen, hunger
+        // Survival tick: stamina regen, hunger
         self.tick_survival(true);
 
         // Update fog of war

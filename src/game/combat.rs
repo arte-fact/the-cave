@@ -172,7 +172,10 @@ impl Game {
     /// Combat turns do NOT regen stamina — only walking does.
     fn end_combat_turn(&mut self) {
         if self.sprinting {
-            self.enemy_turn_inner(true);
+            self.sprint_skip_turn = !self.sprint_skip_turn;
+            if !self.sprint_skip_turn {
+                self.enemy_turn();
+            }
         } else {
             self.enemy_turn();
         }
@@ -180,19 +183,14 @@ impl Game {
         self.update_fov();
     }
 
+    /// Core enemy AI.
     pub(super) fn enemy_turn(&mut self) {
-        self.enemy_turn_inner(false);
-    }
-
-    /// Core enemy AI. If `half_speed` is true, only odd-indexed enemies act (sprint mode).
-    pub(super) fn enemy_turn_inner(&mut self, half_speed: bool) {
         let px = self.player_x;
         let py = self.player_y;
         let pdef = self.effective_defense();
 
         for i in 0..self.enemies.len() {
             if self.enemies[i].hp <= 0 { continue; }
-            if half_speed && i % 2 == 0 { continue; }
 
             let ex = self.enemies[i].x;
             let ey = self.enemies[i].y;

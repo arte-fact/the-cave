@@ -5,12 +5,12 @@ impl Game {
     pub fn toggle_sprint(&mut self) {
         if self.sprinting {
             self.sprinting = false;
+            self.sprint_skip_turn = false;
             self.messages.push("Sprint off.".into());
-        } else if self.stamina >= self.sprint_cost {
-            self.sprinting = true;
-            self.messages.push("Sprint on!".into());
         } else {
-            self.messages.push("Too exhausted to sprint.".into());
+            self.sprinting = true;
+            self.sprint_skip_turn = false;
+            self.messages.push("Sprint on!".into());
         }
     }
 
@@ -30,22 +30,15 @@ impl Game {
         }
     }
 
-    /// Called each turn. Handles stamina drain/regen and hunger.
+    /// Called each turn. Handles stamina regen and hunger.
     /// `regen_stamina`: true on movement turns (walking regens stamina),
     /// false on combat turns (attacking should cost stamina without immediate regen).
     pub(crate) fn tick_survival(&mut self, regen_stamina: bool) {
         self.turn += 1;
         let surv = &self.config.survival;
 
-        // Stamina: sprint always drains, walking regenerates (combat does not)
-        if self.sprinting {
-            self.stamina -= self.sprint_cost;
-            if self.stamina <= 0 {
-                self.stamina = 0;
-                self.sprinting = false;
-                self.messages.push("Exhausted! Sprint disabled.".into());
-            }
-        } else if regen_stamina {
+        // Stamina: walking regenerates (combat does not). Sprint no longer drains stamina.
+        if regen_stamina && !self.sprinting {
             self.stamina = (self.stamina + surv.stamina_regen).min(self.max_stamina);
         }
 
