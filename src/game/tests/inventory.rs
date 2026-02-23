@@ -393,11 +393,11 @@ fn chain_mail() -> Item {
         for _ in 0..10 {
             g.inventory.push(health_potion());
         }
-        assert_eq!(g.inventory_scroll, 0);
+        assert_eq!(g.ui.inventory_scroll, 0);
         g.scroll_inventory(3);
-        assert_eq!(g.inventory_scroll, 3);
+        assert_eq!(g.ui.inventory_scroll, 3);
         g.scroll_inventory(-1);
-        assert_eq!(g.inventory_scroll, 2);
+        assert_eq!(g.ui.inventory_scroll, 2);
     }
 
     #[test]
@@ -408,7 +408,7 @@ fn chain_mail() -> Item {
             g.inventory.push(health_potion());
         }
         g.scroll_inventory(-10);
-        assert_eq!(g.inventory_scroll, 0);
+        assert_eq!(g.ui.inventory_scroll, 0);
     }
 
     #[test]
@@ -419,7 +419,7 @@ fn chain_mail() -> Item {
             g.inventory.push(health_potion());
         }
         g.scroll_inventory(100);
-        assert_eq!(g.inventory_scroll, 4); // last valid index = len - 1
+        assert_eq!(g.ui.inventory_scroll, 4); // last valid index = len - 1
     }
 
     #[test]
@@ -429,10 +429,10 @@ fn chain_mail() -> Item {
         for _ in 0..5 {
             g.inventory.push(health_potion());
         }
-        g.inventory_scroll = 4; // pointing at last item
+        g.ui.inventory_scroll = 4; // pointing at last item
         g.player_hp = 10; // damage so potion heals
         g.use_item(4); // removes last item
-        assert_eq!(g.inventory_scroll, 3); // clamped to new last index
+        assert_eq!(g.ui.inventory_scroll, 3); // clamped to new last index
     }
 
     #[test]
@@ -440,10 +440,10 @@ fn chain_mail() -> Item {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(health_potion());
-        g.inventory_scroll = 0;
+        g.ui.inventory_scroll = 0;
         g.player_hp = 10;
         g.use_item(0);
-        assert_eq!(g.inventory_scroll, 0);
+        assert_eq!(g.ui.inventory_scroll, 0);
         assert!(g.inventory.is_empty());
     }
 
@@ -454,9 +454,9 @@ fn chain_mail() -> Item {
         for _ in 0..3 {
             g.inventory.push(rusty_sword());
         }
-        g.inventory_scroll = 2;
+        g.ui.inventory_scroll = 2;
         g.drop_item(2);
-        assert_eq!(g.inventory_scroll, 1);
+        assert_eq!(g.ui.inventory_scroll, 1);
     }
 
     #[test]
@@ -466,9 +466,9 @@ fn chain_mail() -> Item {
         for _ in 0..3 {
             g.inventory.push(rusty_sword());
         }
-        g.inventory_scroll = 2;
+        g.ui.inventory_scroll = 2;
         g.equip_item(2); // removes item, pushes nothing back (slot empty)
-        assert_eq!(g.inventory_scroll, 1);
+        assert_eq!(g.ui.inventory_scroll, 1);
     }
 
     #[test]
@@ -480,13 +480,13 @@ fn chain_mail() -> Item {
         }
         // Page-down by 5
         g.scroll_inventory(5);
-        assert_eq!(g.inventory_scroll, 5);
+        assert_eq!(g.ui.inventory_scroll, 5);
         // Page-up by 3
         g.scroll_inventory(-3);
-        assert_eq!(g.inventory_scroll, 2);
+        assert_eq!(g.ui.inventory_scroll, 2);
         // Large page-down clamps to max
         g.scroll_inventory(100);
-        assert_eq!(g.inventory_scroll, 9);
+        assert_eq!(g.ui.inventory_scroll, 9);
     }
 
     // ── Item selection tests ─────────────────────────────────────────
@@ -495,7 +495,7 @@ fn chain_mail() -> Item {
     fn selected_item_starts_none() {
         let map = Map::generate(30, 20, 42);
         let g = Game::new(map);
-        assert!(g.selected_inventory_item.is_none());
+        assert!(g.ui.selected_inventory_item.is_none());
     }
 
     #[test]
@@ -503,14 +503,14 @@ fn chain_mail() -> Item {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(rusty_sword());
-        g.selected_inventory_item = Some(0);
+        g.ui.selected_inventory_item = Some(0);
         // Opening inventory clears selection
         g.toggle_drawer(Drawer::Inventory);
-        assert!(g.selected_inventory_item.is_none());
+        assert!(g.ui.selected_inventory_item.is_none());
         // Re-select and close drawer
-        g.selected_inventory_item = Some(0);
+        g.ui.selected_inventory_item = Some(0);
         g.toggle_drawer(Drawer::Inventory); // toggles off
-        assert!(g.selected_inventory_item.is_none());
+        assert!(g.ui.selected_inventory_item.is_none());
     }
 
     #[test]
@@ -519,7 +519,7 @@ fn chain_mail() -> Item {
         let mut g = Game::new(map);
         g.inventory.push(rusty_sword());
         g.inventory.push(health_potion());
-        g.selected_inventory_item = Some(0);
+        g.ui.selected_inventory_item = Some(0);
         g.drop_item(0);
         // Selection should be cleared because item was removed
         // (clamp_inventory_scroll clears selection when index >= len)
@@ -532,11 +532,11 @@ fn chain_mail() -> Item {
         let mut g = Game::new(map);
         g.inventory.push(health_potion());
         g.player_hp = 10;
-        g.selected_inventory_item = Some(0);
+        g.ui.selected_inventory_item = Some(0);
         g.use_item(0);
         // Item consumed, selection should be cleared (only had 1 item)
         assert!(g.inventory.is_empty());
-        assert!(g.selected_inventory_item.is_none());
+        assert!(g.ui.selected_inventory_item.is_none());
     }
 
     #[test]
@@ -546,10 +546,10 @@ fn chain_mail() -> Item {
         g.inventory.push(health_potion());
         g.inventory.push(rusty_sword());
         g.inventory.push(health_potion());
-        g.selected_inventory_item = Some(0);
+        g.ui.selected_inventory_item = Some(0);
         // Drop item at index 2 — selection at 0 stays valid
         g.drop_item(2);
-        assert_eq!(g.selected_inventory_item, Some(0));
+        assert_eq!(g.ui.selected_inventory_item, Some(0));
     }
 
     #[test]
@@ -557,9 +557,9 @@ fn chain_mail() -> Item {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(health_potion());
-        g.selected_inventory_item = Some(5); // out of bounds
+        g.ui.selected_inventory_item = Some(5); // out of bounds
         g.clamp_inventory_scroll();
-        assert!(g.selected_inventory_item.is_none());
+        assert!(g.ui.selected_inventory_item.is_none());
     }
 
     // ── Item description tests ───────────────────────────────────────
@@ -599,7 +599,7 @@ fn chain_mail() -> Item {
         g.inventory.push(health_potion());
         g.inventory.push(rusty_sword());
         g.set_inventory_scroll(100);
-        assert_eq!(g.inventory_scroll, 1); // clamped to len-1
+        assert_eq!(g.ui.inventory_scroll, 1); // clamped to len-1
     }
 
     #[test]
@@ -607,7 +607,7 @@ fn chain_mail() -> Item {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.set_inventory_scroll(5);
-        assert_eq!(g.inventory_scroll, 0);
+        assert_eq!(g.ui.inventory_scroll, 0);
     }
 
     // ── Starting equipment tests ─────────────────────────────────────

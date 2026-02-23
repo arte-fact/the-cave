@@ -115,11 +115,11 @@ use super::{test_game, overworld_game, rusty_sword};
     fn toggle_drawer_opens_and_closes() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
-        assert_eq!(g.drawer, Drawer::None);
+        assert_eq!(g.ui.drawer, Drawer::None);
         g.toggle_drawer(Drawer::Inventory);
-        assert_eq!(g.drawer, Drawer::Inventory);
+        assert_eq!(g.ui.drawer, Drawer::Inventory);
         g.toggle_drawer(Drawer::Inventory);
-        assert_eq!(g.drawer, Drawer::None);
+        assert_eq!(g.ui.drawer, Drawer::None);
     }
 
     #[test]
@@ -128,7 +128,7 @@ use super::{test_game, overworld_game, rusty_sword};
         let mut g = Game::new(map);
         g.toggle_drawer(Drawer::Inventory);
         g.toggle_drawer(Drawer::Stats);
-        assert_eq!(g.drawer, Drawer::Stats);
+        assert_eq!(g.ui.drawer, Drawer::Stats);
     }
 
     // --- XP and leveling ---
