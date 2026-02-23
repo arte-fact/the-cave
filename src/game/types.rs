@@ -36,6 +36,8 @@ pub enum ItemEffect {
     BuffDefense(i32),
     /// Restores hunger points with an optional side effect.
     Feed(i32, FoodSideEffect),
+    /// Restores stamina points.
+    RestoreStamina(i32),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -376,6 +378,7 @@ pub(super) fn item_info_desc(item: &Item) -> String {
             };
             format!("{}{}", base, suffix)
         }
+        ItemEffect::RestoreStamina(n) => format!("Restores {} stamina", n),
     };
     if item.durability > 0 {
         format!("{} — {} [Dur: {}]", item.name, effect, item.durability)

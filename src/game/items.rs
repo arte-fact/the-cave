@@ -74,7 +74,7 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
             if roll < 22 {
                 match sub % 2 {
                     0 => Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10), weight: 0, durability: 0 },
-                    _ => Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::Heal(8), weight: 0, durability: 0 },
+                    _ => Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0 },
                 }
             } else if roll < 32 {
                 match sub % 2 {
@@ -360,20 +360,39 @@ impl Game {
         let item = &self.inventory[index];
         match item.kind {
             ItemKind::Potion => {
-                let ItemEffect::Heal(amount) = item.effect else { return false };
-                let old_hp = self.player_hp;
-                self.player_hp = (self.player_hp + amount).min(self.player_max_hp);
-                let healed = self.player_hp - old_hp;
-                let name = item.name;
-                self.messages.push(format!("You drink {name}. Healed {healed} HP."));
-                self.floating_texts.push(FloatingText {
-                    world_x: self.player_x, world_y: self.player_y,
-                    text: format!("+{healed} HP"), color: "#4f4", age: 0.0,
-                });
-                self.visual_effects.push(VisualEffect {
-                    kind: EffectKind::HealGlow,
-                    x: self.player_x, y: self.player_y, age: 0.0,
-                });
+                match item.effect {
+                    ItemEffect::Heal(amount) => {
+                        let old_hp = self.player_hp;
+                        self.player_hp = (self.player_hp + amount).min(self.player_max_hp);
+                        let healed = self.player_hp - old_hp;
+                        let name = item.name;
+                        self.messages.push(format!("You drink {name}. Healed {healed} HP."));
+                        self.floating_texts.push(FloatingText {
+                            world_x: self.player_x, world_y: self.player_y,
+                            text: format!("+{healed} HP"), color: "#4f4", age: 0.0,
+                        });
+                        self.visual_effects.push(VisualEffect {
+                            kind: EffectKind::HealGlow,
+                            x: self.player_x, y: self.player_y, age: 0.0,
+                        });
+                    }
+                    ItemEffect::RestoreStamina(amount) => {
+                        let old_stamina = self.stamina;
+                        self.stamina = (self.stamina + amount).min(self.max_stamina);
+                        let restored = self.stamina - old_stamina;
+                        let name = item.name;
+                        self.messages.push(format!("You drink {name}. Restored {restored} stamina."));
+                        self.floating_texts.push(FloatingText {
+                            world_x: self.player_x, world_y: self.player_y,
+                            text: format!("+{restored} stam"), color: "#4cf", age: 0.0,
+                        });
+                        self.visual_effects.push(VisualEffect {
+                            kind: EffectKind::HealGlow,
+                            x: self.player_x, y: self.player_y, age: 0.0,
+                        });
+                    }
+                    _ => return false,
+                }
                 self.inventory.remove(index);
                 self.quick_bar.on_item_removed(index);
                 self.clamp_inventory_scroll();
@@ -695,7 +714,7 @@ impl Game {
                         effect: ItemEffect::Feed(16, FoodSideEffect::Poison(2)), weight: 0, durability: 0 }
                 } else if roll < 30 {
                     Item { kind: ItemKind::Food, name: "Clean Water", glyph: '~',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0 }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(10)), weight: 0, durability: 0 }
                 } else if roll < 40 {
                     Item { kind: ItemKind::Food, name: "Wild Wheat", glyph: '%',
                         effect: ItemEffect::Feed(10, FoodSideEffect::None), weight: 0, durability: 0 }

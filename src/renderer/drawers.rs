@@ -191,6 +191,7 @@ impl Renderer {
                         crate::game::ItemEffect::BuffAttack(n) => format!("ATK +{}", n),
                         crate::game::ItemEffect::BuffDefense(n) => format!("DEF +{}", n),
                         crate::game::ItemEffect::Feed(n, _) => format!("+{} food", n),
+                        crate::game::ItemEffect::RestoreStamina(n) => format!("+{} stam", n),
                     }
                 };
                 ctx.set_font(&self.font(9.0, ""));
