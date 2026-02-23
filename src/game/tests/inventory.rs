@@ -1,6 +1,9 @@
 use super::*;
 use super::{test_game, health_potion, rusty_sword};
 
+fn stamina_potion() -> Item {
+    Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0 }
+}
 fn scroll_fire() -> Item {
     Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0, durability: 0 }
 }
@@ -98,6 +101,29 @@ fn chain_mail() -> Item {
         g.inventory.push(health_potion());
         g.use_item(0);
         assert_eq!(g.player_hp, 20); // max_hp is 20
+    }
+
+    #[test]
+    fn use_stamina_potion_restores_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.stamina = 30;
+        g.max_stamina = 100;
+        g.inventory.push(stamina_potion());
+        assert!(g.use_item(0));
+        assert_eq!(g.stamina, 70); // 30 + 40
+        assert!(g.inventory.is_empty());
+    }
+
+    #[test]
+    fn use_stamina_potion_caps_at_max() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.stamina = 80;
+        g.max_stamina = 100;
+        g.inventory.push(stamina_potion());
+        g.use_item(0);
+        assert_eq!(g.stamina, 100); // capped at max_stamina
     }
 
     #[test]
