@@ -2,15 +2,22 @@ use crate::world::Location;
 use super::Game;
 
 impl Game {
+    /// Sprint cost per move: 2× the stamina regen rate.
+    pub fn sprint_cost(&self) -> i32 {
+        self.config.survival.stamina_regen * 2
+    }
+
     pub fn toggle_sprint(&mut self) {
         if self.sprinting {
             self.sprinting = false;
             self.sprint_skip_turn = false;
             self.messages.push("Sprint off.".into());
-        } else {
+        } else if self.stamina >= self.sprint_cost() {
             self.sprinting = true;
             self.sprint_skip_turn = false;
             self.messages.push("Sprint on!".into());
+        } else {
+            self.messages.push("Too exhausted to sprint.".into());
         }
     }
 
@@ -37,8 +44,16 @@ impl Game {
         self.turn += 1;
         let surv = &self.config.survival;
 
-        // Stamina: walking regenerates (combat does not). Sprint no longer drains stamina.
-        if regen_stamina && !self.sprinting {
+        // Stamina: sprinting drains 2× regen rate, walking regenerates (combat does not).
+        if self.sprinting {
+            self.stamina -= self.sprint_cost();
+            if self.stamina <= 0 {
+                self.stamina = 0;
+                self.sprinting = false;
+                self.sprint_skip_turn = false;
+                self.messages.push("Exhausted! Sprint disabled.".into());
+            }
+        } else if regen_stamina {
             self.stamina = (self.stamina + surv.stamina_regen).min(self.max_stamina);
         }
 

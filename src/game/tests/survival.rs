@@ -64,26 +64,54 @@ use super::{test_game, health_potion};
     }
 
     #[test]
-    fn sprint_always_allowed() {
+    fn sprint_denied_when_low_stamina() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.stamina = 0;
         g.toggle_sprint();
-        assert!(g.sprinting, "sprint should always be allowed regardless of stamina");
+        assert!(!g.sprinting, "sprint should be denied when stamina too low");
+        assert!(g.messages.iter().any(|m| m.contains("exhausted")));
     }
 
     #[test]
-    fn sprint_does_not_drain_stamina() {
+    fn sprint_cost_is_twice_regen_rate() {
+        let g = Game::new(Map::generate(30, 20, 42));
+        // Default stamina_regen = 5, so sprint cost = 10
+        assert_eq!(g.sprint_cost(), 10);
+    }
+
+    #[test]
+    fn sprint_drains_stamina_on_move() {
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.sprinting = true;
         let stam_before = g.stamina;
+        let cost = g.sprint_cost(); // 10
         let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         for (dx, dy) in dirs {
             let (nx, ny) = (g.player_x + dx, g.player_y + dy);
             if g.current_map().is_walkable(nx, ny) {
                 g.move_player(dx, dy);
-                assert_eq!(g.stamina, stam_before, "sprint should not drain stamina");
+                assert_eq!(g.stamina, stam_before - cost, "sprint should drain {cost} stamina");
+                return;
+            }
+        }
+    }
+
+    #[test]
+    fn sprint_auto_disables_when_exhausted() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.sprinting = true;
+        g.stamina = g.sprint_cost(); // exactly one sprint move left
+        let dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        for (dx, dy) in dirs {
+            let (nx, ny) = (g.player_x + dx, g.player_y + dy);
+            if g.current_map().is_walkable(nx, ny) {
+                g.move_player(dx, dy);
+                assert_eq!(g.stamina, 0);
+                assert!(!g.sprinting, "sprint should auto-disable at 0 stamina");
+                assert!(g.messages.iter().any(|m| m.contains("Exhausted")));
                 return;
             }
         }
