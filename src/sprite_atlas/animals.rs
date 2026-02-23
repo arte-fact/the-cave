@@ -1,6 +1,8 @@
 /// Sprites from `animals.png` (9 cols x 16 rows, 32x32 cells).
 /// Positions from `32rogues/animals.txt`.
 ///
+/// Variants are forward declarations for future sprite usage.
+///
 /// NOTE: The txt file labels orangutan as "3.c." but it's actually at row 2
 /// (same row as chimp/gorilla) — the image has 16 rows, not 17. All rows
 /// from txt row 4 onward are offset by -1 compared to the txt numbering.
@@ -10,6 +12,7 @@
 /// goat, sheep, camel) are omitted.
 use super::{Sheet, SpriteRef};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AnimalSprite {
     // Row 0: Bears (temperate/cold)

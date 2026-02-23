@@ -34,6 +34,7 @@ pub enum OverworldBiome {
 
 impl DungeonBiome {
     /// All biome variants (excluding DragonLair, which is special-cased).
+    #[allow(dead_code)]
     pub const PLACEABLE: [DungeonBiome; 7] = [
         DungeonBiome::GoblinWarren,
         DungeonBiome::UndeadCrypt,
