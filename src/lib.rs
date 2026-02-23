@@ -575,6 +575,23 @@ fn hit_test_drawer(
 }
 
 
+/// Given a Y coordinate and the list start position, determine which inventory
+/// row (absolute index) was hit. Shared between portrait and landscape modes.
+fn inventory_row_at_y(
+    css_y: f64,
+    list_y: f64,
+    slot_h: f64,
+    item_count: usize,
+    inventory_scroll: usize,
+) -> Option<usize> {
+    if css_y < list_y || item_count == 0 {
+        return None;
+    }
+    let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
+    let abs_idx = inventory_scroll + vis_idx;
+    if abs_idx < item_count { Some(abs_idx) } else { None }
+}
+
 /// Check if CSS coordinates land on an inventory item row in portrait mode.
 /// Returns the absolute inventory index if so.
 fn hit_test_inventory_item_row(
@@ -594,12 +611,7 @@ fn hit_test_inventory_item_row(
     // Item list starts after: header(32) + 3 eq rows + gap(4)
     let eq_y = drawer_y + 32.0;
     let list_y = eq_y + (INV_EQ_H + INV_EQ_GAP) * 3.0 + 4.0;
-    if css_y < list_y || item_count == 0 {
-        return None;
-    }
-    let vis_idx = ((css_y - list_y) / INV_SLOT_H).floor() as usize;
-    let abs_idx = inventory_scroll + vis_idx;
-    if abs_idx < item_count { Some(abs_idx) } else { None }
+    inventory_row_at_y(css_y, list_y, INV_SLOT_H, item_count, inventory_scroll)
 }
 
 /// Check if CSS coordinates land on an inventory item row in landscape mode.
@@ -621,12 +633,7 @@ fn hit_test_inventory_item_row_landscape(
         + (PANEL_BTN_H + PANEL_BTN_GAP) * 2.0 + 6.0 + 1.0 + 6.0;
     // Items start after: title(16) + 6 eq slots + gap(4)
     let list_start = drawer_start + 16.0 + 6.0 * (INV_EQ_H_LANDSCAPE + INV_EQ_GAP_LANDSCAPE) + 4.0;
-    if css_y < list_start || item_count == 0 {
-        return None;
-    }
-    let vis_idx = ((css_y - list_start) / INV_SLOT_H_LANDSCAPE).floor() as usize;
-    let abs_idx = inventory_scroll + vis_idx;
-    if abs_idx < item_count { Some(abs_idx) } else { None }
+    inventory_row_at_y(css_y, list_start, INV_SLOT_H_LANDSCAPE, item_count, inventory_scroll)
 }
 
 /// Get localStorage handle, returning None if unavailable.
