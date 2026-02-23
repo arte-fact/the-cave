@@ -62,16 +62,20 @@ impl Renderer {
         ctx.set_text_align("right");
         ctx.set_text_baseline("middle");
 
+        // Right-side max width: prevent overlap with left stat bars
+        let right_max_w = bar_w - pad - bars_w - pad * 2.0;
+
         // Location (top right)
         ctx.set_font(&self.font(9.0, "bold"));
         ctx.set_fill_style_str("#c8e0ff");
-        let _ = ctx.fill_text(&game.location_name(), bar_w - pad, row1_y + bar_h / 2.0);
+        self.fill_text_truncated(&game.location_name(), bar_w - pad - right_max_w, row1_y + bar_h / 2.0, right_max_w);
 
         // ATK / DEF / LVL
         let atk = game.effective_attack();
         let def = game.effective_defense();
         ctx.set_font(&self.font(8.0, ""));
         ctx.set_fill_style_str("#8cf");
+        ctx.set_text_align("right");
         let _ = ctx.fill_text(
             &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
             bar_w - pad, row2_y + bar_h / 2.0,
@@ -105,6 +109,7 @@ impl Renderer {
         let show = msg_count.min(2);
         if show == 0 { return; }
 
+        let msg_max_w = bar_w - pad * 2.0;
         ctx.set_font(&self.font(8.0, ""));
         ctx.set_text_align("left");
         ctx.set_text_baseline("middle");
@@ -115,7 +120,7 @@ impl Renderer {
             let msg = &game.messages[msg_count - show + i];
             let color = if i == show - 1 { "#bbb" } else { "#666" };
             ctx.set_fill_style_str(color);
-            let _ = ctx.fill_text(msg, pad, start_y + i as f64 * line_h);
+            self.fill_text_truncated(msg, pad, start_y + i as f64 * line_h, msg_max_w);
         }
     }
 
@@ -146,6 +151,8 @@ impl Renderer {
             let icon_size = 24.0 * d;
             let text_x = x + icon_size + 6.0 * d;
 
+            let detail_text_max = x + inner_w - text_x;
+
             if let Some(ref ei) = info.enemy {
                 let e_glyph = game.enemies.iter()
                     .find(|e| e.name == ei.name && e.hp > 0)
@@ -158,10 +165,10 @@ impl Renderer {
                 ctx.set_fill_style_str("#f88");
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("top");
-                let _ = ctx.fill_text(ei.name, text_x, y + 4.0 * d);
+                self.fill_text_truncated(ei.name, text_x, y + 4.0 * d, detail_text_max);
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str("#ccc");
-                let _ = ctx.fill_text(&format!("HP {} ATK {}", ei.hp, ei.attack), text_x, y + 18.0 * d);
+                self.fill_text_truncated(&format!("HP {} ATK {}", ei.hp, ei.attack), text_x, y + 18.0 * d, detail_text_max);
             } else if let Some(ref ii) = info.item {
                 if let Some(gi) = game.ground_items.iter().find(|gi| gi.item.name == ii.name) {
                     let sprite = sprites::item_sprite(gi.item.name);
@@ -171,10 +178,10 @@ impl Renderer {
                 ctx.set_fill_style_str("#ff0");
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("top");
-                let _ = ctx.fill_text(ii.name, text_x, y + 4.0 * d);
+                self.fill_text_truncated(ii.name, text_x, y + 4.0 * d, detail_text_max);
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str("#ccc");
-                let _ = ctx.fill_text(&ii.desc, text_x, y + 18.0 * d);
+                self.fill_text_truncated(&ii.desc, text_x, y + 18.0 * d, detail_text_max);
             } else if info.is_player {
                 ctx.set_font(&self.font(10.0, "bold"));
                 ctx.set_fill_style_str("#fff");
@@ -186,10 +193,10 @@ impl Renderer {
                 ctx.set_fill_style_str("#ccc");
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("top");
-                let _ = ctx.fill_text(info.tile_name, x + 4.0 * d, y + 4.0 * d);
+                self.fill_text_truncated(info.tile_name, x + 4.0 * d, y + 4.0 * d, inner_w - 8.0 * d);
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str("#888");
-                let _ = ctx.fill_text(info.tile_desc, x + 4.0 * d, y + 18.0 * d);
+                self.fill_text_truncated(info.tile_desc, x + 4.0 * d, y + 18.0 * d, inner_w - 8.0 * d);
             }
             y += detail_h + 6.0 * d;
         }
@@ -340,16 +347,17 @@ impl Renderer {
         for &(slot, color, empty_label) in &eq_slots {
             ctx.set_fill_style_str("rgba(255,255,255,0.04)");
             self.fill_rounded_rect(x, cy, w, eq_h, 3.0 * d);
+            let eq_text_max = w - eq_icon - pad * 3.0;
             if let Some(ref item) = slot {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, x + pad, cy + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str(color);
-                let _ = ctx.fill_text(item.name, x + eq_icon + pad * 2.0, cy + eq_h / 2.0);
+                self.fill_text_truncated(item.name, x + eq_icon + pad * 2.0, cy + eq_h / 2.0, eq_text_max);
             } else {
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str("#444");
-                let _ = ctx.fill_text(empty_label, x + pad, cy + eq_h / 2.0);
+                self.fill_text_truncated(empty_label, x + pad, cy + eq_h / 2.0, w - pad * 2.0);
             }
             cy += eq_h + eq_gap;
         }
@@ -372,6 +380,9 @@ impl Renderer {
             let total = game.inventory.len();
             let end = (scroll + max_visible).min(total);
 
+            // Action buttons width to reserve
+            let btn_w_reserved = 24.0 * d * 2.0 + 4.0 * d;
+
             for (vi, idx) in (scroll..end).enumerate() {
                 let item = &game.inventory[idx];
                 let iy = cy + vi as f64 * slot_h;
@@ -391,12 +402,14 @@ impl Renderer {
                 ctx.set_fill_style_str(item_kind_color(&item.kind));
                 ctx.set_text_baseline("middle");
                 let name_x = x + icon_size + pad * 2.0;
-                let _ = ctx.fill_text(item.name, name_x, iy + slot_h / 2.0);
+                let name_max_w = w - icon_size - pad * 3.0 - btn_w_reserved;
+                self.fill_text_truncated(item.name, name_x, iy + slot_h / 2.0, name_max_w);
 
                 // Quick-bar slot badge
                 for s in 0..QUICKBAR_SLOTS {
                     if game.quick_bar.slots[s] == Some(idx) {
-                        let name_w = item.name.len() as f64 * 5.0 * d;
+                        let measured_name_w = ctx.measure_text(item.name).ok().map(|m| m.width()).unwrap_or(0.0);
+                        let name_w = measured_name_w.min(name_max_w);
                         let badge_x = name_x + name_w + 3.0 * d;
                         let badge_y = iy + slot_h / 2.0;
                         let badge_r = 5.0 * d;
@@ -575,12 +588,13 @@ impl Renderer {
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str(color);
                 ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text(item.name, x + eq_icon + 4.0 * d, cy + eq_icon / 2.0);
+                let eq_name_x = x + eq_icon + 4.0 * d;
+                self.fill_text_truncated(item.name, eq_name_x, cy + eq_icon / 2.0, x + w - eq_name_x);
             } else {
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str("#444");
                 ctx.set_text_baseline("top");
-                let _ = ctx.fill_text(empty_label, x, cy);
+                self.fill_text_truncated(empty_label, x, cy, w);
             }
             cy += eq_icon + 4.0 * d;
         }
@@ -689,10 +703,12 @@ impl Renderer {
         });
 
         // Right column: location + stats + XP
-        ctx.set_text_align("right");
+        let right_max_w = canvas_w - pad - bar_w - pad * 2.0;
+        ctx.set_text_align("left");
         ctx.set_fill_style_str("#ccc");
         ctx.set_font(&self.font(11.0, "bold"));
-        let _ = ctx.fill_text(&game.location_name(), canvas_w - pad, row1_y + bar_h / 2.0);
+        self.fill_text_truncated(&game.location_name(), bar_x + bar_w + pad, row1_y + bar_h / 2.0, right_max_w);
+        ctx.set_text_align("right");
 
         let atk = game.effective_attack();
         let def = game.effective_defense();
@@ -736,6 +752,8 @@ impl Renderer {
         let line2_y = y0 + 24.0 * d;
         let line3_y = y0 + 38.0 * d;
 
+        let detail_max_w = canvas_w - text_x - pad;
+
         if let Some(ref ei) = info.enemy {
             let e_glyph = game.enemies.iter()
                 .find(|e| e.name == ei.name && e.hp > 0)
@@ -748,14 +766,14 @@ impl Renderer {
             ctx.set_fill_style_str("#f88");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
-            let _ = ctx.fill_text(ei.name, text_x, line1_y);
+            self.fill_text_truncated(ei.name, text_x, line1_y, detail_max_w);
 
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
-            let _ = ctx.fill_text(&format!("HP {} ATK {} DEF {}", ei.hp, ei.attack, ei.defense), text_x, line2_y);
+            self.fill_text_truncated(&format!("HP {} ATK {} DEF {}", ei.hp, ei.attack, ei.defense), text_x, line2_y, detail_max_w);
 
             ctx.set_fill_style_str("#999");
-            let _ = ctx.fill_text(ei.desc, text_x, line3_y);
+            self.fill_text_truncated(ei.desc, text_x, line3_y, detail_max_w);
         } else if let Some(ref ii) = info.item {
             if let Some(gi) = game.ground_items.iter().find(|gi| gi.item.name == ii.name) {
                 let sprite = sprites::item_sprite(gi.item.name);
@@ -766,11 +784,11 @@ impl Renderer {
             ctx.set_fill_style_str("#ff0");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
-            let _ = ctx.fill_text(ii.name, text_x, line1_y);
+            self.fill_text_truncated(ii.name, text_x, line1_y, detail_max_w);
 
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
-            let _ = ctx.fill_text(&ii.desc, text_x, line2_y);
+            self.fill_text_truncated(&ii.desc, text_x, line2_y, detail_max_w);
         } else if info.is_player {
             let sprite = sprites::player_sprite();
             self.draw_sprite(sprite, pad, y0 + (strip_h - icon_size) / 2.0, icon_size, icon_size);
@@ -783,22 +801,22 @@ impl Renderer {
 
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#ccc");
-            let _ = ctx.fill_text(
+            self.fill_text_truncated(
                 &format!("HP {}/{} ATK {} DEF {}",
                     game.player_hp, game.player_max_hp,
                     game.effective_attack(), game.effective_defense()),
-                text_x, line2_y,
+                text_x, line2_y, detail_max_w,
             );
         } else {
             ctx.set_font(&self.font(13.0, "bold"));
             ctx.set_fill_style_str("#ccc");
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
-            let _ = ctx.fill_text(info.tile_name, pad, line1_y);
+            self.fill_text_truncated(info.tile_name, pad, line1_y, canvas_w - pad * 2.0);
 
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_fill_style_str("#888");
-            let _ = ctx.fill_text(info.tile_desc, pad, line2_y);
+            self.fill_text_truncated(info.tile_desc, pad, line2_y, canvas_w - pad * 2.0);
         }
     }
 
@@ -815,6 +833,7 @@ impl Renderer {
 
         let msg_count = game.messages.len();
         let show = msg_count.min(3);
+        let msg_max_w = canvas_w - 16.0 * d;
         ctx.set_font(&self.font(11.0, ""));
         ctx.set_text_align("left");
         ctx.set_text_baseline("bottom");
@@ -826,7 +845,7 @@ impl Renderer {
                 else { "666" };
             ctx.set_fill_style_str(&format!("#{alpha}"));
             let y = msg_bottom - (show - 1 - i) as f64 * line_h - 4.0 * d;
-            let _ = ctx.fill_text(msg, 8.0 * d, y);
+            self.fill_text_truncated(msg, 8.0 * d, y, msg_max_w);
         }
     }
 

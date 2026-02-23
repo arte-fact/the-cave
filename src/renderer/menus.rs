@@ -201,7 +201,8 @@ impl Renderer {
                 ctx.set_font(&format!("{desc_size}px monospace"));
                 if selected { ctx.set_fill_style_str("#8af"); } else { ctx.set_fill_style_str("#556"); }
                 ctx.set_text_baseline("bottom");
-                let _ = ctx.fill_text(diff.description(), btn_x + 14.0 * d, y + btn_h - 8.0 * d);
+                let desc_max_w = btn_w - 28.0 * d;
+                self.fill_text_truncated(diff.description(), btn_x + 14.0 * d, y + btn_h - 8.0 * d, desc_max_w);
             }
         }
 
@@ -334,8 +335,9 @@ impl Renderer {
             "S: Sprint    F/Space: Interact",
             "Swipe: Move / Aim ranged",
         ];
+        let ctrl_max_w = row_w - pad * 2.0;
         for (i, line) in controls.iter().enumerate() {
-            let _ = ctx.fill_text(line, row_x + pad, info_y + i as f64 * (info_size + 4.0 * d));
+            self.fill_text_truncated(line, row_x + pad, info_y + i as f64 * (info_size + 4.0 * d), ctrl_max_w);
         }
     }
 }

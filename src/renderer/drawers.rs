@@ -89,19 +89,21 @@ impl Renderer {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, icon_x, sy + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
                 let text_x = icon_x + eq_icon + 4.0 * d;
+                let text_max_w = sx + half_w - text_x - 4.0 * d;
                 ctx.set_font(&self.font(10.0, ""));
                 ctx.set_fill_style_str(color);
-                let _ = ctx.fill_text(item.name, text_x, sy + eq_h / 2.0 - 5.0 * d);
+                self.fill_text_truncated(item.name, text_x, sy + eq_h / 2.0 - 5.0 * d, text_max_w);
                 // Durability indicator below item name
                 if item.durability > 0 {
                     ctx.set_font(&self.font(8.0, ""));
                     ctx.set_fill_style_str("#777");
-                    let _ = ctx.fill_text(&format!("Dur: {}", item.durability), text_x, sy + eq_h / 2.0 + 5.0 * d);
+                    self.fill_text_truncated(&format!("Dur: {}", item.durability), text_x, sy + eq_h / 2.0 + 5.0 * d, text_max_w);
                 }
             } else {
+                let text_max_w = sx + half_w - icon_x - 4.0 * d - 4.0 * d;
                 ctx.set_font(&self.font(10.0, ""));
                 ctx.set_fill_style_str("#555");
-                let _ = ctx.fill_text(empty_label, icon_x + 4.0 * d, sy + eq_h / 2.0 - 5.0 * d);
+                self.fill_text_truncated(empty_label, icon_x + 4.0 * d, sy + eq_h / 2.0 - 5.0 * d, text_max_w);
             }
         }
 
@@ -150,12 +152,15 @@ impl Renderer {
                 ctx.set_fill_style_str(item_kind_color(&item.kind));
                 ctx.set_text_baseline("middle");
                 let name_x = pad + icon_size + 8.0 * d;
-                let _ = ctx.fill_text(item.name, name_x, iy + slot_h / 2.0);
+                // Reserve space for stat text + badge on the right
+                let name_max_w = text_right - name_x - 40.0 * d;
+                self.fill_text_truncated(item.name, name_x, iy + slot_h / 2.0, name_max_w);
 
                 // Quick-bar slot badge (if this item is assigned to a slot)
                 for s in 0..QUICKBAR_SLOTS {
                     if game.quick_bar.slots[s] == Some(idx) {
-                        let name_w = item.name.len() as f64 * 6.5 * d;
+                        let measured_name_w = ctx.measure_text(item.name).ok().map(|m| m.width()).unwrap_or(0.0);
+                        let name_w = measured_name_w.min(name_max_w);
                         let badge_x = name_x + name_w + 4.0 * d;
                         let badge_y = iy + slot_h / 2.0;
                         let badge_r = 7.0 * d;
@@ -243,14 +248,8 @@ impl Renderer {
                 ctx.set_fill_style_str("#ccc");
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("middle");
-                let char_w = 6.0 * d;
-                let max_chars = ((canvas_w - 2.0 * pad) / char_w).floor() as usize;
-                let display_desc = if desc.len() > max_chars && max_chars > 3 {
-                    format!("{}...", &desc[..max_chars - 3])
-                } else {
-                    desc
-                };
-                let _ = ctx.fill_text(&display_desc, pad, bar_y + detail_bar_h * 0.35);
+                let desc_max_w = canvas_w - 2.0 * pad;
+                self.fill_text_truncated(&desc, pad, bar_y + detail_bar_h * 0.35, desc_max_w);
 
                 // Action buttons
                 let btn_h = 26.0 * d;
@@ -485,10 +484,12 @@ impl Renderer {
             if let Some(ref item) = slot {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, pad, y, eq_icon, eq_icon);
+                let eq_text_x = pad + eq_icon + 6.0 * d;
+                let eq_text_max = canvas_w - eq_text_x - pad - 50.0 * d;
                 ctx.set_font(&self.font(11.0, ""));
                 ctx.set_fill_style_str(color);
                 ctx.set_text_baseline("middle");
-                let _ = ctx.fill_text(item.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
+                self.fill_text_truncated(item.name, eq_text_x, y + eq_icon / 2.0, eq_text_max);
                 // Durability indicator (right-aligned)
                 if item.durability > 0 {
                     ctx.set_font(&self.font(9.0, ""));
@@ -501,7 +502,7 @@ impl Renderer {
                 ctx.set_font(&self.font(11.0, ""));
                 ctx.set_fill_style_str("#444");
                 ctx.set_text_baseline("top");
-                let _ = ctx.fill_text(empty_label, pad, y);
+                self.fill_text_truncated(empty_label, pad, y, canvas_w - pad * 2.0);
             }
             y += eq_icon + 6.0 * d;
         }
