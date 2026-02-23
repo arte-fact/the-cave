@@ -302,6 +302,95 @@ fn chain_mail() -> Item {
         assert_eq!(g.effective_defense(), 0);
     }
 
+    // --- Unequip ---
+
+    #[test]
+    fn unequip_weapon_moves_to_inventory() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        assert!(g.unequip_item(0));
+        assert!(g.equipped_weapon.is_none());
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.inventory[0].name, "Rusty Sword");
+    }
+
+    #[test]
+    fn unequip_empty_slot_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert!(!g.unequip_item(0)); // no weapon equipped
+    }
+
+    #[test]
+    fn unequip_invalid_slot_returns_false() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        assert!(!g.unequip_item(6)); // out of range
+    }
+
+    #[test]
+    fn unequip_generates_message() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_armor = Some(leather_armor());
+        let msg_before = g.messages.len();
+        g.unequip_item(1);
+        assert!(g.messages.len() > msg_before);
+        assert!(g.messages.last().unwrap().contains("unequip"));
+    }
+
+    #[test]
+    fn unequip_clears_selection() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        g.selected_equipment_slot = Some(0);
+        g.unequip_item(0);
+        assert!(g.selected_equipment_slot.is_none());
+    }
+
+    #[test]
+    fn unequip_full_inventory_fails() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        // Fill inventory to max
+        for _ in 0..g.config.player.max_inventory {
+            g.inventory.push(health_potion());
+        }
+        assert!(!g.unequip_item(0));
+        assert!(g.equipped_weapon.is_some()); // weapon stays equipped
+    }
+
+    #[test]
+    fn equipment_slot_item_returns_correct_item() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        assert_eq!(g.equipment_slot_item(0).unwrap().name, "Rusty Sword");
+        assert!(g.equipment_slot_item(1).is_none()); // no armor
+    }
+
+    #[test]
+    fn equipment_desc_returns_description() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.equipped_weapon = Some(rusty_sword());
+        let desc = g.equipment_desc(0).unwrap();
+        assert!(desc.contains("Rusty Sword"));
+        assert!(desc.contains("Attack"));
+    }
+
+    #[test]
+    fn toggle_drawer_clears_equipment_selection() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.selected_equipment_slot = Some(2);
+        g.toggle_drawer(Drawer::Inventory);
+        assert!(g.selected_equipment_slot.is_none());
+    }
+
     // --- Item spawning ---
 
     #[test]

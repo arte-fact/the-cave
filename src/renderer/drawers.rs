@@ -81,8 +81,13 @@ impl Renderer {
             (&game.equipped_boots,   pad,     eq_y + (eq_h + eq_gap) * 2.0, "#da8", "No boots"),
             (&game.equipped_ring,    right_x, eq_y + (eq_h + eq_gap) * 2.0, "#ff8", "No ring"),
         ];
-        for &(slot, sx, sy, color, empty_label) in &slot_pairs {
-            ctx.set_fill_style_str("rgba(255,255,255,0.06)");
+        for (i, &(slot, sx, sy, color, empty_label)) in slot_pairs.iter().enumerate() {
+            let is_selected_eq = game.selected_equipment_slot == Some(i);
+            if is_selected_eq {
+                ctx.set_fill_style_str("rgba(80,130,255,0.25)");
+            } else {
+                ctx.set_fill_style_str("rgba(255,255,255,0.06)");
+            }
             self.fill_rounded_rect(sx, sy, half_w, eq_h, 4.0 * d);
             let icon_x = sx + 4.0 * d;
             if let Some(ref item) = slot {
@@ -113,8 +118,9 @@ impl Renderer {
         let slot_h = 34.0 * d;
         let icon_size = 28.0 * d;
 
-        // Detail bar at bottom when an item is selected, otherwise just slot count
-        let detail_bar_h = if game.selected_inventory_item.is_some() { 46.0 * d } else { 20.0 * d };
+        // Detail bar at bottom when an item or equipment slot is selected, otherwise just slot count
+        let has_selection = game.selected_inventory_item.is_some() || game.selected_equipment_slot.is_some();
+        let detail_bar_h = if has_selection { 46.0 * d } else { 20.0 * d };
         let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
 
@@ -280,6 +286,45 @@ impl Renderer {
                 ctx.set_fill_style_str("#f88");
                 ctx.set_text_align("center");
                 let _ = ctx.fill_text("Drop", drop_x + drop_w / 2.0, btn_y + btn_h / 2.0);
+
+                // Slot count (small, left side)
+                ctx.set_font(&self.font(9.0, ""));
+                ctx.set_fill_style_str("#555");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text(
+                    &format!("{}/10", game.inventory.len()),
+                    pad, btn_y + btn_h / 2.0,
+                );
+            }
+        } else if let Some(eq_slot) = game.selected_equipment_slot {
+            if let Some(desc) = game.equipment_desc(eq_slot) {
+                // Detail bar background
+                ctx.set_fill_style_str("rgba(40,40,60,0.95)");
+                ctx.fill_rect(0.0, bar_y, canvas_w, detail_bar_h);
+                ctx.set_fill_style_str("rgba(80,130,255,0.15)");
+                ctx.fill_rect(0.0, bar_y, canvas_w, 1.0 * d);
+
+                // Description text
+                ctx.set_font(&self.font(10.0, ""));
+                ctx.set_fill_style_str("#ccc");
+                ctx.set_text_align("left");
+                ctx.set_text_baseline("middle");
+                let desc_max_w = canvas_w - 2.0 * pad;
+                self.fill_text_truncated(&desc, pad, bar_y + detail_bar_h * 0.35, desc_max_w);
+
+                // Unequip button
+                let btn_h = 26.0 * d;
+                let btn_y = bar_y + detail_bar_h - btn_h - 4.0 * d;
+                let unequip_w = 80.0 * d;
+                let unequip_x = canvas_w - pad - unequip_w;
+                ctx.set_fill_style_str("rgba(200,160,80,0.25)");
+                self.fill_rounded_rect(unequip_x, btn_y, unequip_w, btn_h, 4.0 * d);
+                ctx.set_font(&self.font(11.0, "bold"));
+                ctx.set_fill_style_str("#fc8");
+                ctx.set_text_align("center");
+                ctx.set_text_baseline("middle");
+                let _ = ctx.fill_text("Unequip", unequip_x + unequip_w / 2.0, btn_y + btn_h / 2.0);
 
                 // Slot count (small, left side)
                 ctx.set_font(&self.font(9.0, ""));

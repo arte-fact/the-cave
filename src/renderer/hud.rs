@@ -344,16 +344,41 @@ impl Renderer {
             (&game.equipped_boots,   "#da8", "No boots"),
             (&game.equipped_ring,    "#ff8", "No ring"),
         ];
-        for &(slot, color, empty_label) in &eq_slots {
-            ctx.set_fill_style_str("rgba(255,255,255,0.04)");
+        for (i, &(slot, color, empty_label)) in eq_slots.iter().enumerate() {
+            let is_selected_eq = game.selected_equipment_slot == Some(i);
+            if is_selected_eq {
+                ctx.set_fill_style_str("rgba(80,130,255,0.25)");
+            } else {
+                ctx.set_fill_style_str("rgba(255,255,255,0.04)");
+            }
             self.fill_rounded_rect(x, cy, w, eq_h, 3.0 * d);
-            let eq_text_max = w - eq_icon - pad * 3.0;
             if let Some(ref item) = slot {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, x + pad, cy + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
+                let eq_text_max = if is_selected_eq {
+                    // Reserve space for the inline "Unequip" button
+                    w - eq_icon - pad * 3.0 - 40.0 * d
+                } else {
+                    w - eq_icon - pad * 3.0
+                };
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str(color);
                 self.fill_text_truncated(item.name, x + eq_icon + pad * 2.0, cy + eq_h / 2.0, eq_text_max);
+
+                // Show inline Unequip button when selected
+                if is_selected_eq {
+                    let ubtn_w = 36.0 * d;
+                    let ubtn_h = 14.0 * d;
+                    let ubtn_x = x + w - ubtn_w - pad;
+                    let ubtn_y = cy + (eq_h - ubtn_h) / 2.0;
+                    ctx.set_fill_style_str("rgba(200,160,80,0.3)");
+                    self.fill_rounded_rect(ubtn_x, ubtn_y, ubtn_w, ubtn_h, 2.0 * d);
+                    ctx.set_font(&self.font(6.0, "bold"));
+                    ctx.set_fill_style_str("#fc8");
+                    ctx.set_text_align("center");
+                    let _ = ctx.fill_text("Unequip", ubtn_x + ubtn_w / 2.0, cy + eq_h / 2.0);
+                    ctx.set_text_align("left");
+                }
             } else {
                 ctx.set_font(&self.font(8.0, ""));
                 ctx.set_fill_style_str("#444");

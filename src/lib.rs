@@ -35,6 +35,7 @@ struct DrawerHitState {
     item_count: usize,
     inventory_scroll: usize,
     skill_points: u32,
+    selected_eq_slot: Option<usize>,
 }
 
 /// Type alias for the animation frame closure pattern.
@@ -312,11 +313,28 @@ fn hit_test_side_panel_drawer(
     if state.drawer == Drawer::Inventory {
         let eq_h = 22.0;
         let eq_gap = 2.0;
-        let list_start = drawer_start + 16.0 + 6.0 * (eq_h + eq_gap) + 4.0;
+        let eq_start = drawer_start + 16.0;
+        let list_start = eq_start + 6.0 * (eq_h + eq_gap) + 4.0;
         let slot_h = 26.0;
         let avail_h = area.h - list_start - 16.0;
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
         let end = (state.inventory_scroll + max_visible).min(state.item_count);
+
+        // Equipment slot hit-test (6 vertical rows)
+        if area.y >= eq_start && area.y < list_start {
+            let slot_idx = ((area.y - eq_start) / (eq_h + eq_gap)).floor() as usize;
+            if slot_idx < 6 {
+                // Check if tapping the inline Unequip button on a selected slot
+                if state.selected_eq_slot == Some(slot_idx) {
+                    let ubtn_w = 36.0;
+                    let ubtn_x = panel_x + pad + inner_w - ubtn_w - pad;
+                    if area.x >= ubtn_x {
+                        return Some(DrawerTap::Unequip(slot_idx));
+                    }
+                }
+                return Some(DrawerTap::EquipmentSlot(slot_idx));
+            }
+        }
 
         if area.y >= list_start && state.item_count > 0 {
             let vis_idx = ((area.y - list_start) / slot_h).floor() as usize;
@@ -335,6 +353,10 @@ fn hit_test_side_panel_drawer(
 enum DrawerTap {
     /// Tapped an inventory item at the given index (absolute, not visual).
     InventoryItem(usize),
+    /// Tapped an equipment slot (0–5: weapon, armor, helmet, shield, boots, ring).
+    EquipmentSlot(usize),
+    /// Unequip button tapped for the selected equipment slot.
+    Unequip(usize),
     /// Scroll the inventory list up.
     ScrollUp,
     /// Scroll the inventory list down.
@@ -434,14 +456,27 @@ fn hit_test_drawer(
     let eq_gap = 4.0;
     let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0;
     let slot_h = 34.0;
-    let detail_bar_h = if selected_item.is_some() { 46.0 } else { 20.0 };
+    let has_selection = selected_item.is_some() || state.selected_eq_slot.is_some();
+    let detail_bar_h = if has_selection { 46.0 } else { 20.0 };
     let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
     let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
     let end = (state.inventory_scroll + max_visible).min(state.item_count);
     let pad = 12.0;
     let scrollbar_w = 12.0;
 
-    // Detail bar buttons hit test (when an item is selected)
+    // Equipment slot hit-test (6 slots in 3×2 grid)
+    if area.y >= eq_y && area.y < list_y {
+        let right_x = area.w / 2.0 + pad * 0.5;
+        let is_right = area.x >= right_x;
+        let row = ((area.y - eq_y) / (eq_h + eq_gap)).floor() as usize;
+        if row < 3 {
+            let col = if is_right { 1 } else { 0 };
+            let slot_idx = row * 2 + col;
+            return Some(DrawerTap::EquipmentSlot(slot_idx));
+        }
+    }
+
+    // Detail bar buttons hit test (when an inventory item or equipment slot is selected)
     if let Some(sel_idx) = selected_item {
         let bar_y = drawer_y + drawer_h - detail_bar_h;
         if area.y >= bar_y {
@@ -459,6 +494,21 @@ fn hit_test_drawer(
                 let drop_x = area.w - pad - drop_w;
                 if area.x >= drop_x && area.x <= drop_x + drop_w {
                     return Some(DrawerTap::Drop(sel_idx));
+                }
+            }
+            return Some(DrawerTap::Consumed);
+        }
+    }
+    if let Some(eq_slot) = state.selected_eq_slot {
+        let bar_y = drawer_y + drawer_h - detail_bar_h;
+        if area.y >= bar_y {
+            let btn_h = 26.0;
+            let btn_y = bar_y + detail_bar_h - btn_h - 4.0;
+            if area.y >= btn_y && area.y <= btn_y + btn_h {
+                let unequip_w = 80.0;
+                let unequip_x = area.w - pad - unequip_w;
+                if area.x >= unequip_x && area.x <= unequip_x + unequip_w {
+                    return Some(DrawerTap::Unequip(eq_slot));
                 }
             }
             return Some(DrawerTap::Consumed);
@@ -771,6 +821,21 @@ fn handle_drawer_tap(
             } else {
                 gm.selected_inventory_item = Some(idx);
             }
+            gm.selected_equipment_slot = None;
+        }
+        DrawerTap::EquipmentSlot(slot) => {
+            if gm.selected_equipment_slot == Some(slot) {
+                gm.selected_equipment_slot = None;
+            } else if gm.equipment_slot_item(slot).is_some() {
+                gm.selected_equipment_slot = Some(slot);
+            } else {
+                gm.selected_equipment_slot = None;
+            }
+            gm.selected_inventory_item = None;
+        }
+        DrawerTap::Unequip(slot) => {
+            gm.unequip_item(slot);
+            gm.selected_equipment_slot = None;
         }
         DrawerTap::UseEquip(idx) => {
             if idx < gm.inventory.len() {
@@ -1212,7 +1277,7 @@ pub fn start() -> Result<(), JsValue> {
                                         if let Some(dtap) = hit_test_side_panel_drawer(
                                             &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
                                             panel_w,
-                                            &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points },
+                                            &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points, selected_eq_slot: gm.selected_equipment_slot },
                                         ) {
                                             handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
                                         }
@@ -1264,7 +1329,7 @@ pub fn start() -> Result<(), JsValue> {
                                 } else if let Some(dtap) = hit_test_drawer(
                                     &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
                                     bottom_region_css,
-                                    &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points },
+                                    &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points, selected_eq_slot: gm.selected_equipment_slot },
                                     gm.selected_inventory_item, gm.stats_scroll, gm.has_ranged_weapon(),
                                 ) {
                                     handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);

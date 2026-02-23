@@ -593,6 +593,63 @@ impl Game {
             self.drawer = drawer;
         }
         self.selected_inventory_item = None;
+        self.selected_equipment_slot = None;
+    }
+
+    /// Get a reference to the equipped item in a slot (0–5).
+    pub fn equipment_slot_item(&self, slot: usize) -> Option<&Item> {
+        match slot {
+            0 => self.equipped_weapon.as_ref(),
+            1 => self.equipped_armor.as_ref(),
+            2 => self.equipped_helmet.as_ref(),
+            3 => self.equipped_shield.as_ref(),
+            4 => self.equipped_boots.as_ref(),
+            5 => self.equipped_ring.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Get a description string for an equipped item in a slot (0–5).
+    pub fn equipment_desc(&self, slot: usize) -> Option<String> {
+        self.equipment_slot_item(slot).map(item_info_desc)
+    }
+
+    /// Unequip an item from a slot (0–5) and move it to inventory.
+    /// Returns false if the slot is empty or inventory is full.
+    pub fn unequip_item(&mut self, slot: usize) -> bool {
+        let slot_ref = match slot {
+            0 => &mut self.equipped_weapon,
+            1 => &mut self.equipped_armor,
+            2 => &mut self.equipped_helmet,
+            3 => &mut self.equipped_shield,
+            4 => &mut self.equipped_boots,
+            5 => &mut self.equipped_ring,
+            _ => return false,
+        };
+        let item = match slot_ref.take() {
+            Some(item) => item,
+            None => return false,
+        };
+        if self.inventory.len() >= self.config.player.max_inventory {
+            // Put it back — inventory is full
+            let slot_ref = match slot {
+                0 => &mut self.equipped_weapon,
+                1 => &mut self.equipped_armor,
+                2 => &mut self.equipped_helmet,
+                3 => &mut self.equipped_shield,
+                4 => &mut self.equipped_boots,
+                5 => &mut self.equipped_ring,
+                _ => unreachable!(),
+            };
+            *slot_ref = Some(item);
+            self.messages.push("Inventory full! Cannot unequip.".into());
+            return false;
+        }
+        let name = item.name;
+        self.messages.push(format!("You unequip {name}."));
+        self.inventory.push(item);
+        self.selected_equipment_slot = None;
+        true
     }
 
     /// Inspect a world tile and return structured info for the HUD.
