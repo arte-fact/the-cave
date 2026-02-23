@@ -2,6 +2,7 @@
 /// Positions from `32rogues/monsters.txt`.
 use super::{Sheet, SpriteRef};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MonsterSprite {
     // Row 1: Orcs & Goblins

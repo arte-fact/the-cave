@@ -17,7 +17,7 @@ impl Game {
         let ny = self.player_y + dy;
 
         // Enemies block movement — attack must be explicit (tap the enemy)
-        if self.enemies.iter().any(|e| e.x == nx && e.y == ny && e.hp > 0) {
+        if self.has_enemy_at(nx, ny) {
             return TurnResult::Blocked;
         }
 

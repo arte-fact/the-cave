@@ -1,7 +1,16 @@
-use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
+use crate::game::{Drawer, Game, Item, QUICKBAR_SLOTS};
 use crate::sprites;
 
-use super::{item_kind_color, Renderer, StatBar};
+use super::{
+    item_kind_color, Renderer, StatBar,
+    COLOR_HP_HIGH, COLOR_HP_MED, COLOR_HP_LOW, COLOR_HP_BG,
+    COLOR_STAM, COLOR_STAM_SPRINT, COLOR_STAM_BG,
+    COLOR_HUNGER_HIGH, COLOR_HUNGER_MED, COLOR_HUNGER_LOW, COLOR_HUNGER_BG,
+    COLOR_PANEL_BG, COLOR_PANEL_ACCENT, COLOR_BAR_BG,
+    COLOR_TEXT, COLOR_TEXT_DIM, COLOR_TEXT_MUTED, COLOR_TEXT_HEADING,
+    COLOR_STAT_LABEL, COLOR_XP_TEXT,
+    COLOR_BTN_USE_TEXT, COLOR_BTN_DROP_TEXT,
+};
 
 impl Renderer {
     // ---- Landscape compact top bar (stats + combat info) ----
@@ -12,10 +21,10 @@ impl Renderer {
         let pad = 8.0 * d;
 
         // Background
-        ctx.set_fill_style_str("rgba(0,0,0,0.78)");
+        ctx.set_fill_style_str(COLOR_BAR_BG);
         ctx.fill_rect(0.0, 0.0, bar_w, top_h);
         // Bottom accent
-        ctx.set_fill_style_str("rgba(80,130,255,0.15)");
+        ctx.set_fill_style_str(COLOR_PANEL_ACCENT);
         ctx.fill_rect(0.0, top_h - 1.0 * d, bar_w, 1.0 * d);
 
         let bar_h = 8.0 * d;
@@ -27,10 +36,10 @@ impl Renderer {
         // --- Row 1: HP bar ---
         let row1_y = 3.0 * d;
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
-        let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
+        let hp_color = if hp_frac > 0.5 { COLOR_HP_HIGH } else if hp_frac > 0.25 { COLOR_HP_MED } else { COLOR_HP_LOW };
         self.draw_stat_bar(&StatBar {
             x: pad, y: row1_y, w: bars_w, h: bar_h, r: bar_r, frac: hp_frac,
-            bg_color: "#2a0a0a", fill_color: hp_color,
+            bg_color: COLOR_HP_BG, fill_color: hp_color,
             label: &format!("HP {}/{}", game.player_hp, game.player_max_hp),
             font_size: 7.0, text_inset,
         });
@@ -38,11 +47,11 @@ impl Renderer {
         // --- Row 2: Stamina bar ---
         let row2_y = row1_y + bar_h + bar_gap;
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
-        let stam_color = if game.sprinting { "#4af" } else { "#28a" };
+        let stam_color = if game.sprinting { COLOR_STAM_SPRINT } else { COLOR_STAM };
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
         self.draw_stat_bar(&StatBar {
             x: pad, y: row2_y, w: bars_w, h: bar_h, r: bar_r, frac: stam_frac,
-            bg_color: "#0a0a2a", fill_color: stam_color,
+            bg_color: COLOR_STAM_BG, fill_color: stam_color,
             label: &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
             font_size: 7.0, text_inset,
         });
@@ -50,10 +59,10 @@ impl Renderer {
         // --- Row 3: Hunger bar ---
         let row3_y = row2_y + bar_h + bar_gap;
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
-        let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
+        let hunger_color = if hunger_frac > 0.3 { COLOR_HUNGER_HIGH } else if hunger_frac > 0.1 { COLOR_HUNGER_MED } else { COLOR_HUNGER_LOW };
         self.draw_stat_bar(&StatBar {
             x: pad, y: row3_y, w: bars_w, h: bar_h, r: bar_r, frac: hunger_frac,
-            bg_color: "#2a1a0a", fill_color: hunger_color,
+            bg_color: COLOR_HUNGER_BG, fill_color: hunger_color,
             label: &format!("FOOD {}/{}", game.hunger, game.max_hunger),
             font_size: 7.0, text_inset,
         });
@@ -67,14 +76,14 @@ impl Renderer {
 
         // Location (top right)
         ctx.set_font(&self.font(9.0, "bold"));
-        ctx.set_fill_style_str("#c8e0ff");
+        ctx.set_fill_style_str(COLOR_TEXT_HEADING);
         self.fill_text_truncated(&game.location_name(), bar_w - pad - right_max_w, row1_y + bar_h / 2.0, right_max_w);
 
         // ATK / DEF / LVL
         let atk = game.effective_attack();
         let def = game.effective_defense();
         ctx.set_font(&self.font(8.0, ""));
-        ctx.set_fill_style_str("#8cf");
+        ctx.set_fill_style_str(COLOR_STAT_LABEL);
         ctx.set_text_align("right");
         let _ = ctx.fill_text(
             &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
@@ -83,7 +92,7 @@ impl Renderer {
 
         // XP
         let xp_needed = game.xp_to_next_level();
-        ctx.set_fill_style_str("#a8f");
+        ctx.set_fill_style_str(COLOR_XP_TEXT);
         let _ = ctx.fill_text(
             &format!("XP {}/{}", game.player_xp, xp_needed),
             bar_w - pad, row3_y + bar_h / 2.0,
@@ -133,7 +142,7 @@ impl Renderer {
         let inner_w = panel_w - pad * 2.0;
 
         // Panel background
-        ctx.set_fill_style_str("rgba(8,8,16,0.94)");
+        ctx.set_fill_style_str(COLOR_PANEL_BG);
         ctx.fill_rect(panel_x, 0.0, panel_w, canvas_h);
         // Left border accent
         ctx.set_fill_style_str("rgba(80,130,255,0.2)");
@@ -143,7 +152,7 @@ impl Renderer {
         let x = panel_x + pad;
 
         // --- Tile detail (if inspecting) ---
-        if let Some(ref info) = game.inspected {
+        if let Some(ref info) = game.ui.inspected {
             let detail_h = 44.0 * d;
             ctx.set_fill_style_str("rgba(0,180,255,0.08)");
             self.fill_rounded_rect(x, y, inner_w, detail_h, 4.0 * d);
@@ -167,7 +176,7 @@ impl Renderer {
                 ctx.set_text_baseline("top");
                 self.fill_text_truncated(ei.name, text_x, y + 4.0 * d, detail_text_max);
                 ctx.set_font(&self.font(8.0, ""));
-                ctx.set_fill_style_str("#ccc");
+                ctx.set_fill_style_str(COLOR_TEXT);
                 self.fill_text_truncated(&format!("HP {} ATK {}", ei.hp, ei.attack), text_x, y + 18.0 * d, detail_text_max);
             } else if let Some(ref ii) = info.item {
                 if let Some(gi) = game.ground_items.iter().find(|gi| gi.item.name == ii.name) {
@@ -180,7 +189,7 @@ impl Renderer {
                 ctx.set_text_baseline("top");
                 self.fill_text_truncated(ii.name, text_x, y + 4.0 * d, detail_text_max);
                 ctx.set_font(&self.font(8.0, ""));
-                ctx.set_fill_style_str("#ccc");
+                ctx.set_fill_style_str(COLOR_TEXT);
                 self.fill_text_truncated(&ii.desc, text_x, y + 18.0 * d, detail_text_max);
             } else if info.is_player {
                 ctx.set_font(&self.font(10.0, "bold"));
@@ -190,12 +199,12 @@ impl Renderer {
                 let _ = ctx.fill_text("You", text_x, y + 4.0 * d);
             } else {
                 ctx.set_font(&self.font(10.0, "bold"));
-                ctx.set_fill_style_str("#ccc");
+                ctx.set_fill_style_str(COLOR_TEXT);
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("top");
                 self.fill_text_truncated(info.tile_name, x + 4.0 * d, y + 4.0 * d, inner_w - 8.0 * d);
                 ctx.set_font(&self.font(8.0, ""));
-                ctx.set_fill_style_str("#888");
+                ctx.set_fill_style_str(COLOR_TEXT_DIM);
                 self.fill_text_truncated(info.tile_desc, x + 4.0 * d, y + 18.0 * d, inner_w - 8.0 * d);
             }
             y += detail_h + 6.0 * d;
@@ -257,10 +266,10 @@ impl Renderer {
         let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
 
         let buttons: [(&str, &str, bool); 4] = [
-            ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
-            ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
+            ("Inventory", if game.ui.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.ui.drawer == Drawer::Inventory),
+            ("Stats", if game.ui.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.ui.drawer == Drawer::Stats),
             (sprint_label, sprint_color, game.sprinting),
-            ("Settings", if game.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.drawer == Drawer::Settings),
+            ("Settings", if game.ui.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.ui.drawer == Drawer::Settings),
         ];
 
         for (i, (label, color, active)) in buttons.iter().enumerate() {
@@ -290,8 +299,8 @@ impl Renderer {
         y += 6.0 * d;
 
         // --- Drawer content (if open) ---
-        let which = if game.drawer != Drawer::None {
-            game.drawer
+        let which = if game.ui.drawer != Drawer::None {
+            game.ui.drawer
         } else if self.drawer_anim > 0.0 {
             self.last_drawer
         } else {
@@ -396,12 +405,12 @@ impl Renderer {
         let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
 
         if game.inventory.is_empty() {
-            ctx.set_fill_style_str("#555");
+            ctx.set_fill_style_str(COLOR_TEXT_MUTED);
             ctx.set_font(&self.font(9.0, ""));
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("No items", x + pad, cy);
         } else {
-            let scroll = game.inventory_scroll;
+            let scroll = game.ui.inventory_scroll;
             let total = game.inventory.len();
             let end = (scroll + max_visible).min(total);
 
@@ -412,7 +421,7 @@ impl Renderer {
                 let item = &game.inventory[idx];
                 let iy = cy + vi as f64 * slot_h;
 
-                if game.selected_inventory_item == Some(idx) {
+                if game.ui.selected_inventory_item == Some(idx) {
                     ctx.set_fill_style_str("rgba(80,130,255,0.18)");
                     ctx.fill_rect(x, iy, w, slot_h);
                 } else if vi % 2 == 0 {
@@ -458,20 +467,17 @@ impl Renderer {
                 let drop_x = x + w - btn_w - 2.0 * d;
                 let use_x = drop_x - btn_w - 2.0 * d;
 
-                let action_label = match item.kind {
-                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => "U",
-                    _ => "E",
-                };
+                let action_label = if item.kind.is_consumable() { "U" } else { "E" };
                 ctx.set_fill_style_str("rgba(80,200,120,0.2)");
                 self.fill_rounded_rect(use_x, btn_y, btn_w, btn_h, 2.0 * d);
                 ctx.set_font(&self.font(7.0, "bold"));
-                ctx.set_fill_style_str("#8f8");
+                ctx.set_fill_style_str(COLOR_BTN_USE_TEXT);
                 ctx.set_text_align("center");
                 let _ = ctx.fill_text(action_label, use_x + btn_w / 2.0, iy + slot_h / 2.0);
 
                 ctx.set_fill_style_str("rgba(200,80,80,0.2)");
                 self.fill_rounded_rect(drop_x, btn_y, btn_w, btn_h, 2.0 * d);
-                ctx.set_fill_style_str("#f88");
+                ctx.set_fill_style_str(COLOR_BTN_DROP_TEXT);
                 let _ = ctx.fill_text("X", drop_x + btn_w / 2.0, iy + slot_h / 2.0);
 
                 ctx.set_text_align("left");
@@ -479,7 +485,7 @@ impl Renderer {
 
             // Slot count
             ctx.set_font(&self.font(8.0, ""));
-            ctx.set_fill_style_str("#555");
+            ctx.set_fill_style_str(COLOR_TEXT_MUTED);
             ctx.set_text_align("right");
             ctx.set_text_baseline("bottom");
             let _ = ctx.fill_text(&format!("{}/10", total), x + w, y + h - 2.0 * d);
@@ -510,7 +516,7 @@ impl Renderer {
         ctx.set_text_baseline("top");
         let _ = ctx.fill_text(&format!("Level {}", game.player_level), x + icon_sz + 6.0 * d, cy + 2.0 * d);
         ctx.set_font(&self.font(8.0, ""));
-        ctx.set_fill_style_str("#a8f");
+        ctx.set_fill_style_str(COLOR_XP_TEXT);
         let _ = ctx.fill_text(
             &format!("XP {}/{}", game.player_xp, game.xp_to_next_level()),
             x + icon_sz + 6.0 * d, cy + 14.0 * d,
@@ -531,7 +537,7 @@ impl Renderer {
 
         for (label, value, color) in &stats {
             ctx.set_font(&self.font(9.0, ""));
-            ctx.set_fill_style_str("#888");
+            ctx.set_fill_style_str(COLOR_TEXT_DIM);
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text(label, x, cy);
@@ -641,7 +647,7 @@ impl Renderer {
 
         // Glyph mode toggle
         ctx.set_font(&self.font(10.0, ""));
-        ctx.set_fill_style_str("#ccc");
+        ctx.set_fill_style_str(COLOR_TEXT);
         ctx.set_text_align("left");
         ctx.set_text_baseline("middle");
         let row_h = 30.0 * d;
@@ -696,10 +702,10 @@ impl Renderer {
         // Row 1: HP bar — left
         let row1_y = 5.0 * d;
         let hp_frac = game.player_hp as f64 / game.player_max_hp as f64;
-        let hp_color = if hp_frac > 0.5 { "#2a2" } else if hp_frac > 0.25 { "#aa2" } else { "#a22" };
+        let hp_color = if hp_frac > 0.5 { COLOR_HP_HIGH } else if hp_frac > 0.25 { COLOR_HP_MED } else { COLOR_HP_LOW };
         self.draw_stat_bar(&StatBar {
             x: bar_x, y: row1_y, w: bar_w, h: bar_h, r: bar_r, frac: hp_frac,
-            bg_color: "#2a0a0a", fill_color: hp_color,
+            bg_color: COLOR_HP_BG, fill_color: hp_color,
             label: &format!("HP {}/{}", game.player_hp, game.player_max_hp),
             font_size: 10.0, text_inset,
         });
@@ -707,11 +713,11 @@ impl Renderer {
         // Row 2: Stamina bar
         let row2_y = row1_y + bar_h + bar_gap;
         let stam_frac = game.stamina as f64 / game.max_stamina as f64;
-        let stam_color = if game.sprinting { "#4af" } else { "#28a" };
+        let stam_color = if game.sprinting { COLOR_STAM_SPRINT } else { COLOR_STAM };
         let sprint_label = if game.sprinting { "STA (SPRINT)" } else { "STA" };
         self.draw_stat_bar(&StatBar {
             x: bar_x, y: row2_y, w: bar_w, h: bar_h, r: bar_r, frac: stam_frac,
-            bg_color: "#0a0a2a", fill_color: stam_color,
+            bg_color: COLOR_STAM_BG, fill_color: stam_color,
             label: &format!("{} {}/{}", sprint_label, game.stamina, game.max_stamina),
             font_size: 10.0, text_inset,
         });
@@ -719,10 +725,10 @@ impl Renderer {
         // Row 3: Hunger bar
         let row3_y = row2_y + bar_h + bar_gap;
         let hunger_frac = game.hunger as f64 / game.max_hunger as f64;
-        let hunger_color = if hunger_frac > 0.3 { "#a82" } else if hunger_frac > 0.1 { "#a52" } else { "#a22" };
+        let hunger_color = if hunger_frac > 0.3 { COLOR_HUNGER_HIGH } else if hunger_frac > 0.1 { COLOR_HUNGER_MED } else { COLOR_HUNGER_LOW };
         self.draw_stat_bar(&StatBar {
             x: bar_x, y: row3_y, w: bar_w, h: bar_h, r: bar_r, frac: hunger_frac,
-            bg_color: "#2a1a0a", fill_color: hunger_color,
+            bg_color: COLOR_HUNGER_BG, fill_color: hunger_color,
             label: &format!("FOOD {}/{}", game.hunger, game.max_hunger),
             font_size: 10.0, text_inset,
         });
@@ -730,7 +736,7 @@ impl Renderer {
         // Right column: location + stats + XP
         let right_max_w = canvas_w - pad - bar_w - pad * 2.0;
         ctx.set_text_align("left");
-        ctx.set_fill_style_str("#ccc");
+        ctx.set_fill_style_str(COLOR_TEXT);
         ctx.set_font(&self.font(11.0, "bold"));
         self.fill_text_truncated(&game.location_name(), bar_x + bar_w + pad, row1_y + bar_h / 2.0, right_max_w);
         ctx.set_text_align("right");
@@ -738,14 +744,14 @@ impl Renderer {
         let atk = game.effective_attack();
         let def = game.effective_defense();
         ctx.set_font(&self.font(10.0, ""));
-        ctx.set_fill_style_str("#8cf");
+        ctx.set_fill_style_str(COLOR_STAT_LABEL);
         let _ = ctx.fill_text(
             &format!("ATK {} DEF {} LVL {}", atk, def, game.player_level),
             canvas_w - pad, row2_y + bar_h / 2.0,
         );
 
         let xp_needed = game.xp_to_next_level();
-        ctx.set_fill_style_str("#a8f");
+        ctx.set_fill_style_str(COLOR_XP_TEXT);
         let _ = ctx.fill_text(
             &format!("XP {}/{}", game.player_xp, xp_needed),
             canvas_w - pad, row3_y + bar_h / 2.0,
@@ -755,7 +761,7 @@ impl Renderer {
     // ---- Tile detail strip (below top bar, shown when inspecting) ----
 
     pub(super) fn draw_tile_detail(&self, game: &Game, canvas_w: f64, top_h: f64) {
-        let info = match &game.inspected {
+        let info = match &game.ui.inspected {
             Some(info) => info,
             None => return,
         };
@@ -794,7 +800,7 @@ impl Renderer {
             self.fill_text_truncated(ei.name, text_x, line1_y, detail_max_w);
 
             ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#ccc");
+            ctx.set_fill_style_str(COLOR_TEXT);
             self.fill_text_truncated(&format!("HP {} ATK {} DEF {}", ei.hp, ei.attack, ei.defense), text_x, line2_y, detail_max_w);
 
             ctx.set_fill_style_str("#999");
@@ -812,7 +818,7 @@ impl Renderer {
             self.fill_text_truncated(ii.name, text_x, line1_y, detail_max_w);
 
             ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#ccc");
+            ctx.set_fill_style_str(COLOR_TEXT);
             self.fill_text_truncated(&ii.desc, text_x, line2_y, detail_max_w);
         } else if info.is_player {
             let sprite = sprites::player_sprite();
@@ -825,7 +831,7 @@ impl Renderer {
             let _ = ctx.fill_text("You", text_x, line1_y);
 
             ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#ccc");
+            ctx.set_fill_style_str(COLOR_TEXT);
             self.fill_text_truncated(
                 &format!("HP {}/{} ATK {} DEF {}",
                     game.player_hp, game.player_max_hp,
@@ -834,13 +840,13 @@ impl Renderer {
             );
         } else {
             ctx.set_font(&self.font(13.0, "bold"));
-            ctx.set_fill_style_str("#ccc");
+            ctx.set_fill_style_str(COLOR_TEXT);
             ctx.set_text_align("left");
             ctx.set_text_baseline("top");
             self.fill_text_truncated(info.tile_name, pad, line1_y, canvas_w - pad * 2.0);
 
             ctx.set_font(&self.font(11.0, ""));
-            ctx.set_fill_style_str("#888");
+            ctx.set_fill_style_str(COLOR_TEXT_DIM);
             self.fill_text_truncated(info.tile_desc, pad, line2_y, canvas_w - pad * 2.0);
         }
     }
@@ -995,10 +1001,10 @@ impl Renderer {
         let sprint_label = if game.sprinting { "SPRINT" } else { "Sprint" };
 
         let buttons: [(&str, &str, bool); 4] = [
-            ("Inventory", if game.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.drawer == Drawer::Inventory),
-            ("Stats", if game.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.drawer == Drawer::Stats),
+            ("Inventory", if game.ui.drawer == Drawer::Inventory { "#8af" } else { "#58f" }, game.ui.drawer == Drawer::Inventory),
+            ("Stats", if game.ui.drawer == Drawer::Stats { "#c8f" } else { "#a8f" }, game.ui.drawer == Drawer::Stats),
             (sprint_label, sprint_color, game.sprinting),
-            ("Settings", if game.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.drawer == Drawer::Settings),
+            ("Settings", if game.ui.drawer == Drawer::Settings { "#ccc" } else { "#888" }, game.ui.drawer == Drawer::Settings),
         ];
 
         for (i, (label, color, active)) in buttons.iter().enumerate() {

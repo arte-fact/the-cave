@@ -47,7 +47,7 @@ impl Renderer {
         if preview_path.len() > 1 {
             let aim_target = preview_path[preview_path.len() - 1];
             let is_aiming = game.has_ranged_weapon()
-                && game.enemies.iter().any(|e| e.x == aim_target.0 && e.y == aim_target.1 && e.hp > 0);
+                && game.has_enemy_at(aim_target.0, aim_target.1);
             if is_aiming {
                 self.draw_aim_preview(game, cam, cell, preview_path);
             } else {

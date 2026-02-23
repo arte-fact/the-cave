@@ -2,6 +2,7 @@ mod camera;
 mod config;
 mod errors;
 mod game;
+mod hit_test;
 mod input;
 mod map;
 mod renderer;
@@ -15,28 +16,17 @@ use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, HtmlImageElement};
 
 use config::{Difficulty, GameConfig};
-use game::{Drawer, Game, ItemKind, SkillKind, TurnResult, QUICKBAR_SLOTS};
+use game::{Drawer, Game, TurnResult};
+use hit_test::*;
 use input::{Input, InputAction};
 use map::{bresenham_line, Map};
 use renderer::{Renderer, SpriteSheets};
 use world::World;
 
-/// CSS coordinates for hit-testing (pre-DPR).
-struct CssHitArea {
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
-}
-
-/// State needed for drawer hit-testing.
-struct DrawerHitState {
-    drawer: Drawer,
-    item_count: usize,
-    inventory_scroll: usize,
-    skill_points: u32,
-    selected_eq_slot: Option<usize>,
-}
+/// Long-press frame threshold for drag (~300ms at 60fps).
+const DRAG_LONG_PRESS_FRAMES: u32 = 18;
+/// Auto-move step interval in frames (~7.5 tiles/sec at 60fps).
+const AUTO_MOVE_INTERVAL: u32 = 8;
 
 /// Type alias for the animation frame closure pattern.
 type AnimFrameClosure = Rc<RefCell<Option<Closure<dyn FnMut()>>>>;
@@ -86,537 +76,15 @@ struct MenuState {
     has_save: bool,
 }
 
-/// Result of tapping the bottom bar.
-enum BarTap {
-    OpenDrawer(Drawer),
-    Sprint,
-}
 
-/// Bottom bar button layout: returns which button was tapped (if any).
-/// `css_y` and `canvas_h_css` are in CSS pixels (pre-DPR).
-fn hit_test_bottom_bar(css_x: f64, css_y: f64, css_w: f64, css_h: f64, bar_h_css: f64) -> Option<BarTap> {
-    let bar_top = css_h - bar_h_css;
-    if css_y < bar_top {
-        return None;
-    }
-    let btn_count = 4.0;
-    let btn_w = (css_w / btn_count).min(110.0);
-    let total_w = btn_w * btn_count;
-    let start_x = (css_w - total_w) / 2.0;
-    let idx = ((css_x - start_x) / btn_w).floor() as i32;
-    match idx {
-        0 => Some(BarTap::OpenDrawer(Drawer::Inventory)),
-        1 => Some(BarTap::OpenDrawer(Drawer::Stats)),
-        2 => Some(BarTap::Sprint),
-        3 => Some(BarTap::OpenDrawer(Drawer::Settings)),
-        _ => None,
-    }
-}
-
-/// Hit-test the quick-use bar (portrait mode). Returns the slot index (0–3) if tapped.
-/// The quick bar sits above the bottom bar: top = css_h - bar_h_css - qbar_h_css.
-fn hit_test_quick_bar(
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    css_h: f64,
-    bar_h_css: f64,
-    qbar_h_css: f64,
-) -> Option<usize> {
-    let qbar_top = css_h - bar_h_css - qbar_h_css;
-    let qbar_bottom = css_h - bar_h_css;
-    if css_y < qbar_top || css_y >= qbar_bottom {
-        return None;
-    }
-    // Slot layout mirrors draw_quick_bar (CSS space, pre-DPR)
-    let slot_size = 36.0;
-    let slot_pad = 6.0;
-    let total_w = QUICKBAR_SLOTS as f64 * (slot_size + slot_pad) - slot_pad;
-    let start_x = (css_w - total_w) / 2.0;
-
-    for i in 0..QUICKBAR_SLOTS {
-        let sx = start_x + i as f64 * (slot_size + slot_pad);
-        if css_x >= sx && css_x <= sx + slot_size {
-            return Some(i);
-        }
-    }
-    None
-}
-
-/// Hit-test the landscape side panel. Returns Some(BarTap) if a button was hit,
-/// or None if the tap didn't land on a button (but may still be in the panel area).
-/// Coordinates are in CSS pixels.
-fn hit_test_side_panel_buttons(
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    panel_css_w: f64,
-) -> Option<BarTap> {
-    let panel_x = css_w - panel_css_w;
-    if css_x < panel_x {
-        return None;
-    }
-
-    // Button layout mirrors draw_side_panel: 2×2 grid.
-    // Stats are now in the top bar, so the panel starts directly with
-    // optional tile detail + quick-bar + buttons.
-    // Layout: pad(10) + [detail(44+6)] + quickbar(30+6) + buttons
-    let pad = 10.0;
-    let x = panel_x + pad;
-    let inner_w = panel_css_w - pad * 2.0;
-    let btn_h = 30.0;
-    let btn_gap = 4.0;
-    let btn_w = (inner_w - btn_gap) / 2.0;
-
-    let qbar_offset = 36.0; // quick-bar: 30 slot + 6 gap
-    // Try with/without detail strip (44 + 6 = 50 CSS px)
-    for detail_offset in &[0.0_f64, 50.0] {
-        let by = pad + detail_offset + qbar_offset;
-        for i in 0..4 {
-            let col = i % 2;
-            let row = i / 2;
-            let bx = x + col as f64 * (btn_w + btn_gap);
-            let button_y = by + row as f64 * (btn_h + btn_gap);
-
-            if css_x >= bx && css_x <= bx + btn_w
-                && css_y >= button_y && css_y <= button_y + btn_h
-            {
-                return match i {
-                    0 => Some(BarTap::OpenDrawer(Drawer::Inventory)),
-                    1 => Some(BarTap::OpenDrawer(Drawer::Stats)),
-                    2 => Some(BarTap::Sprint),
-                    3 => Some(BarTap::OpenDrawer(Drawer::Settings)),
-                    _ => None,
-                };
-            }
-        }
-    }
-    None
-}
-
-/// Hit-test the landscape side panel quick-bar. Returns Some(slot) if tapped.
-/// The quick bar sits between the optional tile detail and the button grid.
-fn hit_test_side_panel_quickbar(
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    panel_css_w: f64,
-    has_detail: bool,
-) -> Option<usize> {
-    let panel_x = css_w - panel_css_w;
-    if css_x < panel_x {
-        return None;
-    }
-    let pad = 10.0;
-    let inner_w = panel_css_w - pad * 2.0;
-    let x = panel_x + pad;
-
-    // Quick bar y offset: pad + optional detail (44+6=50)
-    // Stats are in the top bar, so the panel starts directly with content.
-    let detail_offset = if has_detail { 50.0 } else { 0.0 };
-    let qbar_y = pad + detail_offset;
-    let slot_size = 30.0;
-    let slot_pad = 4.0;
-
-    if css_y < qbar_y || css_y > qbar_y + slot_size {
-        return None;
-    }
-
-    let total_slot_w = QUICKBAR_SLOTS as f64 * (slot_size + slot_pad) - slot_pad;
-    let slot_start_x = x + (inner_w - total_slot_w) / 2.0;
-
-    for i in 0..QUICKBAR_SLOTS {
-        let sx = slot_start_x + i as f64 * (slot_size + slot_pad);
-        if css_x >= sx && css_x <= sx + slot_size {
-            return Some(i);
-        }
-    }
-    None
-}
-
-/// Hit-test the landscape side panel drawer area. Returns Some(DrawerTap) if
-/// the tap landed on an actionable element, None if outside the panel.
-fn hit_test_side_panel_drawer(
-    area: &CssHitArea,
-    panel_css_w: f64,
-    state: &DrawerHitState,
-) -> Option<DrawerTap> {
-    let panel_x = area.w - panel_css_w;
-    if area.x < panel_x {
-        return None;
-    }
-
-    if state.drawer == Drawer::None {
-        return None;
-    }
-
-    let pad = 10.0;
-    let x = panel_x + pad;
-    let inner_w = panel_css_w - pad * 2.0;
-
-    // Drawer content starts below buttons. Stats are in the top bar now, so the
-    // panel layout is: pad + [detail(50)] + quickbar(36) + buttons(68) + separator(13).
-    // We scan both with/without detail by using the larger offset (always safe).
-    let btn_h = 30.0;
-    let btn_gap = 4.0;
-    let qbar_offset = 36.0;
-    // Without detail: pad(10) + qbar(36) + buttons(68) + sep(13) = 127
-    // With detail:    pad(10) + detail(50) + qbar(36) + buttons(68) + sep(13) = 177
-    // Use the larger to be safe — drawer items only exist below both possible positions.
-    let drawer_start = pad + 50.0 + qbar_offset + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
-
-    // Settings drawer
-    if state.drawer == Drawer::Settings {
-        let row_y = drawer_start + 18.0;
-        let row_h = 30.0;
-        let toggle_w = 50.0;
-        let toggle_h = 22.0;
-        let toggle_x = x + inner_w - toggle_w;
-        let toggle_y = row_y + (row_h - toggle_h) / 2.0;
-        if area.x >= toggle_x && area.x <= toggle_x + toggle_w
-            && area.y >= toggle_y && area.y <= toggle_y + toggle_h
-        {
-            return Some(DrawerTap::ToggleGlyphMode);
-        }
-        let menu_y = row_y + row_h + 8.0 + 20.0;
-        let menu_w = inner_w * 0.8;
-        let menu_x = x + (inner_w - menu_w) / 2.0;
-        let menu_h = 28.0;
-        if area.x >= menu_x && area.x <= menu_x + menu_w
-            && area.y >= menu_y && area.y <= menu_y + menu_h
-        {
-            return Some(DrawerTap::MainMenu);
-        }
-        return Some(DrawerTap::Consumed);
-    }
-
-    // Stats drawer: skill allocation buttons
-    if state.drawer == Drawer::Stats && state.skill_points > 0 {
-        let skill_start = drawer_start + 16.0 + 36.0 + 5.0 * 18.0 + 6.0 + 14.0;
-        let skill_row_h = 24.0;
-        let btn_sz = 18.0;
-        let skills = [SkillKind::Strength, SkillKind::Vitality, SkillKind::Dexterity, SkillKind::Stamina];
-        for (i, skill) in skills.iter().enumerate() {
-            let row_y = skill_start + i as f64 * skill_row_h;
-            let btn_x = x + inner_w - btn_sz;
-            let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
-            if area.x >= btn_x && area.x <= btn_x + btn_sz
-                && area.y >= btn_y && area.y <= btn_y + btn_sz
-            {
-                return Some(DrawerTap::StatsAllocate(*skill));
-            }
-        }
-        return Some(DrawerTap::Consumed);
-    }
-
-    // Inventory drawer
-    if state.drawer == Drawer::Inventory {
-        let eq_h = 22.0;
-        let eq_gap = 2.0;
-        let eq_start = drawer_start + 16.0;
-        let list_start = eq_start + 6.0 * (eq_h + eq_gap) + 4.0;
-        let slot_h = 26.0;
-        let avail_h = area.h - list_start - 16.0;
-        let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
-        let end = (state.inventory_scroll + max_visible).min(state.item_count);
-
-        // Equipment slot hit-test (6 vertical rows)
-        if area.y >= eq_start && area.y < list_start {
-            let slot_idx = ((area.y - eq_start) / (eq_h + eq_gap)).floor() as usize;
-            if slot_idx < 6 {
-                // Check if tapping the inline Unequip button on a selected slot
-                if state.selected_eq_slot == Some(slot_idx) {
-                    let ubtn_w = 36.0;
-                    let ubtn_x = panel_x + pad + inner_w - ubtn_w - pad;
-                    if area.x >= ubtn_x {
-                        return Some(DrawerTap::Unequip(slot_idx));
-                    }
-                }
-                return Some(DrawerTap::EquipmentSlot(slot_idx));
-            }
-        }
-
-        if area.y >= list_start && state.item_count > 0 {
-            let vis_idx = ((area.y - list_start) / slot_h).floor() as usize;
-            let abs_idx = state.inventory_scroll + vis_idx;
-            if abs_idx < end {
-                return Some(DrawerTap::InventoryItem(abs_idx));
-            }
-        }
-        return Some(DrawerTap::Consumed);
-    }
-
-    Some(DrawerTap::Consumed)
-}
-
-/// Result of tapping inside a drawer.
-enum DrawerTap {
-    /// Tapped an inventory item at the given index (absolute, not visual).
-    InventoryItem(usize),
-    /// Tapped an equipment slot (0–5: weapon, armor, helmet, shield, boots, ring).
-    EquipmentSlot(usize),
-    /// Unequip button tapped for the selected equipment slot.
-    Unequip(usize),
-    /// Scroll the inventory list up.
-    ScrollUp,
-    /// Scroll the inventory list down.
-    ScrollDown,
-    /// Use/Equip button tapped for the selected item (detail bar).
-    UseEquip(usize),
-    /// Drop button tapped for the selected item (detail bar).
-    Drop(usize),
-    /// Allocate a skill point to the given attribute.
-    StatsAllocate(SkillKind),
-    /// Toggle glyph rendering mode.
-    ToggleGlyphMode,
-    /// Return to main menu from in-game settings.
-    MainMenu,
-    /// Tapped inside the drawer but not on an actionable element.
-    Consumed,
-}
-
-/// Drawer hit test: returns `Some` if the tap landed inside the drawer area.
-/// All coordinates are in CSS pixels (pre-DPR).
-/// Layout constants here mirror `renderer::draw_inventory_drawer` / `draw_stats_drawer`
-/// (which use `base * dpr` in canvas pixels — dividing by dpr gives CSS points).
-fn hit_test_drawer(
-    area: &CssHitArea,
-    bar_h_css: f64,
-    state: &DrawerHitState,
-    selected_item: Option<usize>,
-    stats_scroll: f64,
-    has_ranged_weapon: bool,
-) -> Option<DrawerTap> {
-    let drawer_frac = match state.drawer {
-        Drawer::None => return None,
-        Drawer::Inventory => 0.55,
-        Drawer::Stats => 0.55,
-        Drawer::Settings => 0.45,
-    };
-    let drawer_h = area.h * drawer_frac;
-    let drawer_y = area.h - bar_h_css - drawer_h;
-
-    if area.y < drawer_y || area.y >= area.h - bar_h_css {
-        return None;
-    }
-
-    // Settings drawer: glyph mode toggle + main menu button
-    if state.drawer == Drawer::Settings {
-        let pad = 12.0;
-        let row_y = drawer_y + 40.0;
-        let row_h = 40.0;
-        let toggle_w = 70.0;
-        let toggle_h = 30.0;
-        let toggle_x = area.w - pad - toggle_w;
-        let toggle_y = row_y + (row_h - toggle_h) / 2.0;
-        if area.x >= toggle_x && area.x <= toggle_x + toggle_w
-            && area.y >= toggle_y && area.y <= toggle_y + toggle_h
-        {
-            return Some(DrawerTap::ToggleGlyphMode);
-        }
-        let diff_y = row_y + row_h + 24.0;
-        let menu_btn_w = (area.w * 0.5).min(180.0);
-        let menu_btn_h = 34.0;
-        let menu_btn_x = (area.w - menu_btn_w) / 2.0;
-        let menu_btn_y = diff_y + 32.0;
-        if area.x >= menu_btn_x && area.x <= menu_btn_x + menu_btn_w
-            && area.y >= menu_btn_y && area.y <= menu_btn_y + menu_btn_h
-        {
-            return Some(DrawerTap::MainMenu);
-        }
-        return Some(DrawerTap::Consumed);
-    }
-
-    // Stats drawer: check for skill point allocation buttons
-    if state.drawer == Drawer::Stats && state.skill_points > 0 {
-        let stat_row_count = if has_ranged_weapon { 6.0 } else { 5.0 };
-        let skill_section_offset = 32.0 + 42.0 + 22.0 + stat_row_count * 24.0 + 8.0 + 20.0;
-        let skill_section_y = drawer_y + skill_section_offset - stats_scroll;
-
-        let skill_row_h = 30.0;
-        let btn_sz = 24.0;
-        let pad = 12.0;
-        let btn_x = area.w - pad - btn_sz;
-        let skills = [SkillKind::Strength, SkillKind::Vitality, SkillKind::Dexterity, SkillKind::Stamina];
-        for (i, skill) in skills.iter().enumerate() {
-            let row_y = skill_section_y + i as f64 * skill_row_h;
-            let btn_y = row_y + (skill_row_h - btn_sz) / 2.0;
-            if area.x >= btn_x && area.x <= btn_x + btn_sz
-                && area.y >= btn_y && area.y <= btn_y + btn_sz
-            {
-                return Some(DrawerTap::StatsAllocate(*skill));
-            }
-        }
-        return Some(DrawerTap::Consumed);
-    }
-
-    // Inventory drawer: match layout from renderer::draw_inventory_drawer
-    let eq_y = drawer_y + 32.0;
-    let eq_h = 30.0;
-    let eq_gap = 4.0;
-    let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0;
-    let slot_h = 34.0;
-    let has_selection = selected_item.is_some() || state.selected_eq_slot.is_some();
-    let detail_bar_h = if has_selection { 46.0 } else { 20.0 };
-    let avail_h = (drawer_y + drawer_h - detail_bar_h) - list_y;
-    let max_visible = (avail_h / slot_h).floor().max(1.0) as usize;
-    let end = (state.inventory_scroll + max_visible).min(state.item_count);
-    let pad = 12.0;
-    let scrollbar_w = 12.0;
-
-    // Equipment slot hit-test (6 slots in 3×2 grid)
-    if area.y >= eq_y && area.y < list_y {
-        let right_x = area.w / 2.0 + pad * 0.5;
-        let is_right = area.x >= right_x;
-        let row = ((area.y - eq_y) / (eq_h + eq_gap)).floor() as usize;
-        if row < 3 {
-            let col = if is_right { 1 } else { 0 };
-            let slot_idx = row * 2 + col;
-            return Some(DrawerTap::EquipmentSlot(slot_idx));
-        }
-    }
-
-    // Detail bar buttons hit test (when an inventory item or equipment slot is selected)
-    if let Some(sel_idx) = selected_item {
-        let bar_y = drawer_y + drawer_h - detail_bar_h;
-        if area.y >= bar_y {
-            let btn_h = 26.0;
-            let btn_gap = 8.0;
-            let btn_y = bar_y + detail_bar_h - btn_h - 4.0;
-
-            if area.y >= btn_y && area.y <= btn_y + btn_h {
-                let action_w = 60.0;
-                let action_x = area.w - pad - action_w - btn_gap - 60.0;
-                if area.x >= action_x && area.x <= action_x + action_w {
-                    return Some(DrawerTap::UseEquip(sel_idx));
-                }
-                let drop_w = 60.0;
-                let drop_x = area.w - pad - drop_w;
-                if area.x >= drop_x && area.x <= drop_x + drop_w {
-                    return Some(DrawerTap::Drop(sel_idx));
-                }
-            }
-            return Some(DrawerTap::Consumed);
-        }
-    }
-    if let Some(eq_slot) = state.selected_eq_slot {
-        let bar_y = drawer_y + drawer_h - detail_bar_h;
-        if area.y >= bar_y {
-            let btn_h = 26.0;
-            let btn_y = bar_y + detail_bar_h - btn_h - 4.0;
-            if area.y >= btn_y && area.y <= btn_y + btn_h {
-                let unequip_w = 80.0;
-                let unequip_x = area.w - pad - unequip_w;
-                if area.x >= unequip_x && area.x <= unequip_x + unequip_w {
-                    return Some(DrawerTap::Unequip(eq_slot));
-                }
-            }
-            return Some(DrawerTap::Consumed);
-        }
-    }
-
-    if area.y >= list_y && state.item_count > 0 {
-        let scrollbar_x = area.w - pad - scrollbar_w;
-        if area.x >= scrollbar_x && state.item_count > max_visible {
-            let track_h = max_visible as f64 * slot_h;
-            let scroll_range = state.item_count - max_visible;
-            let thumb_frac = max_visible as f64 / state.item_count as f64;
-            let min_thumb_h = 20.0;
-            let thumb_h = (track_h * thumb_frac).max(min_thumb_h);
-            let scroll_frac = if scroll_range > 0 {
-                state.inventory_scroll as f64 / scroll_range as f64
-            } else {
-                0.0
-            };
-            let thumb_y = list_y + scroll_frac * (track_h - thumb_h);
-
-            if area.y < thumb_y {
-                return Some(DrawerTap::ScrollUp);
-            } else if area.y > thumb_y + thumb_h {
-                return Some(DrawerTap::ScrollDown);
-            }
-            return Some(DrawerTap::Consumed);
-        }
-
-        let vis_idx = ((area.y - list_y) / slot_h).floor() as usize;
-        let abs_idx = state.inventory_scroll + vis_idx;
-        if abs_idx < end {
-            return Some(DrawerTap::InventoryItem(abs_idx));
-        }
-    }
-
-    Some(DrawerTap::Consumed)
-}
-
-
-/// Check if CSS coordinates land on an inventory item row in portrait mode.
-/// Returns the absolute inventory index if so.
-fn hit_test_inventory_item_row(
-    _css_x: f64,
-    css_y: f64,
-    _css_w: f64,
-    css_h: f64,
-    bar_h_css: f64,
-    item_count: usize,
-    inventory_scroll: usize,
-) -> Option<usize> {
-    // Inventory drawer = 55% of canvas height, above the bottom region
-    let drawer_h = css_h * 0.55;
-    let drawer_y = css_h - bar_h_css - drawer_h;
-    if css_y < drawer_y || css_y >= css_h - bar_h_css {
-        return None;
-    }
-    // Item list starts after: header(32) + 3 eq rows(3*(30+4)) + gap(4)
-    let eq_y = drawer_y + 32.0;
-    let eq_h = 30.0;
-    let eq_gap = 4.0;
-    let list_y = eq_y + (eq_h + eq_gap) * 3.0 + 4.0;
-    let slot_h = 34.0;
-    if css_y < list_y || item_count == 0 {
-        return None;
-    }
-    let vis_idx = ((css_y - list_y) / slot_h).floor() as usize;
-    let abs_idx = inventory_scroll + vis_idx;
-    if abs_idx < item_count { Some(abs_idx) } else { None }
-}
-
-/// Check if CSS coordinates land on an inventory item row in landscape mode.
-fn hit_test_inventory_item_row_landscape(
-    css_x: f64,
-    css_y: f64,
-    css_w: f64,
-    _css_h: f64,
-    panel_css_w: f64,
-    item_count: usize,
-    inventory_scroll: usize,
-) -> Option<usize> {
-    let panel_x = css_w - panel_css_w;
-    if css_x < panel_x {
-        return None;
-    }
-    let pad = 10.0;
-    let btn_h = 30.0;
-    let btn_gap = 4.0;
-    // Stats are in the top bar; panel layout: pad + [detail(50)] + qbar(36) + buttons + sep
-    let qbar_size = 30.0 + 6.0;
-    let drawer_start = pad + 50.0 + qbar_size + (btn_h + btn_gap) * 2.0 + 6.0 + 1.0 + 6.0;
-    // Items start after: title(16) + 6 eq slots(6*(22+2)) + gap(4)
-    let eq_h = 22.0;
-    let eq_gap = 2.0;
-    let list_start = drawer_start + 16.0 + 6.0 * (eq_h + eq_gap) + 4.0;
-    let slot_h = 26.0;
-    if css_y < list_start || item_count == 0 {
-        return None;
-    }
-    let vis_idx = ((css_y - list_start) / slot_h).floor() as usize;
-    let abs_idx = inventory_scroll + vis_idx;
-    if abs_idx < item_count { Some(abs_idx) } else { None }
+/// Get localStorage handle, returning None if unavailable.
+fn get_local_storage() -> Option<web_sys::Storage> {
+    web_sys::window().and_then(|w| w.local_storage().ok().flatten())
 }
 
 /// Load glyph_mode setting from localStorage.
 fn load_glyph_mode() -> bool {
-    web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
+    get_local_storage()
         .and_then(|s| s.get_item("glyph_mode").ok().flatten())
         .map(|v| v == "true")
         .unwrap_or(false)
@@ -624,17 +92,14 @@ fn load_glyph_mode() -> bool {
 
 /// Save glyph_mode setting to localStorage.
 fn save_glyph_mode(enabled: bool) {
-    if let Some(storage) = web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
-    {
+    if let Some(storage) = get_local_storage() {
         let _ = storage.set_item("glyph_mode", if enabled { "true" } else { "false" });
     }
 }
 
 /// Load last-used difficulty from localStorage. Defaults to Normal (1).
 fn load_difficulty() -> usize {
-    web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
+    get_local_storage()
         .and_then(|s| s.get_item("difficulty").ok().flatten())
         .and_then(|v| v.parse().ok())
         .unwrap_or(1)
@@ -642,9 +107,7 @@ fn load_difficulty() -> usize {
 
 /// Save difficulty selection to localStorage.
 fn save_difficulty(idx: usize) {
-    if let Some(storage) = web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
-    {
+    if let Some(storage) = get_local_storage() {
         let _ = storage.set_item("difficulty", &idx.to_string());
     }
 }
@@ -816,10 +279,10 @@ fn handle_drawer_tap(
 ) {
     match dtap {
         DrawerTap::InventoryItem(idx) => {
-            if gm.selected_inventory_item == Some(idx) {
-                gm.selected_inventory_item = None;
+            if gm.ui.selected_inventory_item == Some(idx) {
+                gm.ui.selected_inventory_item = None;
             } else {
-                gm.selected_inventory_item = Some(idx);
+                gm.ui.selected_inventory_item = Some(idx);
             }
             gm.selected_equipment_slot = None;
         }
@@ -831,7 +294,7 @@ fn handle_drawer_tap(
             } else {
                 gm.selected_equipment_slot = None;
             }
-            gm.selected_inventory_item = None;
+            gm.ui.selected_inventory_item = None;
         }
         DrawerTap::Unequip(slot) => {
             gm.unequip_item(slot);
@@ -839,23 +302,19 @@ fn handle_drawer_tap(
         }
         DrawerTap::UseEquip(idx) => {
             if idx < gm.inventory.len() {
-                let is_consumable = matches!(
-                    gm.inventory[idx].kind,
-                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food
-                );
-                if is_consumable {
+                if gm.inventory[idx].kind.is_consumable() {
                     gm.use_item(idx);
-                    gm.drawer = Drawer::None;
+                    gm.ui.drawer = Drawer::None;
                     gm.advance_turn();
                 } else {
                     gm.equip_item(idx);
                 }
-                gm.selected_inventory_item = None;
+                gm.ui.selected_inventory_item = None;
             }
         }
         DrawerTap::Drop(idx) => {
             gm.drop_item(idx);
-            gm.selected_inventory_item = None;
+            gm.ui.selected_inventory_item = None;
         }
         DrawerTap::ScrollUp => {
             gm.scroll_inventory(-1);
@@ -872,11 +331,23 @@ fn handle_drawer_tap(
             save_glyph_mode(r.glyph_mode);
         }
         DrawerTap::MainMenu => {
-            gm.drawer = Drawer::None;
+            gm.ui.drawer = Drawer::None;
             *go_to_menu = true;
         }
         DrawerTap::Consumed => {}
     }
+}
+
+/// Try to use the item in the given quick-bar slot. Returns true if an item was used.
+fn use_quick_bar_slot(gm: &mut Game, renderer: &Rc<RefCell<Renderer>>, slot: usize) -> bool {
+    if let Some(inv_idx) = gm.quick_bar.slots[slot] {
+        if inv_idx < gm.inventory.len() && gm.inventory[inv_idx].kind.is_consumable() {
+            gm.use_item(inv_idx);
+            renderer.borrow_mut().flash_quickbar_slot(slot);
+            return true;
+        }
+    }
+    false
 }
 
 fn request_animation_frame(window: &web_sys::Window, f: &Closure<dyn FnMut()>) {
@@ -953,6 +424,252 @@ fn load_image_optional(src: &str, mut on_load: impl FnMut(HtmlImageElement) + 's
     // Silently ignore load errors for optional sheets
     img.set_src(src);
     img
+}
+
+/// Handle a tap in the game area (portrait or landscape).
+/// Dispatches to bottom bar, quick bar, drawer, or world tile hit-tests.
+fn handle_game_tap(
+    gm: &mut Game,
+    renderer: &Rc<RefCell<Renderer>>,
+    css_x: f64,
+    css_y: f64,
+    dpr: f64,
+    go_to_menu: &mut bool,
+) {
+    let (css_w, css_h) = window_css_size();
+    let is_landscape = renderer.borrow().landscape;
+    let panel_w = renderer.borrow().side_panel_css_w();
+
+    if is_landscape {
+        let panel_x = css_w - panel_w;
+        if css_x >= panel_x {
+            // Tap in side panel — check buttons first, then drawer
+            if let Some(tap) = hit_test_side_panel_buttons(css_x, css_y, css_w, panel_w) {
+                match tap {
+                    BarTap::OpenDrawer(drawer) => gm.toggle_drawer(drawer),
+                    BarTap::Sprint => gm.toggle_sprint(),
+                }
+            } else if let Some(slot) = hit_test_side_panel_quickbar(css_x, css_y, css_w, panel_w, gm.ui.inspected.is_some()) {
+                if gm.ui.drawer != Drawer::Inventory {
+                    use_quick_bar_slot(gm, renderer, slot);
+                }
+            } else if gm.ui.drawer != Drawer::None {
+                if let Some(dtap) = hit_test_side_panel_drawer(
+                    &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
+                    panel_w,
+                    &DrawerHitState { drawer: gm.ui.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.ui.inventory_scroll, skill_points: gm.skill_points, selected_eq_slot: gm.selected_equipment_slot },
+                ) {
+                    handle_drawer_tap(gm, renderer, go_to_menu, dtap);
+                }
+            }
+        } else {
+            // Tap in game area (left of panel)
+            let r = renderer.borrow();
+            let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
+            drop(r);
+            let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
+            if dist == 1 && gm.has_enemy_at(wx, wy) {
+                gm.attack_adjacent(wx, wy);
+            } else if dist == 0 {
+                gm.pickup_items_explicit();
+            }
+            gm.ui.inspected = gm.inspect_tile(wx, wy);
+        }
+    } else {
+        // Portrait mode: bottom bar + quick bar + drawer
+        let r_borrow = renderer.borrow();
+        let bar_h_css = r_borrow.bottom_bar_height() / dpr;
+        let qbar_h_css = r_borrow.quickbar_height() / dpr;
+        drop(r_borrow);
+        let bottom_region_css = bar_h_css + qbar_h_css;
+
+        if let Some(tap) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
+            match tap {
+                BarTap::OpenDrawer(drawer) => gm.toggle_drawer(drawer),
+                BarTap::Sprint => gm.toggle_sprint(),
+            }
+        } else if let Some(slot) = hit_test_quick_bar(css_x, css_y, css_w, css_h, bar_h_css, qbar_h_css) {
+            if gm.ui.drawer != Drawer::Inventory {
+                use_quick_bar_slot(gm, renderer, slot);
+            }
+        } else if let Some(dtap) = hit_test_drawer(
+            &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
+            bottom_region_css,
+            &DrawerHitState { drawer: gm.ui.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.ui.inventory_scroll, skill_points: gm.skill_points, selected_eq_slot: gm.selected_equipment_slot },
+            gm.ui.selected_inventory_item, gm.ui.stats_scroll, gm.has_ranged_weapon(),
+        ) {
+            handle_drawer_tap(gm, renderer, go_to_menu, dtap);
+        } else if css_y < css_h - bottom_region_css {
+            // Tap in game area
+            let r = renderer.borrow();
+            let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
+            drop(r);
+            let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
+            if dist == 1 && gm.has_enemy_at(wx, wy) {
+                gm.attack_adjacent(wx, wy);
+            } else if dist == 0 {
+                gm.pickup_items_explicit();
+            }
+            gm.ui.inspected = gm.inspect_tile(wx, wy);
+        }
+    }
+}
+
+/// Process the drag-and-drop state machine for quick-bar item assignment.
+fn update_drag_state(
+    ds: &mut DragState,
+    game: &Rc<RefCell<Game>>,
+    renderer: &Rc<RefCell<Renderer>>,
+    td: Option<input::TouchDown>,
+    frame_counter: u32,
+    is_landscape: bool,
+    dpr: f64,
+) {
+    match *ds {
+        DragState::Idle => {
+            if let Some(td) = td {
+                let (css_w, css_h) = window_css_size();
+                if game.borrow().ui.drawer == Drawer::Inventory {
+                    // Finger down while inventory is open — check if on an item row
+                    let inv_idx = if is_landscape {
+                        let panel_css_w = renderer.borrow().side_panel_css_w();
+                        hit_test_inventory_item_row_landscape(td.start_x, td.start_y, css_w, css_h, panel_css_w,
+                            game.borrow().inventory.len(), game.borrow().ui.inventory_scroll)
+                    } else {
+                        let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+                        let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
+                        let bottom_region = bar_h_css + qbar_h_css;
+                        hit_test_inventory_item_row(td.start_x, td.start_y, css_w, css_h, bottom_region,
+                            game.borrow().inventory.len(), game.borrow().ui.inventory_scroll)
+                    };
+                    if let Some(idx) = inv_idx {
+                        let gm = game.borrow();
+                        if idx < gm.inventory.len() && gm.inventory[idx].kind.is_consumable() {
+                            *ds = DragState::Pending {
+                                inv_index: idx,
+                                start_x: td.start_x,
+                                start_y: td.start_y,
+                                start_frame: frame_counter,
+                                from_quickbar_slot: None,
+                            };
+                        }
+                    } else {
+                        // Check quick-bar slots — allow dragging back to unassign
+                        let qbar_slot = if is_landscape {
+                            let panel_css_w = renderer.borrow().side_panel_css_w();
+                            hit_test_side_panel_quickbar(td.start_x, td.start_y, css_w, panel_css_w, game.borrow().ui.inspected.is_some())
+                        } else {
+                            let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+                            let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
+                            hit_test_quick_bar(td.start_x, td.start_y, css_w, css_h, bar_h_css, qbar_h_css)
+                        };
+                        if let Some(slot) = qbar_slot {
+                            if let Some(inv_index) = game.borrow().quick_bar.slots[slot] {
+                                *ds = DragState::Pending {
+                                    inv_index,
+                                    start_x: td.start_x,
+                                    start_y: td.start_y,
+                                    start_frame: frame_counter,
+                                    from_quickbar_slot: Some(slot),
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        DragState::Pending { inv_index, start_x, start_y, start_frame, from_quickbar_slot } => {
+            if let Some(td) = td {
+                let dx = td.current_x - start_x;
+                let dy = td.current_y - start_y;
+                let dist = (dx * dx + dy * dy).sqrt();
+                if dist > 12.0 || dy.abs() > 6.0 {
+                    *ds = DragState::Idle;
+                } else if frame_counter.wrapping_sub(start_frame) >= DRAG_LONG_PRESS_FRAMES {
+                    *ds = DragState::Dragging {
+                        inv_index,
+                        touch_x: td.current_x,
+                        touch_y: td.current_y,
+                        from_quickbar_slot,
+                    };
+                }
+            } else {
+                *ds = DragState::Idle;
+            }
+        }
+        DragState::Dragging { inv_index, ref mut touch_x, ref mut touch_y, from_quickbar_slot } => {
+            if let Some(td) = td {
+                *touch_x = td.current_x;
+                *touch_y = td.current_y;
+            } else {
+                // Finger lifted — drop!
+                let (css_w, css_h) = window_css_size();
+                let mut gm = game.borrow_mut();
+
+                let drop_slot = if is_landscape {
+                    let panel_css_w = renderer.borrow().side_panel_css_w();
+                    hit_test_side_panel_quickbar(*touch_x, *touch_y, css_w, panel_css_w, gm.ui.inspected.is_some())
+                } else {
+                    let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
+                    let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
+                    hit_test_quick_bar(*touch_x, *touch_y, css_w, css_h, bar_h_css, qbar_h_css)
+                };
+
+                if let Some(slot) = drop_slot {
+                    if inv_index < gm.inventory.len() {
+                        let item = gm.inventory[inv_index].clone();
+                        if let Some(from_slot) = from_quickbar_slot {
+                            gm.quick_bar.swap(from_slot, slot);
+                        } else {
+                            gm.quick_bar.assign(slot, inv_index, &item);
+                        }
+                    }
+                } else if let Some(from_slot) = from_quickbar_slot {
+                    gm.quick_bar.clear(from_slot);
+                }
+
+                drop(gm);
+                *ds = DragState::Idle;
+            }
+        }
+    }
+}
+
+/// Process one step of the auto-move queue. Returns true if a map change occurred.
+fn process_auto_move(
+    game: &Rc<RefCell<Game>>,
+    auto_path: &mut Vec<(i32, i32)>,
+    tick: &mut u32,
+) -> bool {
+    if auto_path.is_empty() {
+        return false;
+    }
+    *tick += 1;
+    if *tick < AUTO_MOVE_INTERVAL {
+        return false;
+    }
+    *tick = 0;
+    let mut gm = game.borrow_mut();
+    if !gm.alive || gm.won {
+        auto_path.clear();
+        return false;
+    }
+    let (nx, ny) = auto_path[0];
+    let dx = nx - gm.player_x;
+    let dy = ny - gm.player_y;
+    let result = gm.move_player(dx, dy);
+    auto_path.remove(0);
+    if matches!(result, TurnResult::Blocked) {
+        if gm.has_enemy_at(nx, ny) {
+            gm.attack_adjacent(nx, ny);
+        }
+        auto_path.clear();
+        return false;
+    }
+    if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
+        auto_path.clear();
+    }
+    matches!(result, TurnResult::MapChanged)
 }
 
 #[wasm_bindgen(start)]
@@ -1179,11 +896,11 @@ pub fn start() -> Result<(), JsValue> {
                 for action in actions {
                     match action {
                         InputAction::Step(dir) => {
-                            if gm.drawer != Drawer::None {
+                            if gm.ui.drawer != Drawer::None {
                                 // Swipe/movement disabled while drawer is open
                                 continue;
                             }
-                            gm.inspected = None;
+                            gm.ui.inspected = None;
                             auto_path.borrow_mut().clear();
                             let (dx, dy) = match dir {
                                 input::Direction::Up => (0, -1),
@@ -1202,7 +919,7 @@ pub fn start() -> Result<(), JsValue> {
                                 // Step blocked by enemy → attack it
                                 let tx = gm.player_x + dx;
                                 let ty = gm.player_y + dy;
-                                if gm.enemies.iter().any(|e| e.x == tx && e.y == ty && e.hp > 0) {
+                                if gm.has_enemy_at(tx, ty) {
                                     let atk_result = gm.attack_adjacent(tx, ty);
                                     if matches!(atk_result, TurnResult::MapChanged) {
                                         map_changed = true;
@@ -1211,14 +928,14 @@ pub fn start() -> Result<(), JsValue> {
                             }
                         }
                         InputAction::ExecutePath => {
-                            if gm.drawer != Drawer::None {
+                            if gm.ui.drawer != Drawer::None {
                                 continue;
                             }
                             let pp = preview_path.borrow();
                             if pp.len() > 1 {
                                 let target = pp[pp.len() - 1];
                                 let enemy_at_target = gm.has_ranged_weapon()
-                                    && gm.enemies.iter().any(|e| e.x == target.0 && e.y == target.1 && e.hp > 0);
+                                    && gm.has_enemy_at(target.0, target.1);
                                 if enemy_at_target {
                                     // Fire ranged weapon at the targeted enemy
                                     drop(pp);
@@ -1234,8 +951,6 @@ pub fn start() -> Result<(), JsValue> {
                         }
                         InputAction::Tap(css_x, css_y) => {
                             // Skip tap only if actively dragging (drop is handled separately).
-                            // Pending state should NOT block taps — it means the long-press
-                            // timer hasn't fired yet, so the touch was a normal tap.
                             if matches!(*drag_state.borrow(), DragState::Dragging { .. }) {
                                 continue;
                             }
@@ -1243,110 +958,7 @@ pub fn start() -> Result<(), JsValue> {
                             if !matches!(*drag_state.borrow(), DragState::Idle) {
                                 *drag_state.borrow_mut() = DragState::Idle;
                             }
-                            let (css_w, css_h) = window_css_size();
-                            let is_landscape = renderer.borrow().landscape;
-                            let panel_w = renderer.borrow().side_panel_css_w();
-
-                            if is_landscape {
-                                // Landscape mode: side panel on right
-                                let panel_x = css_w - panel_w;
-                                if css_x >= panel_x {
-                                    // Tap in side panel — check buttons first, then drawer
-                                    if let Some(tap) = hit_test_side_panel_buttons(css_x, css_y, css_w, panel_w) {
-                                        match tap {
-                                            BarTap::OpenDrawer(drawer) => gm.toggle_drawer(drawer),
-                                            BarTap::Sprint => gm.toggle_sprint(),
-                                        }
-                                    } else if let Some(slot) = hit_test_side_panel_quickbar(css_x, css_y, css_w, panel_w, gm.inspected.is_some()) {
-                                        // Quick-bar tap in landscape (disabled when inventory is open)
-                                        if gm.drawer != Drawer::Inventory {
-                                            if let Some(inv_idx) = gm.quick_bar.slots[slot] {
-                                                if inv_idx < gm.inventory.len() {
-                                                    let kind = gm.inventory[inv_idx].kind.clone();
-                                                    match kind {
-                                                        ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                            gm.use_item(inv_idx);
-                                                            renderer.borrow_mut().flash_quickbar_slot(slot);
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } else if gm.drawer != Drawer::None {
-                                        if let Some(dtap) = hit_test_side_panel_drawer(
-                                            &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
-                                            panel_w,
-                                            &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points, selected_eq_slot: gm.selected_equipment_slot },
-                                        ) {
-                                            handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
-                                        }
-                                    }
-                                    // Side panel taps always consumed
-                                } else {
-                                    // Tap in game area (left of panel)
-                                    let r = renderer.borrow();
-                                    let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
-                                    drop(r);
-                                    let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
-                                    if dist == 1 && gm.enemies.iter().any(|e| e.x == wx && e.y == wy && e.hp > 0) {
-                                        gm.attack_adjacent(wx, wy);
-                                    } else if dist == 0 {
-                                        gm.pickup_items_explicit();
-                                    }
-                                    gm.inspected = gm.inspect_tile(wx, wy);
-                                }
-                            } else {
-                                // Portrait mode: bottom bar + quick bar + drawer
-                                let r_borrow = renderer.borrow();
-                                let bar_h_css = r_borrow.bottom_bar_height() / dpr;
-                                let qbar_h_css = r_borrow.quickbar_height() / dpr;
-                                drop(r_borrow);
-                                // Combined region for drawer positioning
-                                let bottom_region_css = bar_h_css + qbar_h_css;
-
-                                if let Some(tap) = hit_test_bottom_bar(css_x, css_y, css_w, css_h, bar_h_css) {
-                                    match tap {
-                                        BarTap::OpenDrawer(drawer) => gm.toggle_drawer(drawer),
-                                        BarTap::Sprint => gm.toggle_sprint(),
-                                    }
-                                } else if let Some(slot) = hit_test_quick_bar(css_x, css_y, css_w, css_h, bar_h_css, qbar_h_css) {
-                                    // Quick-bar tap: use item if slot is occupied (disabled when inventory is open)
-                                    if gm.drawer != Drawer::Inventory {
-                                        if let Some(inv_idx) = gm.quick_bar.slots[slot] {
-                                            if inv_idx < gm.inventory.len() {
-                                                let kind = gm.inventory[inv_idx].kind.clone();
-                                                match kind {
-                                                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                        gm.use_item(inv_idx);
-                                                        renderer.borrow_mut().flash_quickbar_slot(slot);
-                                                    }
-                                                    _ => {}
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else if let Some(dtap) = hit_test_drawer(
-                                    &CssHitArea { x: css_x, y: css_y, w: css_w, h: css_h },
-                                    bottom_region_css,
-                                    &DrawerHitState { drawer: gm.drawer, item_count: gm.inventory.len(), inventory_scroll: gm.inventory_scroll, skill_points: gm.skill_points, selected_eq_slot: gm.selected_equipment_slot },
-                                    gm.selected_inventory_item, gm.stats_scroll, gm.has_ranged_weapon(),
-                                ) {
-                                    handle_drawer_tap(&mut gm, &renderer, &mut go_to_menu, dtap);
-                                } else if css_y < css_h - bottom_region_css {
-                                    // Tap in game area
-                                    let r = renderer.borrow();
-                                    let (wx, wy) = r.camera.screen_to_world(css_x * dpr, css_y * dpr);
-                                    drop(r);
-                                    let dist = (wx - gm.player_x).abs() + (wy - gm.player_y).abs();
-                                    if dist == 1 && gm.enemies.iter().any(|e| e.x == wx && e.y == wy && e.hp > 0) {
-                                        gm.attack_adjacent(wx, wy);
-                                    } else if dist == 0 {
-                                        gm.pickup_items_explicit();
-                                    }
-                                    gm.inspected = gm.inspect_tile(wx, wy);
-                                }
-                            }
+                            handle_game_tap(&mut gm, &renderer, css_x, css_y, dpr, &mut go_to_menu);
                         }
                         InputAction::ToggleInventory => {
                             gm.toggle_drawer(Drawer::Inventory);
@@ -1363,30 +975,19 @@ pub fn start() -> Result<(), JsValue> {
                             save_glyph_mode(r.glyph_mode);
                         }
                         InputAction::QuickUse(slot) => {
-                            if gm.drawer == Drawer::None {
-                                if let Some(inv_idx) = gm.quick_bar.slots[slot] {
-                                    if inv_idx < gm.inventory.len() {
-                                        let kind = gm.inventory[inv_idx].kind.clone();
-                                        match kind {
-                                            ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                                                gm.use_item(inv_idx);
-                                                renderer.borrow_mut().flash_quickbar_slot(slot);
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                }
+                            if gm.ui.drawer == Drawer::None {
+                                use_quick_bar_slot(&mut gm, &renderer, slot);
                             }
                         }
                         InputAction::Interact => {
-                            if gm.drawer != Drawer::None {
+                            if gm.ui.drawer != Drawer::None {
                                 continue;
                             }
                             // Try to attack adjacent enemy in facing direction
                             let (fdx, fdy) = if gm.player_facing_left { (-1, 0) } else { (1, 0) };
                             let tx = gm.player_x + fdx;
                             let ty = gm.player_y + fdy;
-                            if gm.enemies.iter().any(|e| e.x == tx && e.y == ty && e.hp > 0) {
+                            if gm.has_enemy_at(tx, ty) {
                                 gm.attack_adjacent(tx, ty);
                             } else {
                                 // Try all 8 directions for adjacent enemy (including diagonals)
@@ -1396,7 +997,7 @@ pub fn start() -> Result<(), JsValue> {
                                 for (dx, dy) in dirs {
                                     let ax = gm.player_x + dx;
                                     let ay = gm.player_y + dy;
-                                    if gm.enemies.iter().any(|e| e.x == ax && e.y == ay && e.hp > 0) {
+                                    if gm.has_enemy_at(ax, ay) {
                                         gm.attack_adjacent(ax, ay);
                                         attacked = true;
                                         break;
@@ -1434,7 +1035,7 @@ pub fn start() -> Result<(), JsValue> {
             pp.clear();
             if let Some(swipe) = input.swipe_state() {
                 let mut gm = game.borrow_mut();
-                if gm.alive && !gm.won && gm.drawer == Drawer::None {
+                if gm.alive && !gm.won && gm.ui.drawer == Drawer::None {
                     let dx = (swipe.current_x - swipe.start_x) * 0.7;
                     let dy = (swipe.current_y - swipe.start_y) * 0.7;
                     let (gdx, gdy) = renderer.borrow().camera.css_delta_to_grid(dx, dy, dpr);
@@ -1442,7 +1043,7 @@ pub fn start() -> Result<(), JsValue> {
                     let map = gm.current_map();
                     // Aim mode: show Bresenham line only when hovering an enemy
                     let enemy_at_dest = gm.has_ranged_weapon()
-                        && gm.enemies.iter().any(|e| e.x == dest.0 && e.y == dest.1 && e.hp > 0);
+                        && gm.has_enemy_at(dest.0, dest.1);
                     if enemy_at_dest {
                         let line = bresenham_line(gm.player_x, gm.player_y, dest.0, dest.1);
                         *pp = line;
@@ -1451,14 +1052,14 @@ pub fn start() -> Result<(), JsValue> {
                         *pp = path;
                     }
                     // Inspect the destination tile during swipe
-                    gm.inspected = gm.inspect_tile(dest.0, dest.1);
-                } else if gm.drawer == Drawer::Inventory {
+                    gm.ui.inspected = gm.inspect_tile(dest.0, dest.1);
+                } else if gm.ui.drawer == Drawer::Inventory {
                     // Swipe-scroll inventory when drawer is open (skip if dragging)
                     if matches!(*drag_state.borrow(), DragState::Idle) {
                         let slot_h_css = 34.0;
                         let mut base = drawer_swipe_base.borrow_mut();
                         if base.is_none() {
-                            *base = Some((gm.inventory_scroll, swipe.start_y));
+                            *base = Some((gm.ui.inventory_scroll, swipe.start_y));
                         }
                         if let Some((base_scroll, start_y)) = *base {
                             let dy = start_y - swipe.current_y; // positive = scroll down
@@ -1467,16 +1068,16 @@ pub fn start() -> Result<(), JsValue> {
                             gm.set_inventory_scroll(new_scroll);
                         }
                     }
-                } else if gm.drawer == Drawer::Stats {
+                } else if gm.ui.drawer == Drawer::Stats {
                     // Swipe-scroll stats panel
                     let mut base = drawer_swipe_base.borrow_mut();
                     if base.is_none() {
-                        *base = Some((gm.stats_scroll as usize, swipe.start_y));
+                        *base = Some((gm.ui.stats_scroll as usize, swipe.start_y));
                     }
                     if let Some((base_scroll, start_y)) = *base {
                         let dy = start_y - swipe.current_y; // positive = scroll down
                         let new_scroll = (base_scroll as f64 + dy).max(0.0);
-                        gm.stats_scroll = new_scroll;
+                        gm.ui.stats_scroll = new_scroll;
                     }
                 }
             } else {
@@ -1487,168 +1088,22 @@ pub fn start() -> Result<(), JsValue> {
 
         // === Drag-and-drop state machine for quick-bar ===
         {
-            let mut ds = drag_state.borrow_mut();
             let fc = *frame_counter.borrow();
-            let td = input.touch_down();
-            let gm_drawer = game.borrow().drawer;
             let is_landscape = renderer.borrow().landscape;
-
-            match *ds {
-                DragState::Idle => {
-                    if let Some(td) = td {
-                        let (css_w, css_h) = window_css_size();
-                        if gm_drawer == Drawer::Inventory {
-                            // Finger down while inventory is open — check if on an item row
-                            let inv_idx = if is_landscape {
-                                let panel_css_w = renderer.borrow().side_panel_css_w();
-                                hit_test_inventory_item_row_landscape(td.start_x, td.start_y, css_w, css_h, panel_css_w,
-                                    game.borrow().inventory.len(), game.borrow().inventory_scroll)
-                            } else {
-                                let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
-                                let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
-                                let bottom_region = bar_h_css + qbar_h_css;
-                                hit_test_inventory_item_row(td.start_x, td.start_y, css_w, css_h, bottom_region,
-                                    game.borrow().inventory.len(), game.borrow().inventory_scroll)
-                            };
-                            if let Some(idx) = inv_idx {
-                                let gm = game.borrow();
-                                // Only allow dragging consumables
-                                if idx < gm.inventory.len() {
-                                    let kind = &gm.inventory[idx].kind;
-                                    if matches!(kind, ItemKind::Potion | ItemKind::Scroll | ItemKind::Food) {
-                                        *ds = DragState::Pending {
-                                            inv_index: idx,
-                                            start_x: td.start_x,
-                                            start_y: td.start_y,
-                                            start_frame: fc,
-                                            from_quickbar_slot: None,
-                                        };
-                                    }
-                                }
-                            } else {
-                                // Check quick-bar slots — allow dragging back to unassign
-                                let qbar_slot = if is_landscape {
-                                    let panel_css_w = renderer.borrow().side_panel_css_w();
-                                    hit_test_side_panel_quickbar(td.start_x, td.start_y, css_w, panel_css_w, game.borrow().inspected.is_some())
-                                } else {
-                                    let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
-                                    let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
-                                    hit_test_quick_bar(td.start_x, td.start_y, css_w, css_h, bar_h_css, qbar_h_css)
-                                };
-                                if let Some(slot) = qbar_slot {
-                                    if let Some(inv_index) = game.borrow().quick_bar.slots[slot] {
-                                        *ds = DragState::Pending {
-                                            inv_index,
-                                            start_x: td.start_x,
-                                            start_y: td.start_y,
-                                            start_frame: fc,
-                                            from_quickbar_slot: Some(slot),
-                                        };
-                                    }
-                                }
-                            }
-                        }
-                        // When drawer is closed, do NOT start drags on quick-bar slots.
-                        // Taps on quick-bar slots are handled by the tap input processing.
-                    }
-                }
-                DragState::Pending { inv_index, start_x, start_y, start_frame, from_quickbar_slot } => {
-                    if let Some(td) = td {
-                        let dx = td.current_x - start_x;
-                        let dy = td.current_y - start_y;
-                        let dist = (dx * dx + dy * dy).sqrt();
-                        if dist > 12.0 || dy.abs() > 6.0 {
-                            // Moved too far or scrolling vertically — cancel, let scroll handle it
-                            *ds = DragState::Idle;
-                        } else if fc.wrapping_sub(start_frame) >= 18 {
-                            // ~300ms at 60fps — promote to dragging
-                            *ds = DragState::Dragging {
-                                inv_index,
-                                touch_x: td.current_x,
-                                touch_y: td.current_y,
-                                from_quickbar_slot,
-                            };
-                        }
-                    } else {
-                        // Finger lifted before long-press — cancel
-                        *ds = DragState::Idle;
-                    }
-                }
-                DragState::Dragging { inv_index, ref mut touch_x, ref mut touch_y, from_quickbar_slot } => {
-                    if let Some(td) = td {
-                        // Update position
-                        *touch_x = td.current_x;
-                        *touch_y = td.current_y;
-                    } else {
-                        // Finger lifted — drop!
-                        let (css_w, css_h) = window_css_size();
-                        let mut gm = game.borrow_mut();
-
-                        // Check if dropped on a quick-bar slot
-                        let drop_slot = if is_landscape {
-                            let panel_css_w = renderer.borrow().side_panel_css_w();
-                            hit_test_side_panel_quickbar(*touch_x, *touch_y, css_w, panel_css_w, gm.inspected.is_some())
-                        } else {
-                            let bar_h_css = renderer.borrow().bottom_bar_height() / dpr;
-                            let qbar_h_css = renderer.borrow().quickbar_height() / dpr;
-                            hit_test_quick_bar(*touch_x, *touch_y, css_w, css_h, bar_h_css, qbar_h_css)
-                        };
-
-                        if let Some(slot) = drop_slot {
-                            if inv_index < gm.inventory.len() {
-                                let item = gm.inventory[inv_index].clone();
-                                if let Some(from_slot) = from_quickbar_slot {
-                                    // Drag from quick-bar slot to another slot → swap
-                                    gm.quick_bar.swap(from_slot, slot);
-                                } else {
-                                    gm.quick_bar.assign(slot, inv_index, &item);
-                                }
-                            }
-                        } else if let Some(from_slot) = from_quickbar_slot {
-                            // Dragged from quick-bar and dropped outside → unassign
-                            gm.quick_bar.clear(from_slot);
-                        }
-                        // Dropped from inventory outside a quick-bar slot → cancel (no change).
-
-                        drop(gm);
-                        *ds = DragState::Idle;
-                    }
-                }
-            }
-
+            update_drag_state(
+                &mut drag_state.borrow_mut(),
+                &game,
+                &renderer,
+                input.touch_down(),
+                fc,
+                is_landscape,
+                dpr,
+            );
             *frame_counter.borrow_mut() = fc.wrapping_add(1);
         }
 
         // Process auto-move queue (one step every 8 frames ≈ 7.5 tiles/sec)
-        {
-            let mut ap = auto_path.borrow_mut();
-            if !ap.is_empty() {
-                let mut tick = auto_move_tick.borrow_mut();
-                *tick += 1;
-                if *tick >= 8 {
-                    *tick = 0;
-                    let mut gm = game.borrow_mut();
-                    if gm.alive && !gm.won {
-                        let (nx, ny) = ap[0];
-                        let dx = nx - gm.player_x;
-                        let dy = ny - gm.player_y;
-                        let result = gm.move_player(dx, dy);
-                        ap.remove(0);
-                        if matches!(result, TurnResult::Blocked) {
-                            // Blocked by enemy → attack and stop auto-move
-                            if gm.enemies.iter().any(|e| e.x == nx && e.y == ny && e.hp > 0) {
-                                gm.attack_adjacent(nx, ny);
-                            }
-                            ap.clear();
-                        } else if gm.player_x != nx || gm.player_y != ny || matches!(result, TurnResult::MapChanged) {
-                            ap.clear();
-                        }
-                    } else {
-                        ap.clear();
-                    }
-                }
-            }
-        }
+        process_auto_move(&game, &mut auto_path.borrow_mut(), &mut auto_move_tick.borrow_mut());
 
         // Update camera — follow the player
         {
@@ -1671,7 +1126,7 @@ pub fn start() -> Result<(), JsValue> {
         {
             let gm = game.borrow();
             let mut r = renderer.borrow_mut();
-            r.tick_drawer_anim(gm.drawer);
+            r.tick_drawer_anim(gm.ui.drawer);
             r.tick_quickbar_flash();
             let ds = drag_state.borrow();
             let drag_info = if let DragState::Dragging { inv_index, touch_x, touch_y, .. } = &*ds {

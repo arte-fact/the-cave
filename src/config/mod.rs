@@ -54,10 +54,6 @@ pub struct CombatConfig {
     /// Overworld kill thresholds for XP diminishing returns.
     pub xp_diminish_half: u32,
     pub xp_diminish_quarter: u32,
-    /// Stamina cost per melee attack.
-    pub melee_stamina_cost: i32,
-    /// Stamina cost per ranged attack.
-    pub ranged_stamina_cost: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -152,8 +148,6 @@ impl GameConfig {
             combat: CombatConfig {
                 xp_diminish_half: 50,
                 xp_diminish_quarter: 100,
-                melee_stamina_cost: 10,
-                ranged_stamina_cost: 5,
             },
             fov: FovConfig {
                 overworld_radius: 8,
