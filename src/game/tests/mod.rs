@@ -23,7 +23,7 @@ pub(super) fn health_potion() -> Item {
 }
 
 pub(super) fn rusty_sword() -> Item {
-    Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 20 }
+    Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200 }
 }
 
 pub(super) fn overworld_game() -> Game {

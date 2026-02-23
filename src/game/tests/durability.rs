@@ -2,19 +2,19 @@ use super::*;
 use super::{health_potion, rusty_sword};
 
 fn leather_armor() -> Item {
-    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 25 }
+    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250 }
 }
 fn short_bow() -> Item {
-    Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 25 }
+    Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250 }
 }
 fn iron_helmet() -> Item {
-    Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 40 }
+    Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400 }
 }
 fn iron_shield() -> Item {
-    Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 40 }
+    Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400 }
 }
 fn chain_boots() -> Item {
-    Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 40 }
+    Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400 }
 }
 
     // --- Weapon durability on melee attack ---
@@ -187,7 +187,7 @@ fn chain_boots() -> Item {
         let mut g = Game::new(map);
         g.inventory.push(rusty_sword());
         let desc = g.inventory_item_desc(0).unwrap();
-        assert!(desc.contains("20"), "description should show durability value");
+        assert!(desc.contains("200"), "description should show durability value");
     }
 
     // --- Dodge prevents armor wear ---

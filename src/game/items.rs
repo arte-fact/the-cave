@@ -29,38 +29,38 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
             } else if roll < 48 {
                 // Tier 0 melee: +2–3 ATK, weight 1–3
                 match sub {
-                    0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 20 },
-                    1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 20 },
-                    2 => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 20 },
-                    3 => Item { kind: ItemKind::Weapon, name: "Hand Axe", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 20 },
-                    4 => Item { kind: ItemKind::Weapon, name: "Wooden Spear", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 20 },
-                    _ => Item { kind: ItemKind::Weapon, name: "Kukri", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 20 },
+                    0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200 },
+                    1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200 },
+                    2 => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 200 },
+                    3 => Item { kind: ItemKind::Weapon, name: "Hand Axe", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 200 },
+                    4 => Item { kind: ItemKind::Weapon, name: "Wooden Spear", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200 },
+                    _ => Item { kind: ItemKind::Weapon, name: "Kukri", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200 },
                 }
             } else if roll < 54 {
                 // Tier 0 ranged: lower ATK than melee peers
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 25 },
-                    _ => Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 25 },
+                    0 => Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250 },
+                    _ => Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250 },
                 }
             } else if roll < 60 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 25 },
-                    _ => Item { kind: ItemKind::Armor, name: "Cloth Armor", glyph: '[', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 25 },
+                    0 => Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250 },
+                    _ => Item { kind: ItemKind::Armor, name: "Cloth Armor", glyph: '[', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250 },
                 }
             } else if roll < 65 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 25 },
-                    _ => Item { kind: ItemKind::Helmet, name: "Cloth Hood", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 25 },
+                    0 => Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250 },
+                    _ => Item { kind: ItemKind::Helmet, name: "Cloth Hood", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250 },
                 }
             } else if roll < 70 {
-                Item { kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 25 }
+                Item { kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250 }
             } else if roll < 75 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 25 },
-                    _ => Item { kind: ItemKind::Boots, name: "Shoes", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 25 },
+                    0 => Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250 },
+                    _ => Item { kind: ItemKind::Boots, name: "Shoes", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250 },
                 }
             } else if roll < 82 {
-                Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 30 }
+                Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300 }
             } else {
                 match sub % 4 {
                     0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None), weight: 0, durability: 0 },
@@ -84,46 +84,46 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
             } else if roll < 46 {
                 // Tier 1 melee: +4–6 ATK, weight 1–4
                 match sub {
-                    0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 35 },
-                    1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 35 },
-                    2 => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 35 },
-                    3 => Item { kind: ItemKind::Weapon, name: "Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 35 },
-                    4 => Item { kind: ItemKind::Weapon, name: "Mace", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 3, durability: 35 },
+                    0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350 },
+                    1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 350 },
+                    2 => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 350 },
+                    3 => Item { kind: ItemKind::Weapon, name: "Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350 },
+                    4 => Item { kind: ItemKind::Weapon, name: "Mace", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 3, durability: 350 },
                     _ => match sub % 3 {
-                        0 => Item { kind: ItemKind::Weapon, name: "Spear", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 35 },
-                        1 => Item { kind: ItemKind::Weapon, name: "Flail", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 3, durability: 35 },
-                        _ => Item { kind: ItemKind::Weapon, name: "Rapier", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 1, durability: 35 },
+                        0 => Item { kind: ItemKind::Weapon, name: "Spear", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350 },
+                        1 => Item { kind: ItemKind::Weapon, name: "Flail", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 3, durability: 350 },
+                        _ => Item { kind: ItemKind::Weapon, name: "Rapier", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 1, durability: 350 },
                     },
                 }
             } else if roll < 52 {
                 // Tier 1 ranged: lower ATK than melee peers
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 40 },
-                    _ => Item { kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(4), weight: 4, durability: 40 },
+                    0 => Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400 },
+                    _ => Item { kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400 },
                 }
             } else if roll < 58 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 40 },
-                    _ => Item { kind: ItemKind::Armor, name: "Scale Mail", glyph: '[', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 40 },
+                    0 => Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400 },
+                    _ => Item { kind: ItemKind::Armor, name: "Scale Mail", glyph: '[', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400 },
                 }
             } else if roll < 63 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 40 },
-                    _ => Item { kind: ItemKind::Helmet, name: "Chain Coif", glyph: '^', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 40 },
+                    0 => Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400 },
+                    _ => Item { kind: ItemKind::Helmet, name: "Chain Coif", glyph: '^', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400 },
                 }
             } else if roll < 68 {
                 match sub % 3 {
-                    0 => Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 40 },
-                    1 => Item { kind: ItemKind::Shield, name: "Cross Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 40 },
-                    _ => Item { kind: ItemKind::Shield, name: "Round Shield", glyph: ')', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 40 },
+                    0 => Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400 },
+                    1 => Item { kind: ItemKind::Shield, name: "Cross Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400 },
+                    _ => Item { kind: ItemKind::Shield, name: "Round Shield", glyph: ')', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400 },
                 }
             } else if roll < 73 {
-                Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 40 }
+                Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400 }
             } else if roll < 80 {
                 match sub % 3 {
-                    0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 50 },
-                    1 => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3), weight: 0, durability: 50 },
-                    _ => Item { kind: ItemKind::Ring, name: "Jade Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 50 },
+                    0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 500 },
+                    1 => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3), weight: 0, durability: 500 },
+                    _ => Item { kind: ItemKind::Ring, name: "Jade Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 500 },
                 }
             } else {
                 match sub % 3 {
@@ -146,42 +146,42 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
                 // Rare weapons (Enchanted Blade, Flame Sword, Evil Blade) = high damage + low weight
                 // Heavy weapons (Great Axe, Great Hammer, Halberd) = high damage + high weight
                 match sub {
-                    0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 1, durability: 50 },
-                    1 => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 1, durability: 50 },
-                    2 => Item { kind: ItemKind::Weapon, name: "Great Axe", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 50 },
-                    3 => Item { kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 50 },
-                    4 => Item { kind: ItemKind::Weapon, name: "Trident", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 50 },
+                    0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500 },
+                    1 => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 1, durability: 500 },
+                    2 => Item { kind: ItemKind::Weapon, name: "Great Axe", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500 },
+                    3 => Item { kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500 },
+                    4 => Item { kind: ItemKind::Weapon, name: "Trident", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500 },
                     _ => match sub % 5 {
-                        0 => Item { kind: ItemKind::Weapon, name: "Bastard Sword", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 50 },
-                        1 => Item { kind: ItemKind::Weapon, name: "Evil Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 2, durability: 50 },
-                        2 => Item { kind: ItemKind::Weapon, name: "Halberd", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 50 },
-                        3 => Item { kind: ItemKind::Weapon, name: "Great Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 50 },
-                        _ => Item { kind: ItemKind::Weapon, name: "Flamberge", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 4, durability: 50 },
+                        0 => Item { kind: ItemKind::Weapon, name: "Bastard Sword", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500 },
+                        1 => Item { kind: ItemKind::Weapon, name: "Evil Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 2, durability: 500 },
+                        2 => Item { kind: ItemKind::Weapon, name: "Halberd", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500 },
+                        3 => Item { kind: ItemKind::Weapon, name: "Great Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500 },
+                        _ => Item { kind: ItemKind::Weapon, name: "Flamberge", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 4, durability: 500 },
                     },
                 }
             } else if roll < 50 {
                 // Tier 2 ranged: rare Elven Bow — high damage + very light
-                Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 60 }
+                Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600 }
             } else if roll < 56 {
-                Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6), weight: 0, durability: 60 }
+                Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6), weight: 0, durability: 600 }
             } else if roll < 61 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 60 },
-                    _ => Item { kind: ItemKind::Helmet, name: "Plate Helm", glyph: '^', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 60 },
+                    0 => Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 600 },
+                    _ => Item { kind: ItemKind::Helmet, name: "Plate Helm", glyph: '^', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600 },
                 }
             } else if roll < 66 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 60 },
-                    _ => Item { kind: ItemKind::Shield, name: "Dark Shield", glyph: ')', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 60 },
+                    0 => Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 600 },
+                    _ => Item { kind: ItemKind::Shield, name: "Dark Shield", glyph: ')', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600 },
                 }
             } else if roll < 71 {
-                Item { kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 60 }
+                Item { kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600 }
             } else if roll < 80 {
                 match sub % 4 {
-                    0 => Item { kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 80 },
-                    1 => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 80 },
-                    2 => Item { kind: ItemKind::Ring, name: "Emerald Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 80 },
-                    _ => Item { kind: ItemKind::Ring, name: "Onyx Ring", glyph: '=', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 80 },
+                    0 => Item { kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 800 },
+                    1 => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 800 },
+                    2 => Item { kind: ItemKind::Ring, name: "Emerald Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 800 },
+                    _ => Item { kind: ItemKind::Ring, name: "Onyx Ring", glyph: '=', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 800 },
                 }
             } else {
                 match sub % 2 {

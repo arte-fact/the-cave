@@ -207,16 +207,16 @@ use super::{test_game, rusty_sword};
     }
 
     fn short_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 25 }
+        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250 }
     }
     fn crossbow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 25 }
+        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250 }
     }
     fn long_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 40 }
+        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400 }
     }
     fn elven_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 60 }
+        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600 }
     }
 
     #[test]
@@ -614,7 +614,7 @@ use super::{test_game, rusty_sword};
         // Iron Dagger: weight 1 → cost = 6 + 1*2 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/',
-            effect: ItemEffect::BuffAttack(2), weight: 1, durability: 20,
+            effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200,
         });
         assert_eq!(g.melee_stamina_cost(), 8);
     }
@@ -626,7 +626,7 @@ use super::{test_game, rusty_sword};
         // Great Hammer: weight 5 → cost = 6 + 5*2 = 16
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/',
-            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 50,
+            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500,
         });
         assert_eq!(g.melee_stamina_cost(), 16);
     }
@@ -641,7 +641,7 @@ use super::{test_game, rusty_sword};
         // Heavy Crossbow: weight 4 → cost = 4 + 4 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}',
-            effect: ItemEffect::BuffAttack(4), weight: 4, durability: 40,
+            effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400,
         });
         assert_eq!(g.ranged_stamina_cost(), 8);
     }
@@ -653,7 +653,7 @@ use super::{test_game, rusty_sword};
         // Enchanted Blade: weight 1, +9 ATK → cost = 6 + 1*2 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/',
-            effect: ItemEffect::BuffAttack(9), weight: 1, durability: 50,
+            effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500,
         });
         assert_eq!(g.melee_stamina_cost(), 8);
         // Elven Bow: weight 1, +6 ATK → cost = 4 + 1 = 5
@@ -668,7 +668,7 @@ use super::{test_game, rusty_sword};
         // Equip a heavy weapon (weight 5, cost 16)
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Great Axe", glyph: '/',
-            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 50,
+            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500,
         });
         let gx = g.player_x + 1;
         let gy = g.player_y;

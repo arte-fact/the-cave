@@ -11,10 +11,10 @@ use super::test_game;
         Item { kind: ItemKind::Food, name: "Bread", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None), weight: 0, durability: 0 }
     }
     fn sword() -> Item {
-        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 35 }
+        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 350 }
     }
     fn armor() -> Item {
-        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 40 }
+        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400 }
     }
 
     #[test]
