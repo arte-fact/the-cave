@@ -152,7 +152,7 @@ impl Game {
     pub fn new_overworld_with_config(world: World, config: GameConfig) -> Self {
         let (px, py) = world.overworld.find_road_spawn();
         let p = &config.player;
-        Self {
+        let mut game = Self {
             player_x: px,
             player_y: py,
             player_hp: p.starting_hp,
@@ -198,7 +198,9 @@ impl Game {
             visual_effects: Vec::new(),
             quick_bar: QuickBar::new(),
             config,
-        }
+        };
+        game.spawn_starting_equipment();
+        game
     }
 
     /// Convenience accessor for the current map.

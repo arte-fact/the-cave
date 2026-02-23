@@ -583,3 +583,85 @@ fn chain_mail() -> Item {
         g.set_inventory_scroll(5);
         assert_eq!(g.inventory_scroll, 0);
     }
+
+    // ── Starting equipment tests ─────────────────────────────────────
+
+    #[test]
+    fn overworld_spawn_has_starting_weapon() {
+        let g = overworld_game();
+        let weapon = g.equipped_weapon.as_ref().expect("should spawn with weapon");
+        assert_eq!(weapon.name, "Iron Dagger");
+        assert_eq!(weapon.kind, ItemKind::Weapon);
+        if let ItemEffect::BuffAttack(bonus) = weapon.effect {
+            assert_eq!(bonus, 2);
+        } else {
+            panic!("weapon should have BuffAttack effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_has_starting_armor() {
+        let g = overworld_game();
+        let armor = g.equipped_armor.as_ref().expect("should spawn with armor");
+        assert_eq!(armor.name, "Cloth Armor");
+        assert_eq!(armor.kind, ItemKind::Armor);
+        if let ItemEffect::BuffDefense(bonus) = armor.effect {
+            assert_eq!(bonus, 1);
+        } else {
+            panic!("armor should have BuffDefense effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_has_starting_helmet() {
+        let g = overworld_game();
+        let helmet = g.equipped_helmet.as_ref().expect("should spawn with helmet");
+        assert_eq!(helmet.name, "Cloth Hood");
+        assert_eq!(helmet.kind, ItemKind::Helmet);
+        if let ItemEffect::BuffDefense(bonus) = helmet.effect {
+            assert_eq!(bonus, 1);
+        } else {
+            panic!("helmet should have BuffDefense effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_has_starting_boots() {
+        let g = overworld_game();
+        let boots = g.equipped_boots.as_ref().expect("should spawn with boots");
+        assert_eq!(boots.name, "Shoes");
+        assert_eq!(boots.kind, ItemKind::Boots);
+        if let ItemEffect::BuffDefense(bonus) = boots.effect {
+            assert_eq!(bonus, 1);
+        } else {
+            panic!("boots should have BuffDefense effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_effective_stats_include_equipment() {
+        let g = overworld_game();
+        // Base attack 5 + Iron Dagger +2 = 7
+        assert_eq!(g.effective_attack(), 7);
+        // Cloth Armor +1, Cloth Hood +1, Shoes +1 = 3
+        assert_eq!(g.effective_defense(), 3);
+    }
+
+    #[test]
+    fn overworld_spawn_inventory_empty() {
+        let g = overworld_game();
+        assert!(g.inventory.is_empty(), "starting equipment should be equipped, not in inventory");
+    }
+
+    #[test]
+    fn starting_equipment_has_durability() {
+        let g = overworld_game();
+        let weapon = g.equipped_weapon.as_ref().unwrap();
+        assert!(weapon.durability > 0, "starting weapon should have durability");
+        let armor = g.equipped_armor.as_ref().unwrap();
+        assert!(armor.durability > 0, "starting armor should have durability");
+        let helmet = g.equipped_helmet.as_ref().unwrap();
+        assert!(helmet.durability > 0, "starting helmet should have durability");
+        let boots = g.equipped_boots.as_ref().unwrap();
+        assert!(boots.durability > 0, "starting boots should have durability");
+    }
