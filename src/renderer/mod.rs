@@ -303,6 +303,33 @@ impl Renderer {
         }
     }
 
+    /// Draw text truncated with "..." ellipsis if it exceeds `max_width`.
+    /// The font and fill style must be set before calling.
+    pub(super) fn fill_text_truncated(&self, text: &str, x: f64, y: f64, max_width: f64) {
+        let ctx = &self.ctx;
+        let text_w = ctx.measure_text(text).ok().map(|m| m.width()).unwrap_or(0.0);
+        if text_w <= max_width {
+            let _ = ctx.fill_text(text, x, y);
+            return;
+        }
+        let ellipsis_w = ctx.measure_text("...").ok().map(|m| m.width()).unwrap_or(0.0);
+        let target_w = max_width - ellipsis_w;
+        if target_w <= 0.0 {
+            return;
+        }
+        // Estimate max chars using monospace assumption
+        let char_w = if text.is_empty() { 1.0 } else { text_w / text.len() as f64 };
+        let max_chars = (target_w / char_w).floor() as usize;
+        let end = text
+            .char_indices()
+            .take(max_chars)
+            .last()
+            .map(|(i, c)| i + c.len_utf8())
+            .unwrap_or(0);
+        let truncated = format!("{}...", &text[..end]);
+        let _ = ctx.fill_text(&truncated, x, y);
+    }
+
     /// Draw a stat bar (HP, stamina, hunger style). Sets fill style and renders.
     pub(super) fn draw_stat_bar(&self, bar: &StatBar) {
         let ctx = &self.ctx;
@@ -331,8 +358,28 @@ impl Renderer {
         ctx.set_fill_style_str("#000");
         ctx.fill_rect(0.0, 0.0, canvas_w, canvas_h + cell);
 
-        // ---- World rendering (tiles, entities) ----
-        self.draw_world(game, preview_path);
+        // ---- World rendering (tiles, entities) — clipped to game area ----
+        if self.landscape {
+            let panel_w = self.side_panel_w();
+            let top_h = self.landscape_top_bar_h();
+            let msg_h = self.landscape_msg_bar_h();
+            ctx.save();
+            ctx.begin_path();
+            ctx.rect(0.0, top_h, canvas_w - panel_w, canvas_h - top_h - msg_h);
+            ctx.clip();
+            self.draw_world(game, preview_path);
+            ctx.restore();
+        } else {
+            let top_h = self.top_bar_h();
+            let bottom_h = self.bottom_bar_h();
+            let qbar_h = self.quickbar_h();
+            ctx.save();
+            ctx.begin_path();
+            ctx.rect(0.0, top_h, canvas_w, canvas_h - top_h - bottom_h - qbar_h);
+            ctx.clip();
+            self.draw_world(game, preview_path);
+            ctx.restore();
+        }
 
         if self.landscape {
             // Landscape: compact top bar + streamlined side panel + bottom messages

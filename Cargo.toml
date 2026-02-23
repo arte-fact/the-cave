@@ -31,5 +31,6 @@ features = [
     "Touch",
     "KeyboardEvent",
     "Storage",
+    "TextMetrics",
     "console",
 ]

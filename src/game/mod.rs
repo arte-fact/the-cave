@@ -45,6 +45,8 @@ pub struct Game {
     pub inventory_scroll: usize,
     /// Currently selected inventory item index (for detail view / drop).
     pub selected_inventory_item: Option<usize>,
+    /// Currently selected equipment slot (0–5: weapon, armor, helmet, shield, boots, ring).
+    pub selected_equipment_slot: Option<usize>,
     /// Currently open drawer (slides up from bottom).
     pub drawer: Drawer,
     /// Tile currently being inspected (shown in HUD detail strip).
@@ -119,6 +121,7 @@ impl Game {
             ground_items: Vec::new(),
             inventory_scroll: 0,
             selected_inventory_item: None,
+            selected_equipment_slot: None,
 
             drawer: Drawer::None,
             inspected: None,
@@ -176,6 +179,7 @@ impl Game {
             ground_items: Vec::new(),
             inventory_scroll: 0,
             selected_inventory_item: None,
+            selected_equipment_slot: None,
 
             drawer: Drawer::None,
             inspected: None,
