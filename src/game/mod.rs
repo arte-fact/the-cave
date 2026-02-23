@@ -208,6 +208,11 @@ impl Game {
         self.world.current_map()
     }
 
+    /// Returns true if a living enemy occupies the given position.
+    pub fn has_enemy_at(&self, x: i32, y: i32) -> bool {
+        self.enemies.iter().any(|e| e.x == x && e.y == y && e.hp > 0)
+    }
+
     /// FOV radius: configurable per overworld vs dungeon.
     fn fov_radius(&self) -> i32 {
         match self.world.location {

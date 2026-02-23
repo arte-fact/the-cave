@@ -217,11 +217,11 @@ fn chain_boots() -> Item {
         let mut rng = 42u64;
         let items: Vec<_> = (0..200).map(|_| random_item(0, &mut rng)).collect();
         for item in &items {
+            if item.kind.is_consumable() {
+                assert_eq!(item.durability, 0,
+                    "consumable '{}' should have 0 durability", item.name);
+            } else {
             match item.kind {
-                ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                    assert_eq!(item.durability, 0,
-                        "consumable '{}' should have 0 durability", item.name);
-                }
                 ItemKind::Weapon => {
                     assert!(item.durability > 0,
                         "weapon '{}' should have positive durability", item.name);
@@ -238,6 +238,8 @@ fn chain_boots() -> Item {
                     assert!(item.durability > 0,
                         "ring '{}' should have positive durability", item.name);
                 }
+                _ => unreachable!("consumables handled above"),
+            }
             }
         }
     }

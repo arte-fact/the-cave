@@ -405,6 +405,14 @@ pub enum SkillKind {
     Stamina,
 }
 
+impl ItemKind {
+    /// Returns true for consumable items (Potion, Scroll, Food) that can be
+    /// used from inventory or quick-bar and are eligible for quick-bar slots.
+    pub fn is_consumable(&self) -> bool {
+        matches!(self, ItemKind::Potion | ItemKind::Scroll | ItemKind::Food)
+    }
+}
+
 /// Number of quick-bar slots.
 pub const QUICKBAR_SLOTS: usize = 6;
 
@@ -424,18 +432,15 @@ impl QuickBar {
     /// Returns false if the item isn't consumable or the slot is out of bounds.
     /// If this inventory index is already assigned to another slot, that slot is cleared first.
     pub fn assign(&mut self, slot: usize, inv_index: usize, item: &Item) -> bool {
-        if slot >= QUICKBAR_SLOTS { return false; }
-        match item.kind {
-            ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => {
-                // Remove any existing assignment of this inventory index
-                for s in &mut self.slots {
-                    if *s == Some(inv_index) { *s = None; }
-                }
-                self.slots[slot] = Some(inv_index);
-                true
-            }
-            _ => false,
+        if slot >= QUICKBAR_SLOTS || !item.kind.is_consumable() {
+            return false;
         }
+        // Remove any existing assignment of this inventory index
+        for s in &mut self.slots {
+            if *s == Some(inv_index) { *s = None; }
+        }
+        self.slots[slot] = Some(inv_index);
+        true
     }
 
     /// Clear a slot.
