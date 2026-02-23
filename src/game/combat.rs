@@ -169,13 +169,14 @@ impl Game {
     }
 
     /// End a combat turn: enemies act, survival ticks, FOV updates.
+    /// Combat turns do NOT regen stamina — only walking does.
     fn end_combat_turn(&mut self) {
         if self.sprinting {
             self.enemy_turn_inner(true);
         } else {
             self.enemy_turn();
         }
-        self.tick_survival();
+        self.tick_survival(false);
         self.update_fov();
     }
 

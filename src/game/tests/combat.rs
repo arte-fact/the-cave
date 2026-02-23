@@ -530,9 +530,8 @@ use super::{test_game, rusty_sword};
         let stam_before = g.stamina;
         let cost = g.melee_stamina_cost(); // per-weapon stamina cost
         g.attack_adjacent(gx, gy);
-        let expected = stam_before - cost;
-        // tick_survival regens stamina when not sprinting (+5), so account for that
-        assert_eq!(g.stamina, expected + g.config.survival.stamina_regen);
+        // Combat turns do NOT regen stamina — only walking does
+        assert_eq!(g.stamina, stam_before - cost);
     }
 
     #[test]
@@ -563,8 +562,8 @@ use super::{test_game, rusty_sword};
         let stam_before = g.stamina;
         let cost = g.ranged_stamina_cost(); // per-weapon stamina cost
         g.ranged_attack(8, 5);
-        let expected = stam_before - cost;
-        assert_eq!(g.stamina, expected + g.config.survival.stamina_regen);
+        // Combat turns do NOT regen stamina — only walking does
+        assert_eq!(g.stamina, stam_before - cost);
     }
 
     #[test]
@@ -675,8 +674,8 @@ use super::{test_game, rusty_sword};
         g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
         let stam_before = g.stamina;
         g.attack_adjacent(gx, gy);
-        // Cost 16, then regen +5
-        assert_eq!(g.stamina, stam_before - 16 + g.config.survival.stamina_regen);
+        // Combat turns do NOT regen stamina
+        assert_eq!(g.stamina, stam_before - 16);
     }
 
     #[test]
@@ -716,4 +715,56 @@ use super::{test_game, rusty_sword};
         let turn_before = g.turn;
         g.ranged_attack(8, 5);
         assert_eq!(g.turn, turn_before + 1, "ranged attack should advance turn counter");
+    }
+
+    #[test]
+    fn melee_kill_drains_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let gx = g.player_x + 1;
+        let gy = g.player_y;
+        // Enemy with 1 HP — guaranteed one-hit kill
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        let stam_before = g.stamina;
+        let cost = g.melee_stamina_cost();
+        let result = g.attack_adjacent(gx, gy);
+        assert!(matches!(result, TurnResult::Killed { .. }));
+        // Combat turns do NOT regen stamina
+        assert_eq!(g.stamina, stam_before - cost, "stamina should drain full cost on kill");
+    }
+
+    #[test]
+    fn ranged_kill_drains_stamina() {
+        let mut map = Map::new_filled(20, 20, Tile::Floor);
+        for x in 0..20 { map.set(x, 0, Tile::Wall); map.set(x, 19, Tile::Wall); }
+        for y in 0..20 { map.set(0, y, Tile::Wall); map.set(19, y, Tile::Wall); }
+        let mut g = Game::new(map);
+        g.player_x = 5;
+        g.player_y = 5;
+        g.player_dexterity = 100; // guarantee hit
+        g.equipped_weapon = Some(short_bow());
+        // Enemy with 1 HP — guaranteed one-hit kill
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        let stam_before = g.stamina;
+        let cost = g.ranged_stamina_cost();
+        g.ranged_attack(8, 5);
+        assert!(g.enemies[0].hp <= 0, "enemy should be dead");
+        // Combat turns do NOT regen stamina
+        assert_eq!(g.stamina, stam_before - cost, "stamina should drain full cost on ranged kill");
+    }
+
+    #[test]
+    fn dragon_kill_drains_stamina() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let dx = g.player_x + 1;
+        let dy = g.player_y;
+        g.enemies.push(Enemy { x: dx, y: dy, hp: 1, attack: 0, glyph: 'D', name: "Dragon", facing_left: false, defense: 0, is_ranged: false });
+        let stam_before = g.stamina;
+        let cost = g.melee_stamina_cost();
+        let result = g.attack_adjacent(dx, dy);
+        assert!(matches!(result, TurnResult::Won));
+        // Dragon kill early-returns, skipping end_combat_turn (no regen)
+        let expected = stam_before - cost;
+        assert_eq!(g.stamina, expected, "stamina should drain on dragon kill: before={stam_before}, cost={cost}");
     }

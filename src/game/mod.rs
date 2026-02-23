@@ -248,7 +248,7 @@ impl Game {
         } else {
             self.enemy_turn();
         }
-        self.tick_survival();
+        self.tick_survival(true);
         self.update_fov();
     }
 
