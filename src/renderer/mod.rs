@@ -88,6 +88,68 @@ const LANDSCAPE_TOP_BAR_BASE: f64 = 34.0;
 /// Height of the bottom message strip in landscape mode (CSS pixels).
 const LANDSCAPE_MSG_BAR_BASE: f64 = 26.0;
 
+// ---- Semantic color palette ----
+// Repeated color values used across HUD, drawers, and world rendering.
+
+/// HP bar fill — healthy (>50%).
+pub(super) const COLOR_HP_HIGH: &str = "#2a2";
+/// HP bar fill — warning (25-50%).
+pub(super) const COLOR_HP_MED: &str = "#aa2";
+/// HP bar fill — critical (<25%).
+pub(super) const COLOR_HP_LOW: &str = "#a22";
+/// HP bar background.
+pub(super) const COLOR_HP_BG: &str = "#2a0a0a";
+
+/// Stamina bar fill — normal.
+pub(super) const COLOR_STAM: &str = "#28a";
+/// Stamina bar fill — sprinting.
+pub(super) const COLOR_STAM_SPRINT: &str = "#4af";
+/// Stamina bar background.
+pub(super) const COLOR_STAM_BG: &str = "#0a0a2a";
+
+/// Hunger bar fill — OK (>30%).
+pub(super) const COLOR_HUNGER_HIGH: &str = "#a82";
+/// Hunger bar fill — low (10-30%).
+pub(super) const COLOR_HUNGER_MED: &str = "#a52";
+/// Hunger bar fill — starving (<10%).
+pub(super) const COLOR_HUNGER_LOW: &str = "#a22";
+/// Hunger bar background.
+pub(super) const COLOR_HUNGER_BG: &str = "#2a1a0a";
+
+/// XP bar fill.
+pub(super) const COLOR_XP: &str = "#a6f";
+/// XP bar background.
+pub(super) const COLOR_XP_BG: &str = "#1a0a2a";
+
+/// Panel/drawer background.
+pub(super) const COLOR_PANEL_BG: &str = "rgba(8,8,16,0.94)";
+/// Panel accent (blue tint).
+pub(super) const COLOR_PANEL_ACCENT: &str = "rgba(80,130,255,0.15)";
+/// Semi-transparent top bar background.
+pub(super) const COLOR_BAR_BG: &str = "rgba(0,0,0,0.78)";
+
+/// Primary text color.
+pub(super) const COLOR_TEXT: &str = "#ccc";
+/// Secondary/dim text color.
+pub(super) const COLOR_TEXT_DIM: &str = "#888";
+/// Muted text color.
+pub(super) const COLOR_TEXT_MUTED: &str = "#555";
+/// Location/heading text.
+pub(super) const COLOR_TEXT_HEADING: &str = "#c8e0ff";
+/// Combat stats (ATK/DEF) text.
+pub(super) const COLOR_STAT_LABEL: &str = "#8cf";
+/// XP text accent.
+pub(super) const COLOR_XP_TEXT: &str = "#a8f";
+
+/// Use/equip button background.
+pub(super) const COLOR_BTN_USE: &str = "rgba(80,200,120,0.25)";
+/// Use/equip button text.
+pub(super) const COLOR_BTN_USE_TEXT: &str = "#8f8";
+/// Drop button background.
+pub(super) const COLOR_BTN_DROP: &str = "rgba(200,80,80,0.25)";
+/// Drop button text.
+pub(super) const COLOR_BTN_DROP_TEXT: &str = "#f88";
+
 pub struct Renderer {
     pub(super) ctx: CanvasRenderingContext2d,
     pub camera: Camera,

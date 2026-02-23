@@ -1,7 +1,12 @@
-use crate::game::{Drawer, Game, Item, ItemKind, QUICKBAR_SLOTS};
+use crate::game::{Drawer, Game, Item, QUICKBAR_SLOTS};
 use crate::sprites;
 
-use super::{item_kind_color, Renderer};
+use super::{
+    item_kind_color, Renderer,
+    COLOR_PANEL_BG, COLOR_TEXT, COLOR_TEXT_MUTED,
+    COLOR_XP, COLOR_XP_BG, COLOR_XP_TEXT,
+    COLOR_BTN_USE, COLOR_BTN_USE_TEXT, COLOR_BTN_DROP, COLOR_BTN_DROP_TEXT,
+};
 
 impl Renderer {
     // ---- Drawer: slide-up panel ----
@@ -51,7 +56,7 @@ impl Renderer {
         ctx.rect(0.0, base_y, canvas_w, drawer_h);
         ctx.clip();
 
-        ctx.set_fill_style_str("rgba(8,8,16,0.94)");
+        ctx.set_fill_style_str(COLOR_PANEL_BG);
         self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
         ctx.set_fill_style_str("rgba(80,130,255,0.3)");
         self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
@@ -100,7 +105,7 @@ impl Renderer {
                 }
             } else {
                 ctx.set_font(&self.font(10.0, ""));
-                ctx.set_fill_style_str("#555");
+                ctx.set_fill_style_str(COLOR_TEXT_MUTED);
                 let _ = ctx.fill_text(empty_label, icon_x + 4.0 * d, sy + eq_h / 2.0 - 5.0 * d);
             }
         }
@@ -120,7 +125,7 @@ impl Renderer {
         let text_right = canvas_w - pad - scrollbar_w - 4.0 * d;
 
         if game.inventory.is_empty() {
-            ctx.set_fill_style_str("#555");
+            ctx.set_fill_style_str(COLOR_TEXT_MUTED);
             ctx.set_font(&self.font(11.0, ""));
             ctx.set_text_baseline("top");
             let _ = ctx.fill_text("No items", pad + 4.0 * d, list_y + 4.0 * d);
@@ -240,7 +245,7 @@ impl Renderer {
                 // Description text (truncated to fit available width)
                 let desc = game.inventory_item_desc(sel_idx).unwrap_or_default();
                 ctx.set_font(&self.font(10.0, ""));
-                ctx.set_fill_style_str("#ccc");
+                ctx.set_fill_style_str(COLOR_TEXT);
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("middle");
                 let char_w = 6.0 * d;
@@ -258,16 +263,13 @@ impl Renderer {
                 let btn_gap = 8.0 * d;
 
                 // Use/Equip button
-                let action_label = match item.kind {
-                    ItemKind::Potion | ItemKind::Scroll | ItemKind::Food => "Use",
-                    _ => "Equip",
-                };
+                let action_label = if item.kind.is_consumable() { "Use" } else { "Equip" };
                 let action_w = 60.0 * d;
                 let action_x = canvas_w - pad - action_w - btn_gap - 60.0 * d;
-                ctx.set_fill_style_str("rgba(80,200,120,0.25)");
+                ctx.set_fill_style_str(COLOR_BTN_USE);
                 self.fill_rounded_rect(action_x, btn_y, action_w, btn_h, 4.0 * d);
                 ctx.set_font(&self.font(11.0, "bold"));
-                ctx.set_fill_style_str("#8f8");
+                ctx.set_fill_style_str(COLOR_BTN_USE_TEXT);
                 ctx.set_text_align("center");
                 ctx.set_text_baseline("middle");
                 let _ = ctx.fill_text(action_label, action_x + action_w / 2.0, btn_y + btn_h / 2.0);
@@ -275,16 +277,16 @@ impl Renderer {
                 // Drop button
                 let drop_w = 60.0 * d;
                 let drop_x = canvas_w - pad - drop_w;
-                ctx.set_fill_style_str("rgba(200,80,80,0.25)");
+                ctx.set_fill_style_str(COLOR_BTN_DROP);
                 self.fill_rounded_rect(drop_x, btn_y, drop_w, btn_h, 4.0 * d);
                 ctx.set_font(&self.font(11.0, "bold"));
-                ctx.set_fill_style_str("#f88");
+                ctx.set_fill_style_str(COLOR_BTN_DROP_TEXT);
                 ctx.set_text_align("center");
                 let _ = ctx.fill_text("Drop", drop_x + drop_w / 2.0, btn_y + btn_h / 2.0);
 
                 // Slot count (small, left side)
                 ctx.set_font(&self.font(9.0, ""));
-                ctx.set_fill_style_str("#555");
+                ctx.set_fill_style_str(COLOR_TEXT_MUTED);
                 ctx.set_text_align("left");
                 ctx.set_text_baseline("middle");
                 let _ = ctx.fill_text(
@@ -295,7 +297,7 @@ impl Renderer {
         } else {
             // Slot count only
             ctx.set_font(&self.font(10.0, ""));
-            ctx.set_fill_style_str("#555");
+            ctx.set_fill_style_str(COLOR_TEXT_MUTED);
             ctx.set_text_align("right");
             ctx.set_text_baseline("bottom");
             let _ = ctx.fill_text(
@@ -328,7 +330,7 @@ impl Renderer {
         ctx.clip();
 
         // Background
-        ctx.set_fill_style_str("rgba(8,8,16,0.94)");
+        ctx.set_fill_style_str(COLOR_PANEL_BG);
         self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
         ctx.set_fill_style_str("rgba(160,80,255,0.3)");
         self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
@@ -356,7 +358,7 @@ impl Renderer {
         ctx.set_text_baseline("top");
         let _ = ctx.fill_text(&format!("Level {}", game.player_level), pad + icon_sz + 8.0 * d, y + 2.0 * d);
         ctx.set_font(&self.font(11.0, ""));
-        ctx.set_fill_style_str("#a8f");
+        ctx.set_fill_style_str(COLOR_XP_TEXT);
         let _ = ctx.fill_text(
             &format!("XP {}/{}", game.player_xp, game.xp_to_next_level()),
             pad + icon_sz + 8.0 * d, y + 18.0 * d,
@@ -370,9 +372,9 @@ impl Renderer {
         let xp_frac = if game.xp_to_next_level() > 0 {
             game.player_xp as f64 / game.xp_to_next_level() as f64
         } else { 1.0 };
-        ctx.set_fill_style_str("#1a0a2a");
+        ctx.set_fill_style_str(COLOR_XP_BG);
         self.fill_rounded_rect(pad, y, xp_bar_w, xp_bar_h, 3.0 * d);
-        ctx.set_fill_style_str("#a6f");
+        ctx.set_fill_style_str(COLOR_XP);
         self.fill_rounded_rect(pad, y, xp_bar_w * xp_frac, xp_bar_h, 3.0 * d);
 
         y += xp_bar_h + 12.0 * d;
@@ -526,7 +528,7 @@ impl Renderer {
         ctx.clip();
 
         // Background
-        ctx.set_fill_style_str("rgba(8,8,16,0.94)");
+        ctx.set_fill_style_str(COLOR_PANEL_BG);
         self.fill_rounded_rect(0.0, drawer_y, canvas_w, drawer_h, 12.0 * d);
         ctx.set_fill_style_str("rgba(120,120,120,0.3)");
         self.fill_rounded_rect(canvas_w * 0.3, drawer_y, canvas_w * 0.4, 3.0 * d, 1.5 * d);
@@ -544,7 +546,7 @@ impl Renderer {
 
         // Label
         ctx.set_font(&self.font(13.0, ""));
-        ctx.set_fill_style_str("#ccc");
+        ctx.set_fill_style_str(COLOR_TEXT);
         ctx.set_text_align("left");
         ctx.set_text_baseline("middle");
         let _ = ctx.fill_text("Glyph Mode", pad, row_y + row_h / 2.0);
