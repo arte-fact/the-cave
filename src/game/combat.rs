@@ -68,6 +68,7 @@ impl Game {
         let ex = self.enemies[enemy_idx].x;
         let ey = self.enemies[enemy_idx].y;
         self.player_hp -= dmg;
+        self.wear_armor();
         self.messages.push(msg);
         self.floating_texts.push(FloatingText {
             world_x: px, world_y: py,
@@ -96,6 +97,7 @@ impl Game {
         let ey = self.enemies[enemy_idx].y;
         let name = self.enemies[enemy_idx].name;
         self.player_hp -= dmg;
+        self.wear_armor();
         self.messages.push(format!("{name} shoots you for {dmg} damage."));
         self.floating_texts.push(FloatingText {
             world_x: px, world_y: py,
@@ -116,6 +118,53 @@ impl Game {
         if self.player_hp <= 0 {
             self.alive = false;
             self.messages.push("You died.".into());
+        }
+    }
+
+    /// Wear the equipped weapon by 1 durability. Destroys it if durability hits 0.
+    fn wear_weapon(&mut self) {
+        let should_break = if let Some(ref mut w) = self.equipped_weapon {
+            if w.durability > 0 {
+                w.durability -= 1;
+                w.durability == 0
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        if should_break {
+            let name = self.equipped_weapon.as_ref().unwrap().name;
+            self.messages.push(format!("Your {name} breaks!"));
+            self.equipped_weapon = None;
+        }
+    }
+
+    /// Wear all equipped armor pieces by 1 durability each. Destroys any that hit 0.
+    fn wear_armor(&mut self) {
+        // Decrement each slot and collect names of broken items
+        let mut broken: Vec<&'static str> = Vec::new();
+
+        for slot in [&mut self.equipped_armor, &mut self.equipped_helmet,
+                     &mut self.equipped_shield, &mut self.equipped_boots] {
+            let should_break = if let Some(ref mut item) = slot {
+                if item.durability > 0 {
+                    item.durability -= 1;
+                    item.durability == 0
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            if should_break {
+                broken.push(slot.as_ref().unwrap().name);
+                *slot = None;
+            }
+        }
+
+        for name in broken {
+            self.messages.push(format!("Your {name} breaks!"));
         }
     }
 
@@ -285,6 +334,9 @@ impl Game {
         self.enemies[idx].hp -= dmg;
         let name = self.enemies[idx].name;
 
+        // Wear weapon on every melee attack
+        self.wear_weapon();
+
         // Player lunges toward enemy
         self.bump_anims.push(BumpAnim {
             is_player: true, enemy_idx: 0,
@@ -401,6 +453,9 @@ impl Game {
         let seed = self.turn as u64 * 7 + self.player_x as u64 * 31 + self.player_y as u64 * 17;
         let roll = (xorshift64(seed) % 100) as i32;
         let name = self.enemies[idx].name;
+
+        // Wear ranged weapon on every shot (hit or miss)
+        self.wear_weapon();
 
         if roll >= hit_chance {
             self.messages.push(format!("Your {weapon_name} misses the {name}! ({hit_chance}% chance)"));

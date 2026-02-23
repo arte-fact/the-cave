@@ -2,16 +2,16 @@ use super::*;
 use super::{test_game, health_potion, rusty_sword};
 
 fn scroll_fire() -> Item {
-    Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0 }
+    Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0, durability: 0 }
 }
 fn iron_sword() -> Item {
-    Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2 }
+    Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350 }
 }
 fn leather_armor() -> Item {
-    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0 }
+    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250 }
 }
 fn chain_mail() -> Item {
-    Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0 }
+    Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400 }
 }
 
     // --- Pickup ---
@@ -253,7 +253,7 @@ fn chain_mail() -> Item {
         // Defense higher than enemy attack
         g.equipped_armor = Some(Item {
             kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[',
-            effect: ItemEffect::BuffDefense(6), weight: 0,
+            effect: ItemEffect::BuffDefense(6), weight: 0, durability: 600,
         });
         let hp_before = g.player_hp;
         let gx = g.player_x + 1;

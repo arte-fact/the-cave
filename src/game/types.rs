@@ -47,6 +47,10 @@ pub struct Item {
     /// Weight of the item (0–5). Heavier weapons cost more stamina to swing.
     /// 0 = non-weapon/weightless, 1 = very light, 5 = very heavy.
     pub weight: i32,
+    /// Current durability. Weapons lose 1 per attack dealt, armor pieces lose 1 per
+    /// hit absorbed. When durability reaches 0 the item breaks and is destroyed.
+    /// 0 = not applicable (consumables).
+    pub durability: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -373,7 +377,11 @@ pub(super) fn item_info_desc(item: &Item) -> String {
             format!("{}{}", base, suffix)
         }
     };
-    format!("{} — {}", item.name, effect)
+    if item.durability > 0 {
+        format!("{} — {} [Dur: {}]", item.name, effect, item.durability)
+    } else {
+        format!("{} — {}", item.name, effect)
+    }
 }
 
 /// Which bottom drawer is currently open.
