@@ -14,6 +14,25 @@ impl Game {
         total
     }
 
+    /// Stamina cost for the player's current melee attack.
+    /// Based on equipped weapon weight: heavier weapons cost more stamina.
+    /// Unarmed: base cost 6.
+    pub fn melee_stamina_cost(&self) -> i32 {
+        match &self.equipped_weapon {
+            Some(item) if item.kind == ItemKind::Weapon => weapon_stamina_cost(&item.kind, item.weight),
+            _ => weapon_stamina_cost(&ItemKind::Weapon, 0), // unarmed: 6
+        }
+    }
+
+    /// Stamina cost for the player's current ranged attack.
+    /// Based on equipped ranged weapon weight.
+    pub fn ranged_stamina_cost(&self) -> i32 {
+        match &self.equipped_weapon {
+            Some(item) if item.kind == ItemKind::RangedWeapon => weapon_stamina_cost(&item.kind, item.weight),
+            _ => weapon_stamina_cost(&ItemKind::RangedWeapon, 0), // fallback: 4
+        }
+    }
+
     /// Player's total defense: base + armor + helmet + shield + boots + ring.
     pub fn effective_defense(&self) -> i32 {
         let mut total = self.player_defense;
@@ -243,7 +262,7 @@ impl Game {
             return TurnResult::Blocked;
         }
 
-        let cost = self.config.combat.melee_stamina_cost;
+        let cost = self.melee_stamina_cost();
         if self.stamina < cost {
             self.messages.push("Too exhausted to attack! No stamina.".into());
             return TurnResult::Blocked;
@@ -349,7 +368,7 @@ impl Game {
             return TurnResult::Blocked;
         }
 
-        let cost = self.config.combat.ranged_stamina_cost;
+        let cost = self.ranged_stamina_cost();
         if self.stamina < cost {
             self.messages.push("Too exhausted to shoot! No stamina.".into());
             return TurnResult::Blocked;

@@ -50,7 +50,7 @@ use super::{test_game, overworld_game, rusty_sword};
         let info = g.inspect_tile(ix, iy).unwrap();
         let item = info.item.unwrap();
         assert_eq!(item.name, "Rusty Sword");
-        assert!(item.desc.contains("+2 Attack"));
+        assert!(item.desc.contains("+3 Attack")); // Rusty Sword: +3 ATK, 10 stamina
     }
 
     #[test]
