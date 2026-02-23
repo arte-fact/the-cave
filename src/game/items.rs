@@ -334,6 +334,22 @@ impl Game {
             weight: 0,
             durability: 250,
         });
+        self.equipped_helmet = Some(Item {
+            kind: ItemKind::Helmet,
+            name: "Cloth Hood",
+            glyph: '^',
+            effect: ItemEffect::BuffDefense(1),
+            weight: 0,
+            durability: 250,
+        });
+        self.equipped_boots = Some(Item {
+            kind: ItemKind::Boots,
+            name: "Shoes",
+            glyph: '{',
+            effect: ItemEffect::BuffDefense(1),
+            weight: 0,
+            durability: 250,
+        });
     }
 
     /// Use a consumable item from inventory. Returns true if used successfully.

@@ -613,12 +613,38 @@ fn chain_mail() -> Item {
     }
 
     #[test]
+    fn overworld_spawn_has_starting_helmet() {
+        let g = overworld_game();
+        let helmet = g.equipped_helmet.as_ref().expect("should spawn with helmet");
+        assert_eq!(helmet.name, "Cloth Hood");
+        assert_eq!(helmet.kind, ItemKind::Helmet);
+        if let ItemEffect::BuffDefense(bonus) = helmet.effect {
+            assert_eq!(bonus, 1);
+        } else {
+            panic!("helmet should have BuffDefense effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_has_starting_boots() {
+        let g = overworld_game();
+        let boots = g.equipped_boots.as_ref().expect("should spawn with boots");
+        assert_eq!(boots.name, "Shoes");
+        assert_eq!(boots.kind, ItemKind::Boots);
+        if let ItemEffect::BuffDefense(bonus) = boots.effect {
+            assert_eq!(bonus, 1);
+        } else {
+            panic!("boots should have BuffDefense effect");
+        }
+    }
+
+    #[test]
     fn overworld_spawn_effective_stats_include_equipment() {
         let g = overworld_game();
         // Base attack 5 + Iron Dagger +2 = 7
         assert_eq!(g.effective_attack(), 7);
-        // Cloth Armor +1
-        assert_eq!(g.effective_defense(), 1);
+        // Cloth Armor +1, Cloth Hood +1, Shoes +1 = 3
+        assert_eq!(g.effective_defense(), 3);
     }
 
     #[test]
@@ -634,4 +660,8 @@ fn chain_mail() -> Item {
         assert!(weapon.durability > 0, "starting weapon should have durability");
         let armor = g.equipped_armor.as_ref().unwrap();
         assert!(armor.durability > 0, "starting armor should have durability");
+        let helmet = g.equipped_helmet.as_ref().unwrap();
+        assert!(helmet.durability > 0, "starting helmet should have durability");
+        let boots = g.equipped_boots.as_ref().unwrap();
+        assert!(boots.durability > 0, "starting boots should have durability");
     }
