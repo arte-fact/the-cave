@@ -316,6 +316,26 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
 }
 
 impl Game {
+    /// Equip the player with basic starting gear (weakest tier-0 items).
+    pub fn spawn_starting_equipment(&mut self) {
+        self.equipped_weapon = Some(Item {
+            kind: ItemKind::Weapon,
+            name: "Iron Dagger",
+            glyph: '/',
+            effect: ItemEffect::BuffAttack(2),
+            weight: 1,
+            durability: 200,
+        });
+        self.equipped_armor = Some(Item {
+            kind: ItemKind::Armor,
+            name: "Cloth Armor",
+            glyph: '[',
+            effect: ItemEffect::BuffDefense(1),
+            weight: 0,
+            durability: 250,
+        });
+    }
+
     /// Use a consumable item from inventory. Returns true if used successfully.
     pub fn use_item(&mut self, index: usize) -> bool {
         if index >= self.inventory.len() {

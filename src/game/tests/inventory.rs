@@ -583,3 +583,55 @@ fn chain_mail() -> Item {
         g.set_inventory_scroll(5);
         assert_eq!(g.inventory_scroll, 0);
     }
+
+    // ── Starting equipment tests ─────────────────────────────────────
+
+    #[test]
+    fn overworld_spawn_has_starting_weapon() {
+        let g = overworld_game();
+        let weapon = g.equipped_weapon.as_ref().expect("should spawn with weapon");
+        assert_eq!(weapon.name, "Iron Dagger");
+        assert_eq!(weapon.kind, ItemKind::Weapon);
+        if let ItemEffect::BuffAttack(bonus) = weapon.effect {
+            assert_eq!(bonus, 2);
+        } else {
+            panic!("weapon should have BuffAttack effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_has_starting_armor() {
+        let g = overworld_game();
+        let armor = g.equipped_armor.as_ref().expect("should spawn with armor");
+        assert_eq!(armor.name, "Cloth Armor");
+        assert_eq!(armor.kind, ItemKind::Armor);
+        if let ItemEffect::BuffDefense(bonus) = armor.effect {
+            assert_eq!(bonus, 1);
+        } else {
+            panic!("armor should have BuffDefense effect");
+        }
+    }
+
+    #[test]
+    fn overworld_spawn_effective_stats_include_equipment() {
+        let g = overworld_game();
+        // Base attack 5 + Iron Dagger +2 = 7
+        assert_eq!(g.effective_attack(), 7);
+        // Cloth Armor +1
+        assert_eq!(g.effective_defense(), 1);
+    }
+
+    #[test]
+    fn overworld_spawn_inventory_empty() {
+        let g = overworld_game();
+        assert!(g.inventory.is_empty(), "starting equipment should be equipped, not in inventory");
+    }
+
+    #[test]
+    fn starting_equipment_has_durability() {
+        let g = overworld_game();
+        let weapon = g.equipped_weapon.as_ref().unwrap();
+        assert!(weapon.durability > 0, "starting weapon should have durability");
+        let armor = g.equipped_armor.as_ref().unwrap();
+        assert!(armor.durability > 0, "starting armor should have durability");
+    }
