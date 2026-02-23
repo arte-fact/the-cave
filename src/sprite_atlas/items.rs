@@ -2,6 +2,7 @@
 /// Positions from `32rogues/items.txt`.
 use super::{Sheet, SpriteRef};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ItemSprite {
     // === Swords (rows 1-2) ===

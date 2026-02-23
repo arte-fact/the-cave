@@ -2,6 +2,7 @@
 /// Positions from `32rogues/tiles.txt`.
 use super::{Sheet, SpriteRef};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TileSprite {
     // === Walls (top + side variants per biome) ===
