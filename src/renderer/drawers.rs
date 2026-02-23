@@ -88,9 +88,16 @@ impl Renderer {
             if let Some(ref item) = slot {
                 let sprite = sprites::item_sprite(item.name);
                 self.draw_sprite(sprite, icon_x, sy + (eq_h - eq_icon) / 2.0, eq_icon, eq_icon);
+                let text_x = icon_x + eq_icon + 4.0 * d;
                 ctx.set_font(&self.font(10.0, ""));
                 ctx.set_fill_style_str(color);
-                let _ = ctx.fill_text(item.name, icon_x + eq_icon + 4.0 * d, sy + eq_h / 2.0 - 5.0 * d);
+                let _ = ctx.fill_text(item.name, text_x, sy + eq_h / 2.0 - 5.0 * d);
+                // Durability indicator below item name
+                if item.durability > 0 {
+                    ctx.set_font(&self.font(8.0, ""));
+                    ctx.set_fill_style_str("#777");
+                    let _ = ctx.fill_text(&format!("Dur: {}", item.durability), text_x, sy + eq_h / 2.0 + 5.0 * d);
+                }
             } else {
                 ctx.set_font(&self.font(10.0, ""));
                 ctx.set_fill_style_str("#555");
@@ -166,12 +173,25 @@ impl Renderer {
                 }
 
                 // Item effect stats (right-aligned)
-                let stat_text = match &item.effect {
-                    crate::game::ItemEffect::Heal(n) => format!("+{} HP", n),
-                    crate::game::ItemEffect::DamageAoe(n) => format!("AOE {}", n),
-                    crate::game::ItemEffect::BuffAttack(n) => format!("ATK +{}", n),
-                    crate::game::ItemEffect::BuffDefense(n) => format!("DEF +{}", n),
-                    crate::game::ItemEffect::Feed(n, _) => format!("+{} food", n),
+                let stat_text = if item.durability > 0 {
+                    let base = match &item.effect {
+                        crate::game::ItemEffect::BuffAttack(n) => format!("ATK +{}", n),
+                        crate::game::ItemEffect::BuffDefense(n) => format!("DEF +{}", n),
+                        _ => String::new(),
+                    };
+                    if base.is_empty() {
+                        format!("D:{}", item.durability)
+                    } else {
+                        format!("{} D:{}", base, item.durability)
+                    }
+                } else {
+                    match &item.effect {
+                        crate::game::ItemEffect::Heal(n) => format!("+{} HP", n),
+                        crate::game::ItemEffect::DamageAoe(n) => format!("AOE {}", n),
+                        crate::game::ItemEffect::BuffAttack(n) => format!("ATK +{}", n),
+                        crate::game::ItemEffect::BuffDefense(n) => format!("DEF +{}", n),
+                        crate::game::ItemEffect::Feed(n, _) => format!("+{} food", n),
+                    }
                 };
                 ctx.set_font(&self.font(9.0, ""));
                 ctx.set_fill_style_str("#777");
@@ -468,6 +488,14 @@ impl Renderer {
                 ctx.set_fill_style_str(color);
                 ctx.set_text_baseline("middle");
                 let _ = ctx.fill_text(item.name, pad + eq_icon + 6.0 * d, y + eq_icon / 2.0);
+                // Durability indicator (right-aligned)
+                if item.durability > 0 {
+                    ctx.set_font(&self.font(9.0, ""));
+                    ctx.set_fill_style_str("#777");
+                    ctx.set_text_align("right");
+                    let _ = ctx.fill_text(&format!("D:{}", item.durability), canvas_w - pad, y + eq_icon / 2.0);
+                    ctx.set_text_align("left");
+                }
             } else {
                 ctx.set_font(&self.font(11.0, ""));
                 ctx.set_fill_style_str("#444");
