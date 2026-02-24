@@ -69,12 +69,12 @@ fn enemy_registry_has_entries() {
 #[test]
 fn enemy_def_lookup_works() {
     let def = enemy_def("Dragon").expect("Dragon should be in registry");
-    assert_eq!(def.hp, 40);
-    assert_eq!(def.attack, 10);
-    assert_eq!(def.defense, 6);
+    assert_eq!(def.hp, 90);
+    assert_eq!(def.attack, 16);
+    assert_eq!(def.defense, 9);
     assert_eq!(def.glyph, 'D');
     assert!(!def.is_ranged);
-    assert_eq!(def.xp, 100);
+    assert_eq!(def.xp, 200);
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn no_duplicate_enemy_names() {
 #[test]
 fn xp_for_known_enemies() {
     assert_eq!(xp_for_enemy("Giant Rat"), 3);
-    assert_eq!(xp_for_enemy("Dragon"), 100);
+    assert_eq!(xp_for_enemy("Dragon"), 200);
     assert_eq!(xp_for_enemy("Goblin"), 4);
 }
 
@@ -164,4 +164,48 @@ fn ranged_base_ranges_cover_all_bows() {
     assert!(names.contains(&"Elven Bow"));
     assert!(names.contains(&"Crossbow"));
     assert!(names.contains(&"Heavy Crossbow"));
+}
+
+#[test]
+fn ai_behavior_config_defaults() {
+    let cfg = GameConfig::normal();
+    assert_eq!(cfg.combat.territorial_alert_range, 4);
+    assert_eq!(cfg.combat.territorial_leash_range, 8);
+    assert_eq!(cfg.combat.stalker_activation_range, 5);
+    assert_eq!(cfg.combat.stalker_chase_range, 12);
+    assert_eq!(cfg.combat.timid_flee_range, 5);
+    assert_eq!(cfg.combat.passive_flee_range, 4);
+    assert_eq!(cfg.combat.smart_pathfind_range, 10);
+}
+
+#[test]
+fn stalker_chase_range_exceeds_normal() {
+    let cfg = GameConfig::normal();
+    assert!(cfg.combat.stalker_chase_range > cfg.combat.enemy_chase_range,
+        "stalker chase range should exceed normal chase range");
+}
+
+#[test]
+fn smart_enemy_names_has_humanoids() {
+    let cfg = GameConfig::normal();
+    assert!(cfg.spawn_tables.smart_enemy_names.contains(&"Goblin"));
+    assert!(cfg.spawn_tables.smart_enemy_names.contains(&"Dragon"));
+    assert!(cfg.spawn_tables.smart_enemy_names.contains(&"Orc"));
+    assert!(!cfg.spawn_tables.smart_enemy_names.contains(&"Wolf"));
+    assert!(!cfg.spawn_tables.smart_enemy_names.contains(&"Big Slime"));
+}
+
+#[test]
+fn every_enemy_has_behavior() {
+    for def in ENEMY_DEFS {
+        // Just verify the field exists and is one of the valid variants
+        let _ = def.behavior;
+        assert_eq!(enemy_behavior(def.name), def.behavior,
+            "{} behavior mismatch", def.name);
+    }
+}
+
+#[test]
+fn behavior_lookup_unknown_defaults_to_aggressive() {
+    assert_eq!(enemy_behavior("NonExistent"), EnemyBehavior::Aggressive);
 }

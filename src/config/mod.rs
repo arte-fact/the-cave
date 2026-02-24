@@ -9,7 +9,7 @@ mod progression;
 mod spawn_tables;
 
 pub use combat::CombatConfig;
-pub use enemies::{EnemyDef, ENEMY_DEFS, enemy_def, xp_for_enemy, enemy_description};
+pub use enemies::{EnemyBehavior, EnemyDef, ENEMY_DEFS, enemy_def, enemy_behavior, xp_for_enemy, enemy_description};
 pub use items::ItemTableConfig;
 pub use mapgen::MapGenConfig;
 pub use spawn_tables::SpawnTableConfig;

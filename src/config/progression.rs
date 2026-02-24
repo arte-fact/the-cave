@@ -25,7 +25,7 @@ impl ProgressionConfig {
     pub(super) fn normal() -> Self {
         Self {
             xp_base: 20.0,
-            xp_exponent: 1.5,
+            xp_exponent: 1.65,
             skill_points_per_level: 3,
             hp_per_level: 2,
             vitality_hp_per_point: 3,

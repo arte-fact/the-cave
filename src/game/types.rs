@@ -1,3 +1,4 @@
+use crate::config::EnemyBehavior;
 use crate::map::Tile;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -75,6 +76,13 @@ pub struct Enemy {
     pub facing_left: bool,
     /// true if this enemy has a ranged attack (archers).
     pub is_ranged: bool,
+    /// AI behavior type.
+    pub behavior: EnemyBehavior,
+    /// Spawn position for territorial leash.
+    pub spawn_x: i32,
+    pub spawn_y: i32,
+    /// Whether this enemy has been provoked (attacked or triggered).
+    pub provoked: bool,
 }
 
 #[derive(Debug, PartialEq)]

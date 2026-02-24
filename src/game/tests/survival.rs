@@ -126,7 +126,7 @@ use super::{test_game, health_potion};
         let ex = g.player_x + 2;
         let ey = g.player_y;
         if g.current_map().is_walkable(ex, ey) {
-            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false });
             // Move away from enemy
             if g.current_map().is_walkable(g.player_x, g.player_y + 1) {
                 g.move_player(0, 1);
@@ -146,7 +146,7 @@ use super::{test_game, health_potion};
         let ex = g.player_x + 4;
         let ey = g.player_y;
         if !g.current_map().is_walkable(ex, ey) { return; }
-        g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false });
 
         // First move: enemies should be skipped
         let dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)];
@@ -342,7 +342,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'w', name: "Wolf", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'w', name: "Wolf", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Wolf Meat"),
             "wolf should drop meat");
@@ -354,7 +354,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'b', name: "Boar", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'b', name: "Boar", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Boar Meat"));
     }
@@ -365,7 +365,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'B', name: "Bear", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'B', name: "Bear", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Bear Meat"));
     }
@@ -376,7 +376,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Rat Meat"),
             "giant rat should drop rat meat");
@@ -388,7 +388,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Stolen Rations"),
             "goblin should drop stolen rations");

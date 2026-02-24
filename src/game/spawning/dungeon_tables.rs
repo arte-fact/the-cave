@@ -15,8 +15,8 @@ pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize
         DungeonBiome::SerpentPit => roll_serpent_pit(level, roll),
         DungeonBiome::DragonLair => roll_cave(roll),
     };
-    let (hp, attack, def, glyph, name, ranged) = stats;
-    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged }
+    let (hp, attack, def, glyph, name, ranged, behavior) = stats;
+    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged, behavior, spawn_x: x, spawn_y: y, provoked: false }
 }
 
 // === Dragon's Lair cave level ===
