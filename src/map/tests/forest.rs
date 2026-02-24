@@ -1,8 +1,10 @@
 use super::super::*;
+use crate::config::MapGenConfig;
 
 #[test]
 fn forest_border_is_trees() {
-    let map = Map::generate_forest(200, 200, 42);
+    let cfg = MapGenConfig::normal();
+    let map = Map::generate_forest(200, 200, 42, &cfg);
     for x in 0..map.width {
         assert_eq!(map.get(x, 0), Tile::Tree, "top border at x={x}");
         assert_eq!(map.get(x, map.height - 1), Tile::Tree, "bottom border at x={x}");
@@ -15,7 +17,8 @@ fn forest_border_is_trees() {
 
 #[test]
 fn forest_has_enough_grass() {
-    let map = Map::generate_forest(200, 200, 42);
+    let cfg = MapGenConfig::normal();
+    let map = Map::generate_forest(200, 200, 42, &cfg);
     let grass_count = (0..map.height)
         .flat_map(|y| (0..map.width).map(move |x| (x, y)))
         .filter(|&(x, y)| map.get(x, y) == Tile::Grass)
@@ -30,7 +33,8 @@ fn forest_has_enough_grass() {
 
 #[test]
 fn forest_all_grass_reachable() {
-    let map = Map::generate_forest(200, 200, 42);
+    let cfg = MapGenConfig::normal();
+    let map = Map::generate_forest(200, 200, 42, &cfg);
     let (sx, sy) = map.find_spawn();
     assert_eq!(map.get(sx, sy), Tile::Grass, "spawn should be on grass");
 
@@ -74,8 +78,9 @@ fn forest_all_grass_reachable() {
 
 #[test]
 fn forest_deterministic() {
-    let a = Map::generate_forest(100, 100, 77);
-    let b = Map::generate_forest(100, 100, 77);
+    let cfg = MapGenConfig::normal();
+    let a = Map::generate_forest(100, 100, 77, &cfg);
+    let b = Map::generate_forest(100, 100, 77, &cfg);
     for y in 0..a.height {
         for x in 0..a.width {
             assert_eq!(a.get(x, y), b.get(x, y), "forest mismatch at ({x},{y})");
@@ -85,7 +90,8 @@ fn forest_deterministic() {
 
 #[test]
 fn forest_only_tree_and_grass() {
-    let map = Map::generate_forest(200, 200, 42);
+    let cfg = MapGenConfig::normal();
+    let map = Map::generate_forest(200, 200, 42, &cfg);
     for y in 0..map.height {
         for x in 0..map.width {
             let t = map.get(x, y);

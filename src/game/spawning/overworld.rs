@@ -34,14 +34,19 @@ fn roll_forest(roll: u64) -> EnemyStats {
 }
 
 /// Returns true if the enemy is a rare overworld monster (not common wildlife).
-pub fn is_rare_monster(name: &str) -> bool {
-    matches!(name, "Dryad" | "Forest Spirit" | "Centaur" | "Dire Wolf" | "Lycanthrope" | "Wendigo")
+pub fn is_rare_monster(name: &str, rare_names: &[&str]) -> bool {
+    rare_names.contains(&name)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::game::xorshift64;
+    use crate::config::GameConfig;
+
+    fn rare_names() -> &'static [&'static str] {
+        GameConfig::normal().spawn_tables.rare_monster_names
+    }
 
     #[test]
     fn overworld_spawns_forest_animals() {
@@ -91,7 +96,7 @@ mod tests {
         for _ in 0..total {
             rng = xorshift64(rng);
             let e = roll_overworld_enemy(50, 50, rng, 200);
-            if is_rare_monster(e.name) {
+            if is_rare_monster(e.name, rare_names()) {
                 monster_count += 1;
             }
         }
@@ -107,7 +112,7 @@ mod tests {
         for _ in 0..5000 {
             rng = xorshift64(rng);
             let e = roll_overworld_enemy(50, 50, rng, 200);
-            if is_rare_monster(e.name) {
+            if is_rare_monster(e.name, rare_names()) {
                 found_any = true;
                 assert!(e.hp >= 16, "{} should have >= 16 hp, got {}", e.name, e.hp);
                 assert!(e.attack >= 5, "{} should have >= 5 attack, got {}", e.name, e.attack);

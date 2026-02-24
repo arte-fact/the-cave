@@ -75,19 +75,12 @@ use super::{test_game, overworld_game, rusty_sword};
 
     #[test]
     fn every_enemy_has_desc() {
-        let all_enemies = [
-            "Giant Rat", "Giant Bat", "Wolf", "Giant Spider", "Boar", "Bear", "Lycanthrope",
-            "Lynx", "Black Bear", "Ocelot", "Jackal", "Monitor Lizard",
-            "Water Buffalo", "Yak",
-            "Kobold", "Small Slime", "Goblin", "Skeleton",
-            "Goblin Archer", "Zombie", "Skeleton Archer", "Big Slime", "Orc",
-            "Ghoul", "Orc Blademaster", "Wraith", "Naga", "Troll",
-            "Death Knight", "Lich", "Dragon",
-        ];
-        for name in all_enemies {
-            let desc = enemy_desc(name);
-            assert!(!desc.is_empty(), "{name} has no desc");
-            assert_ne!(desc, "A mysterious creature.", "{name} should have a unique desc");
+        use crate::config::{ENEMY_DEFS, enemy_description};
+        // Every enemy in the registry should have a non-default description
+        for def in ENEMY_DEFS {
+            let desc = enemy_description(def.name);
+            assert!(!desc.is_empty(), "{} has no desc", def.name);
+            assert_ne!(desc, "A mysterious creature.", "{} should have a unique desc", def.name);
         }
     }
 

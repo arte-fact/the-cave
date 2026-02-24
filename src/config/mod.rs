@@ -1,5 +1,20 @@
 /// Centralized game configuration. All gameplay constants live here
 /// so they can be tuned per-difficulty or exposed in settings.
+
+mod combat;
+mod enemies;
+mod items;
+mod mapgen;
+mod progression;
+mod spawn_tables;
+
+pub use combat::CombatConfig;
+pub use enemies::{EnemyDef, ENEMY_DEFS, enemy_def, xp_for_enemy, enemy_description};
+pub use items::ItemTableConfig;
+pub use mapgen::MapGenConfig;
+pub use spawn_tables::SpawnTableConfig;
+pub use progression::ProgressionConfig;
+
 /// Top-level config holding all sub-configs.
 #[derive(Clone, Debug)]
 pub struct GameConfig {
@@ -9,6 +24,10 @@ pub struct GameConfig {
     pub combat: CombatConfig,
     pub fov: FovConfig,
     pub spawn: SpawnConfig,
+    pub mapgen: MapGenConfig,
+    pub enemies: &'static [EnemyDef],
+    pub item_tables: ItemTableConfig,
+    pub spawn_tables: SpawnTableConfig,
 }
 
 #[derive(Clone, Debug)]
@@ -36,24 +55,6 @@ pub struct SurvivalConfig {
     pub regen_hunger_threshold: i32,
     /// Hunger cost per HP regenerated.
     pub regen_hunger_cost: i32,
-}
-
-#[derive(Clone, Debug)]
-pub struct ProgressionConfig {
-    /// XP formula multiplier: xp_needed = xp_base * level^xp_exponent.
-    pub xp_base: f64,
-    pub xp_exponent: f64,
-    /// Skill points awarded per level up.
-    pub skill_points_per_level: u32,
-    /// Max HP increase per level up.
-    pub hp_per_level: i32,
-}
-
-#[derive(Clone, Debug)]
-pub struct CombatConfig {
-    /// Overworld kill thresholds for XP diminishing returns.
-    pub xp_diminish_half: u32,
-    pub xp_diminish_quarter: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -139,16 +140,8 @@ impl GameConfig {
                 regen_hunger_threshold: 50,
                 regen_hunger_cost: 2,
             },
-            progression: ProgressionConfig {
-                xp_base: 20.0,
-                xp_exponent: 1.5,
-                skill_points_per_level: 3,
-                hp_per_level: 2,
-            },
-            combat: CombatConfig {
-                xp_diminish_half: 50,
-                xp_diminish_quarter: 100,
-            },
+            progression: ProgressionConfig::normal(),
+            combat: CombatConfig::normal(),
             fov: FovConfig {
                 overworld_radius: 8,
                 dungeon_radius: 6,
@@ -163,6 +156,10 @@ impl GameConfig {
                 dungeon_item_pct: 2,
                 cave_item_pct: 1,
             },
+            mapgen: MapGenConfig::normal(),
+            enemies: ENEMY_DEFS,
+            item_tables: ItemTableConfig::normal(),
+            spawn_tables: SpawnTableConfig::normal(),
         }
     }
 

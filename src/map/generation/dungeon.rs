@@ -1,3 +1,4 @@
+use crate::config::MapGenConfig;
 use super::super::{Map, Tile};
 use super::biome::DungeonBiome;
 use super::xorshift64;
@@ -5,15 +6,14 @@ use super::xorshift64;
 impl Map {
     /// Place small dungeon entrance structures on a forest map using BSP zone partitioning.
     /// Returns the list of dungeon entrance positions.
-    pub fn place_dungeons(&mut self, seed: u64) -> Vec<(i32, i32)> {
+    pub fn place_dungeons(&mut self, seed: u64, cfg: &MapGenConfig) -> Vec<(i32, i32)> {
         let mut rng = seed;
-        let zones = bsp_subdivide(2, 2, self.width - 4, self.height - 4, 30, &mut rng);
+        let zones = bsp_subdivide(2, 2, self.width - 4, self.height - 4, cfg.bsp_min_zone, &mut rng);
         let mut entrances = Vec::new();
 
         for zone in &zones {
             rng = xorshift64(rng);
-            // ~60% chance a zone gets a dungeon
-            if rng % 100 >= 60 {
+            if rng % 100 >= cfg.dungeon_place_chance_pct {
                 continue;
             }
 
@@ -47,9 +47,9 @@ impl Map {
             entrances.push((cx, cy + 1));
         }
 
-        // Guarantee at least 3 dungeons by retrying with offset seed
-        if entrances.len() < 3 {
-            let extra = self.place_dungeons(seed.wrapping_add(7));
+        // Guarantee minimum dungeons by retrying with offset seed
+        if entrances.len() < cfg.dungeon_min_count {
+            let extra = self.place_dungeons(seed.wrapping_add(7), cfg);
             entrances.extend(extra);
         }
 
@@ -58,12 +58,12 @@ impl Map {
 
     /// Generate a BSP dungeon level.
     /// Recursive BSP splits create rooms connected by L-shaped corridors.
-    pub fn generate_bsp_dungeon(width: i32, height: i32, seed: u64, level: usize, total_levels: usize) -> Self {
+    pub fn generate_bsp_dungeon(width: i32, height: i32, seed: u64, level: usize, total_levels: usize, cfg: &MapGenConfig) -> Self {
         let mut map = Map::new_filled(width, height, Tile::Wall);
         let mut rng = seed;
 
         // BSP split into rooms
-        let min_room = 5;
+        let min_room = cfg.bsp_min_room;
         let rooms = bsp_rooms(1, 1, width - 2, height - 2, min_room, &mut rng);
 
         // Carve rooms
@@ -165,10 +165,9 @@ pub struct Dungeon {
 
 impl Dungeon {
     /// Generate a dungeon with `depth` BSP levels and a specific biome.
-    /// Level 0 = 40x30, level 1 = 50x35, level 2 = 60x40.
-    /// If `has_cave` is true, appends a cellular automata cave (80x60)
+    /// If `has_cave` is true, appends a cellular automata cave
     /// as the deepest level — the dragon's lair.
-    pub fn generate(depth: usize, seed: u64, has_cave: bool, biome: DungeonBiome) -> Self {
+    pub fn generate(depth: usize, seed: u64, has_cave: bool, biome: DungeonBiome, cfg: &MapGenConfig) -> Self {
         let mut levels = Vec::new();
         let mut styles = Vec::new();
         let mut rng = seed;
@@ -177,9 +176,9 @@ impl Dungeon {
         let total = if has_cave { depth + 1 } else { depth };
 
         for level in 0..depth {
-            let (w, h) = dungeon_level_size(level);
+            let (w, h) = dungeon_level_size(level, cfg);
             rng = xorshift64(rng);
-            let map = Map::generate_bsp_dungeon(w, h, rng, level, total);
+            let map = Map::generate_bsp_dungeon(w, h, rng, level, total, cfg);
             levels.push(map);
             styles.push(biome.style_for_level(level, false));
         }
@@ -187,7 +186,7 @@ impl Dungeon {
         // Append cave level if this is the dragon's dungeon
         if has_cave {
             rng = xorshift64(rng);
-            let cave = Map::generate_cave(80, 60, rng);
+            let cave = Map::generate_cave(cfg.cave_width, cfg.cave_height, rng, cfg);
             levels.push(cave);
             styles.push(DungeonStyle::RedCavern);
         }
@@ -197,11 +196,11 @@ impl Dungeon {
 }
 
 /// Returns (width, height) for a dungeon level based on depth.
-fn dungeon_level_size(level: usize) -> (i32, i32) {
-    match level {
-        0 => (40, 30),
-        1 => (50, 35),
-        _ => (60, 40),
+fn dungeon_level_size(level: usize, cfg: &MapGenConfig) -> (i32, i32) {
+    if level < cfg.dungeon_level_sizes.len() {
+        cfg.dungeon_level_sizes[level]
+    } else {
+        *cfg.dungeon_level_sizes.last().unwrap()
     }
 }
 

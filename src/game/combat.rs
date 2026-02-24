@@ -16,21 +16,24 @@ impl Game {
 
     /// Stamina cost for the player's current melee attack.
     /// Based on equipped weapon weight: heavier weapons cost more stamina.
-    /// Unarmed: base cost 6.
     pub fn melee_stamina_cost(&self) -> i32 {
-        match &self.equipped_weapon {
-            Some(item) if item.kind == ItemKind::Weapon => weapon_stamina_cost(&item.kind, item.weight),
-            _ => weapon_stamina_cost(&ItemKind::Weapon, 0), // unarmed: 6
-        }
+        let c = &self.config.combat;
+        let (kind, weight) = match &self.equipped_weapon {
+            Some(item) if item.kind == ItemKind::Weapon => (&item.kind, item.weight),
+            _ => (&ItemKind::Weapon, 0),
+        };
+        weapon_stamina_cost(kind, weight, c.melee_stamina_base, c.melee_stamina_weight_mult, c.ranged_stamina_base, c.ranged_stamina_weight_mult)
     }
 
     /// Stamina cost for the player's current ranged attack.
     /// Based on equipped ranged weapon weight.
     pub fn ranged_stamina_cost(&self) -> i32 {
-        match &self.equipped_weapon {
-            Some(item) if item.kind == ItemKind::RangedWeapon => weapon_stamina_cost(&item.kind, item.weight),
-            _ => weapon_stamina_cost(&ItemKind::RangedWeapon, 0), // fallback: 4
-        }
+        let c = &self.config.combat;
+        let (kind, weight) = match &self.equipped_weapon {
+            Some(item) if item.kind == ItemKind::RangedWeapon => (&item.kind, item.weight),
+            _ => (&ItemKind::RangedWeapon, 0),
+        };
+        weapon_stamina_cost(kind, weight, c.melee_stamina_base, c.melee_stamina_weight_mult, c.ranged_stamina_base, c.ranged_stamina_weight_mult)
     }
 
     /// Player's total defense: base + armor + helmet + shield + boots + ring.
@@ -45,10 +48,11 @@ impl Game {
         total
     }
 
-    /// Roll a dodge check: 2% per DEX point, capped at 20%.
+    /// Roll a dodge check: dodge_pct_per_dex % per DEX point, capped at dodge_cap_pct.
     /// Returns true if the player dodges.
     fn roll_dodge(&mut self, dodge_seed: u64, attacker_name: &str, label: &str) -> bool {
-        let dodge_chance = (self.player_dexterity * 2).min(20) as u64;
+        let c = &self.config.combat;
+        let dodge_chance = (self.player_dexterity * c.dodge_pct_per_dex).min(c.dodge_cap_pct) as u64;
         let dodge_roll = xorshift64(dodge_seed) % 100;
         if dodge_roll < dodge_chance {
             self.messages.push(format!("You dodge {attacker_name}'s {label}!"));
@@ -196,8 +200,9 @@ impl Game {
             let ey = self.enemies[i].y;
             let dist = (ex - px).abs() + (ey - py).abs();
 
-            // Ranged enemies: shoot if within 2-4 tiles and have line of sight
-            if self.enemies[i].is_ranged && (2..=4).contains(&dist)
+            // Ranged enemies: shoot if within configured range and have line of sight
+            let c = &self.config.combat;
+            if self.enemies[i].is_ranged && (c.enemy_ranged_min..=c.enemy_ranged_max).contains(&dist)
                 && self.world.current_map().has_line_of_sight(ex, ey, px, py)
             {
                 self.enemy_ranged_attack(i, pdef);
@@ -211,8 +216,8 @@ impl Game {
                 continue;
             }
 
-            // Chase if within 8 tiles
-            if dist <= 8 {
+            // Chase if within configured range
+            if dist <= c.enemy_chase_range {
                 self.enemy_chase(i, px, py, pdef);
             }
         }
@@ -228,7 +233,7 @@ impl Game {
         let roll = xorshift64(seed) % 100;
         let name = self.enemies[i].name;
 
-        if roll >= 70 {
+        if roll >= self.config.combat.enemy_ranged_miss_threshold {
             self.messages.push(format!("{name}'s arrow misses!"));
             self.floating_texts.push(FloatingText {
                 world_x: ex, world_y: ey,
@@ -380,35 +385,38 @@ impl Game {
 
     /// Base range for the equipped ranged weapon (before dexterity bonus).
     fn ranged_weapon_base_range(&self) -> i32 {
-        match self.equipped_weapon.as_ref().map(|w| w.name) {
-            Some("Short Bow") => 4,
-            Some("Crossbow") => 3,
-            Some("Long Bow") => 6,
-            Some("Heavy Crossbow") => 4,
-            Some("Elven Bow") => 8,
-            _ => 4,
+        let it = &self.config.item_tables;
+        if let Some(name) = self.equipped_weapon.as_ref().map(|w| w.name) {
+            for &(weapon_name, range) in it.ranged_base_ranges {
+                if weapon_name == name {
+                    return range;
+                }
+            }
         }
+        it.ranged_default_range
     }
 
     /// Max range for the equipped ranged weapon, factoring in dexterity.
     pub fn ranged_max_range(&self) -> i32 {
-        self.ranged_weapon_base_range() + self.player_dexterity / 3
+        self.ranged_weapon_base_range() + self.player_dexterity / self.config.combat.ranged_range_dex_divisor
     }
 
-    /// Hit chance (0–95) for a ranged attack at the given distance.
-    /// Higher dexterity = better accuracy (+3% per DEX). Chance drops with distance.
+    /// Hit chance (0–cap) for a ranged attack at the given distance.
+    /// Higher dexterity = better accuracy. Chance drops with distance.
     pub fn ranged_hit_chance(&self, distance: i32) -> i32 {
+        let c = &self.config.combat;
         let max_range = self.ranged_max_range();
         if distance <= 0 || distance > max_range {
             return 0;
         }
-        let base = (90 - distance * 70 / max_range).max(20);
-        (base + self.player_dexterity * 3).min(95)
+        let base = (c.ranged_hit_ceiling - distance * c.ranged_hit_falloff / max_range).max(c.ranged_hit_floor);
+        (base + self.player_dexterity * c.ranged_accuracy_per_dex).min(c.ranged_hit_cap)
     }
 
-    /// Ranged damage: base attack + distance/2 bonus + DEX/2 bonus, reduced by enemy defense.
+    /// Ranged damage: base attack + distance bonus + DEX bonus, reduced by enemy defense.
     fn ranged_damage(&self, enemy_defense: i32, distance: i32) -> i32 {
-        let atk = self.effective_attack() + distance / 2 + self.player_dexterity / 2;
+        let c = &self.config.combat;
+        let atk = self.effective_attack() + distance / c.ranged_dist_bonus_divisor + self.player_dexterity / c.ranged_dex_bonus_divisor;
         calc_damage(atk, enemy_defense)
     }
 

@@ -194,13 +194,11 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
 }
 
 /// Returns a strong item drop for rare overworld monsters.
-/// Weaker monsters drop tier 1, strongest drop tier 2.
-pub(super) fn monster_loot_drop(enemy_name: &str, rng: &mut u64) -> Option<Item> {
-    let tier = match enemy_name {
-        "Dryad" | "Forest Spirit" | "Dire Wolf" => 1,
-        "Centaur" | "Lycanthrope" | "Wendigo" => 2,
-        _ => return None,
-    };
+/// Loot tier looked up from spawn_tables config.
+pub(super) fn monster_loot_drop(enemy_name: &str, rng: &mut u64, loot_tiers: &[(&str, usize)]) -> Option<Item> {
+    let tier = loot_tiers.iter()
+        .find(|&&(name, _)| name == enemy_name)
+        .map(|&(_, t)| t)?;
     Some(random_item(tier, rng))
 }
 
@@ -411,10 +409,11 @@ impl Game {
                     kind: EffectKind::AoeBlast,
                     x: px, y: py, age: 0.0,
                 });
+                let aoe_range = self.config.combat.scroll_aoe_range;
                 for enemy in &mut self.enemies {
                     if enemy.hp <= 0 { continue; }
                     let dist = (enemy.x - px).abs() + (enemy.y - py).abs();
-                    if dist > 3 { continue; }
+                    if dist > aoe_range { continue; }
                     enemy.hp -= damage;
                     self.floating_texts.push(FloatingText {
                         world_x: enemy.x, world_y: enemy.y,
@@ -583,7 +582,10 @@ impl Game {
 
     /// Get a description string for an inventory item.
     pub fn inventory_item_desc(&self, index: usize) -> Option<String> {
-        self.inventory.get(index).map(item_info_desc)
+        let c = &self.config.combat;
+        self.inventory.get(index).map(|item| {
+            item_info_desc_with_config(item, c.melee_stamina_base, c.melee_stamina_weight_mult, c.ranged_stamina_base, c.ranged_stamina_weight_mult)
+        })
     }
 
     pub fn toggle_drawer(&mut self, drawer: Drawer) {
@@ -611,7 +613,10 @@ impl Game {
 
     /// Get a description string for an equipped item in a slot (0–5).
     pub fn equipment_desc(&self, slot: usize) -> Option<String> {
-        self.equipment_slot_item(slot).map(item_info_desc)
+        let c = &self.config.combat;
+        self.equipment_slot_item(slot).map(|item| {
+            item_info_desc_with_config(item, c.melee_stamina_base, c.melee_stamina_weight_mult, c.ranged_stamina_base, c.ranged_stamina_weight_mult)
+        })
     }
 
     /// Unequip an item from a slot (0–5) and move it to inventory.
@@ -682,13 +687,14 @@ impl Game {
                     hp: e.hp,
                     attack: e.attack,
                     defense: e.defense,
-                    desc: enemy_desc(e.name),
+                    desc: crate::config::enemy_description(e.name),
                 });
             }
             if let Some(gi) = self.ground_items.iter().find(|gi| gi.x == x && gi.y == y) {
+                let c = &self.config.combat;
                 info.item = Some(ItemInfo {
                     name: gi.item.name,
-                    desc: item_info_desc(&gi.item),
+                    desc: item_info_desc_with_config(&gi.item, c.melee_stamina_base, c.melee_stamina_weight_mult, c.ranged_stamina_base, c.ranged_stamina_weight_mult),
                 });
             }
         }
@@ -832,13 +838,13 @@ impl Game {
                     continue;
                 }
                 rng = xorshift64(rng);
-                // Tier bleed: 20% chance one tier higher, 10% one tier lower
                 let base_tier = if is_cave { 2 } else { level };
                 rng = xorshift64(rng);
                 let bleed_roll = rng % 100;
-                let tier = if bleed_roll < 20 && base_tier < 2 {
+                let it = &self.config.item_tables;
+                let tier = if bleed_roll < it.tier_bleed_up_pct && base_tier < 2 {
                     base_tier + 1 // Lucky find
-                } else if bleed_roll < 30 && base_tier > 0 {
+                } else if bleed_roll < it.tier_bleed_up_pct + it.tier_bleed_down_pct && base_tier > 0 {
                     base_tier - 1 // Tough luck
                 } else {
                     base_tier
