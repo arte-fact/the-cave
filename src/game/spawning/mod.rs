@@ -90,6 +90,8 @@ impl Game {
                     self.enemies.push(Enemy {
                         x, y, hp: c.dragon_hp, attack: c.dragon_attack, defense: c.dragon_defense,
                         glyph: 'D', name: "Dragon", facing_left: false, is_ranged: false,
+                        behavior: crate::config::EnemyBehavior::Aggressive,
+                        spawn_x: x, spawn_y: y, provoked: false,
                     });
                     return;
                 }

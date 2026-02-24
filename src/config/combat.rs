@@ -55,6 +55,22 @@ pub struct CombatConfig {
     /// Dexterity bonus divisor for range extension: range += dex / divisor.
     pub ranged_range_dex_divisor: i32,
 
+    // --- Behavior AI ranges ---
+    /// Territorial enemies engage when player is within this Manhattan distance.
+    pub territorial_alert_range: i32,
+    /// Territorial enemies disengage and return home beyond this distance from spawn.
+    pub territorial_leash_range: i32,
+    /// Stalker enemies activate when player is within this distance.
+    pub stalker_activation_range: i32,
+    /// Stalker enemies pursue with this extended chase range once activated.
+    pub stalker_chase_range: i32,
+    /// Timid enemies flee when player is within this distance.
+    pub timid_flee_range: i32,
+    /// Passive enemies flee within this range when provoked.
+    pub passive_flee_range: i32,
+    /// Max range for A* smart pathfinding (beyond this, greedy only).
+    pub smart_pathfind_range: i32,
+
     // --- Dragon boss ---
     pub dragon_hp: i32,
     pub dragon_attack: i32,
@@ -87,9 +103,16 @@ impl CombatConfig {
             ranged_dist_bonus_divisor: 2,
             ranged_dex_bonus_divisor: 2,
             ranged_range_dex_divisor: 3,
-            dragon_hp: 40,
-            dragon_attack: 10,
-            dragon_defense: 6,
+            territorial_alert_range: 4,
+            territorial_leash_range: 8,
+            stalker_activation_range: 5,
+            stalker_chase_range: 12,
+            timid_flee_range: 5,
+            passive_flee_range: 4,
+            smart_pathfind_range: 10,
+            dragon_hp: 90,
+            dragon_attack: 16,
+            dragon_defense: 9,
             dragon_min_distance: 5,
         }
     }

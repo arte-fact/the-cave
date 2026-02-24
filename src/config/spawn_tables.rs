@@ -10,6 +10,10 @@ pub struct SpawnTableConfig {
     /// Loot tier for rare overworld monsters. (enemy_name, tier).
     /// Monsters not listed here don't drop loot.
     pub monster_loot_tiers: &'static [(&'static str, usize)],
+
+    /// Names of enemies that use A* pathfinding when greedy chase fails.
+    /// Typically intelligent humanoids and magical creatures.
+    pub smart_enemy_names: &'static [&'static str],
 }
 
 impl SpawnTableConfig {
@@ -25,6 +29,13 @@ impl SpawnTableConfig {
                 ("Centaur", 2),
                 ("Lycanthrope", 2),
                 ("Wendigo", 2),
+            ],
+            smart_enemy_names: &[
+                "Goblin", "Goblin Brute", "Goblin Archer", "Goblin Mage",
+                "Orc", "Orc Wizard", "Orc Warchief", "Orc Blademaster",
+                "Kobold", "Cultist", "Faceless Monk", "Unholy Cardinal",
+                "Lizardfolk", "Hag", "Lich", "Death Knight",
+                "Naga", "Medusa", "Centaur", "Lycanthrope", "Dragon",
             ],
         }
     }

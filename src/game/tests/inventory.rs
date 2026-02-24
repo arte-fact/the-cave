@@ -132,8 +132,8 @@ fn chain_mail() -> Item {
         let mut g = Game::new(map);
         let (px, py) = (g.player_x, g.player_y);
         // Place enemies: one close (dist 2), one far (dist 10)
-        g.enemies.push(Enemy { x: px + 2, y: py, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
-        g.enemies.push(Enemy { x: px + 10, y: py, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: px + 2, y: py, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: px + 2, spawn_y: py, provoked: false });
+        g.enemies.push(Enemy { x: px + 10, y: py, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: px + 10, spawn_y: py, provoked: false });
         g.inventory.push(scroll_fire());
         g.use_item(0);
         assert_eq!(g.enemies[0].hp, 20 - 8, "close enemy should take 8 damage");
@@ -250,7 +250,7 @@ fn chain_mail() -> Item {
         g.equipped_weapon = Some(rusty_sword());
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         // Base attack 5 + weapon 3 = 8 damage (calc_damage(8, 0) = 8)
         assert_eq!(g.enemies[0].hp, 20 - 8);
@@ -265,7 +265,7 @@ fn chain_mail() -> Item {
         let hp_before = g.player_hp;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         // Enemy attacks during enemy_turn: calc_damage(5, 2) = 25/7 = 3
         assert_eq!(g.player_hp, hp_before - 3);
@@ -284,7 +284,7 @@ fn chain_mail() -> Item {
         let hp_before = g.player_hp;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         // calc_damage(2, 6) = 4/8 = 0 → max(1) = 1
         assert_eq!(g.player_hp, hp_before - 1);

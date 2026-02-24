@@ -187,40 +187,116 @@ impl Game {
         self.update_fov();
     }
 
-    /// Core enemy AI.
+    /// Core enemy AI — dispatches to behavior-specific handlers.
     pub(super) fn enemy_turn(&mut self) {
+        use crate::config::EnemyBehavior::*;
+        for i in 0..self.enemies.len() {
+            if self.enemies[i].hp <= 0 { continue; }
+            match self.enemies[i].behavior {
+                Passive     => self.ai_passive(i),
+                Timid       => self.ai_timid(i),
+                Territorial => self.ai_territorial(i),
+                Aggressive  => self.ai_aggressive(i),
+                Stalker     => self.ai_stalker(i),
+            }
+        }
+    }
+
+    // ── Behavior implementations ─────────────────────────────────────
+
+    /// Passive: do nothing unless provoked, then flee.
+    fn ai_passive(&mut self, i: usize) {
+        if !self.enemies[i].provoked { return; }
+        let dist = self.manhattan_to_player(i);
+        if dist <= self.config.combat.passive_flee_range {
+            self.enemy_flee(i);
+        }
+    }
+
+    /// Timid: flee from player. Fight back only when cornered (adjacent + provoked).
+    fn ai_timid(&mut self, i: usize) {
+        let chebyshev = (self.enemies[i].x - self.player_x).abs()
+            .max((self.enemies[i].y - self.player_y).abs());
+        if chebyshev == 1 && self.enemies[i].provoked {
+            let pdef = self.effective_defense();
+            self.enemy_melee_attack(i, pdef);
+            return;
+        }
+        let dist = self.manhattan_to_player(i);
+        if dist <= self.config.combat.timid_flee_range {
+            self.enemy_flee(i);
+        }
+    }
+
+    /// Territorial: leashed to spawn. Engages when close or provoked.
+    fn ai_territorial(&mut self, i: usize) {
+        let c = &self.config.combat;
+        let dist_from_spawn = (self.enemies[i].x - self.enemies[i].spawn_x).abs()
+            + (self.enemies[i].y - self.enemies[i].spawn_y).abs();
+        // Beyond leash → return home
+        if dist_from_spawn > c.territorial_leash_range {
+            let sx = self.enemies[i].spawn_x;
+            let sy = self.enemies[i].spawn_y;
+            self.enemy_move_toward(i, sx, sy);
+            return;
+        }
+        let dist = self.manhattan_to_player(i);
+        if self.enemies[i].provoked || dist <= c.territorial_alert_range {
+            self.ai_standard_combat(i, c.enemy_chase_range);
+        }
+    }
+
+    /// Aggressive: standard chase-and-attack.
+    fn ai_aggressive(&mut self, i: usize) {
+        let chase = self.config.combat.enemy_chase_range;
+        self.ai_standard_combat(i, chase);
+    }
+
+    /// Stalker: motionless until proximity trigger, then relentless extended chase.
+    fn ai_stalker(&mut self, i: usize) {
+        let c = &self.config.combat;
+        if !self.enemies[i].provoked {
+            let dist = self.manhattan_to_player(i);
+            if dist <= c.stalker_activation_range {
+                self.enemies[i].provoked = true;
+            } else {
+                return; // motionless
+            }
+        }
+        self.ai_standard_combat(i, c.stalker_chase_range);
+    }
+
+    /// Shared combat logic: ranged → melee → chase with configurable range.
+    fn ai_standard_combat(&mut self, i: usize, chase_range: i32) {
         let px = self.player_x;
         let py = self.player_y;
         let pdef = self.effective_defense();
+        let ex = self.enemies[i].x;
+        let ey = self.enemies[i].y;
+        let dist = (ex - px).abs() + (ey - py).abs();
 
-        for i in 0..self.enemies.len() {
-            if self.enemies[i].hp <= 0 { continue; }
-
-            let ex = self.enemies[i].x;
-            let ey = self.enemies[i].y;
-            let dist = (ex - px).abs() + (ey - py).abs();
-
-            // Ranged enemies: shoot if within configured range and have line of sight
-            let c = &self.config.combat;
-            if self.enemies[i].is_ranged && (c.enemy_ranged_min..=c.enemy_ranged_max).contains(&dist)
-                && self.world.current_map().has_line_of_sight(ex, ey, px, py)
-            {
-                self.enemy_ranged_attack(i, pdef);
-                continue;
-            }
-
-            // Adjacent (Chebyshev): attack the player
-            let chebyshev = (ex - px).abs().max((ey - py).abs());
-            if chebyshev == 1 {
-                self.enemy_melee_attack(i, pdef);
-                continue;
-            }
-
-            // Chase if within configured range
-            if dist <= c.enemy_chase_range {
-                self.enemy_chase(i, px, py, pdef);
-            }
+        let c = &self.config.combat;
+        if self.enemies[i].is_ranged
+            && (c.enemy_ranged_min..=c.enemy_ranged_max).contains(&dist)
+            && self.world.current_map().has_line_of_sight(ex, ey, px, py)
+        {
+            self.enemy_ranged_attack(i, pdef);
+            return;
         }
+
+        let chebyshev = (ex - px).abs().max((ey - py).abs());
+        if chebyshev == 1 {
+            self.enemy_melee_attack(i, pdef);
+            return;
+        }
+
+        if dist <= chase_range {
+            self.enemy_smart_chase(i, px, py, pdef);
+        }
+    }
+
+    fn manhattan_to_player(&self, i: usize) -> i32 {
+        (self.enemies[i].x - self.player_x).abs() + (self.enemies[i].y - self.player_y).abs()
     }
 
     /// Enemy ranged attack logic.
@@ -261,8 +337,76 @@ impl Game {
         self.apply_enemy_melee_hit(i, dmg, format!("{name} hits you for {dmg} damage."));
     }
 
-    /// Enemy chase logic: move toward player or attack if bumping into them.
-    fn enemy_chase(&mut self, i: usize, px: i32, py: i32, pdef: i32) {
+    // ── Movement helpers ────────────────────────────────────────────
+
+    /// Move enemy away from the player.
+    fn enemy_flee(&mut self, i: usize) {
+        let ex = self.enemies[i].x;
+        let ey = self.enemies[i].y;
+        let px = self.player_x;
+        let py = self.player_y;
+        let fdx = (ex - px).signum();
+        let fdy = (ey - py).signum();
+        let seed = self.turn as u64 * 11 + i as u64 * 3 + 127;
+
+        let mut cands: Vec<(i32, i32)> = Vec::new();
+        if fdx != 0 && fdy != 0 { cands.push((ex + fdx, ey + fdy)); }
+        if xorshift64(seed) % 2 == 0 {
+            if fdx != 0 { cands.push((ex + fdx, ey)); }
+            if fdy != 0 { cands.push((ex, ey + fdy)); }
+        } else {
+            if fdy != 0 { cands.push((ex, ey + fdy)); }
+            if fdx != 0 { cands.push((ex + fdx, ey)); }
+        }
+        // Perpendicular escapes
+        if fdy != 0 { cands.push((ex + 1, ey)); cands.push((ex - 1, ey)); }
+        if fdx != 0 { cands.push((ex, ey + 1)); cands.push((ex, ey - 1)); }
+
+        for (cx, cy) in cands {
+            if cx == px && cy == py { continue; }
+            if self.world.current_map().is_walkable(cx, cy)
+                && !self.enemies.iter().any(|e| e.hp > 0 && e.x == cx && e.y == cy)
+            {
+                let move_dx = cx - ex;
+                if move_dx < 0 { self.enemies[i].facing_left = true; }
+                if move_dx > 0 { self.enemies[i].facing_left = false; }
+                self.enemies[i].x = cx;
+                self.enemies[i].y = cy;
+                return;
+            }
+        }
+    }
+
+    /// Smart chase: try greedy first; if stuck and smart enemy, use A*.
+    fn enemy_smart_chase(&mut self, i: usize, px: i32, py: i32, pdef: i32) {
+        if self.try_greedy_chase(i, px, py, pdef) {
+            return;
+        }
+        let c = &self.config.combat;
+        let dist = (self.enemies[i].x - px).abs() + (self.enemies[i].y - py).abs();
+        if dist <= c.smart_pathfind_range
+            && self.config.spawn_tables.smart_enemy_names.contains(&self.enemies[i].name)
+        {
+            let start = (self.enemies[i].x, self.enemies[i].y);
+            let goal = (px, py);
+            let path = self.world.current_map().find_path(start, goal);
+            if path.len() >= 2 {
+                let (nx, ny) = path[1];
+                if nx == px && ny == py {
+                    self.enemy_melee_attack(i, pdef);
+                } else if !self.enemies.iter().any(|e| e.hp > 0 && e.x == nx && e.y == ny) {
+                    let move_dx = nx - self.enemies[i].x;
+                    if move_dx < 0 { self.enemies[i].facing_left = true; }
+                    if move_dx > 0 { self.enemies[i].facing_left = false; }
+                    self.enemies[i].x = nx;
+                    self.enemies[i].y = ny;
+                }
+            }
+        }
+    }
+
+    /// Greedy signum-based chase. Returns true if the enemy moved or attacked.
+    fn try_greedy_chase(&mut self, i: usize, px: i32, py: i32, pdef: i32) -> bool {
         let ex = self.enemies[i].x;
         let ey = self.enemies[i].y;
         let dx = (px - ex).signum();
@@ -270,15 +414,13 @@ impl Game {
         let seed = self.turn as u64 * 11 + i as u64 * 3 + 127;
 
         let mut cands: Vec<(i32, i32)> = Vec::new();
-        // Diagonal candidate (only if both axes differ)
         if dx != 0 && dy != 0 {
             let map = self.world.current_map();
             if map.is_walkable(ex + dx, ey) && map.is_walkable(ex, ey + dy) {
                 cands.push((ex + dx, ey + dy));
             }
         }
-        // Cardinal fallbacks (randomized order)
-        if xorshift64(seed).is_multiple_of(2) {
+        if xorshift64(seed) % 2 == 0 {
             if dx != 0 { cands.push((ex + dx, ey)); }
             if dy != 0 { cands.push((ex, ey + dy)); }
         } else {
@@ -289,12 +431,53 @@ impl Game {
         for (cx, cy) in cands {
             if cx == px && cy == py {
                 self.enemy_melee_attack(i, pdef);
-                return;
+                return true;
             }
             if self.world.current_map().is_walkable(cx, cy)
                 && !self.enemies.iter().any(|e| e.hp > 0 && e.x == cx && e.y == cy)
             {
                 let move_dx = cx - self.enemies[i].x;
+                if move_dx < 0 { self.enemies[i].facing_left = true; }
+                if move_dx > 0 { self.enemies[i].facing_left = false; }
+                self.enemies[i].x = cx;
+                self.enemies[i].y = cy;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Greedy move toward an arbitrary target (for territorial return-to-spawn).
+    fn enemy_move_toward(&mut self, i: usize, tx: i32, ty: i32) {
+        let ex = self.enemies[i].x;
+        let ey = self.enemies[i].y;
+        let dx = (tx - ex).signum();
+        let dy = (ty - ey).signum();
+        let seed = self.turn as u64 * 11 + i as u64 * 3 + 127;
+
+        let mut cands: Vec<(i32, i32)> = Vec::new();
+        if dx != 0 && dy != 0 {
+            let map = self.world.current_map();
+            if map.is_walkable(ex + dx, ey) && map.is_walkable(ex, ey + dy) {
+                cands.push((ex + dx, ey + dy));
+            }
+        }
+        if xorshift64(seed) % 2 == 0 {
+            if dx != 0 { cands.push((ex + dx, ey)); }
+            if dy != 0 { cands.push((ex, ey + dy)); }
+        } else {
+            if dy != 0 { cands.push((ex, ey + dy)); }
+            if dx != 0 { cands.push((ex + dx, ey)); }
+        }
+
+        let px = self.player_x;
+        let py = self.player_y;
+        for (cx, cy) in cands {
+            if cx == px && cy == py { continue; }
+            if self.world.current_map().is_walkable(cx, cy)
+                && !self.enemies.iter().any(|e| e.hp > 0 && e.x == cx && e.y == cy)
+            {
+                let move_dx = cx - ex;
                 if move_dx < 0 { self.enemies[i].facing_left = true; }
                 if move_dx > 0 { self.enemies[i].facing_left = false; }
                 self.enemies[i].x = cx;
@@ -336,6 +519,7 @@ impl Game {
         let edef = self.enemies[idx].defense;
         let dmg = calc_damage(atk, edef);
         self.enemies[idx].hp -= dmg;
+        self.enemies[idx].provoked = true;
         let name = self.enemies[idx].name;
 
         // Wear weapon on every melee attack
@@ -474,6 +658,7 @@ impl Game {
             let edef = self.enemies[idx].defense;
             let dmg = self.ranged_damage(edef, distance);
             self.enemies[idx].hp -= dmg;
+            self.enemies[idx].provoked = true;
             self.messages.push(format!("Your {weapon_name} hits {name} for {dmg} damage!"));
             self.floating_texts.push(FloatingText {
                 world_x: tx, world_y: ty,

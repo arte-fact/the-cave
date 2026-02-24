@@ -6,10 +6,20 @@ mod inventory;
 mod progression;
 mod survival;
 mod quickbar;
+mod ai;
 
 use super::*;
 use crate::map::Tile;
-use crate::config::{GameConfig, MapGenConfig};
+use crate::config::{GameConfig, MapGenConfig, EnemyBehavior};
+
+/// Helper to create a test enemy with default aggressive behavior.
+pub(super) fn test_enemy(x: i32, y: i32, hp: i32, attack: i32, name: &'static str) -> Enemy {
+    Enemy {
+        x, y, hp, attack, defense: 0, glyph: name.chars().next().unwrap_or('?'),
+        name, facing_left: false, is_ranged: false,
+        behavior: EnemyBehavior::Aggressive, spawn_x: x, spawn_y: y, provoked: false,
+    }
+}
 
 pub(super) fn test_game() -> Game {
     let map = Map::generate(30, 20, 42);

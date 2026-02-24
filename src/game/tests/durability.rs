@@ -27,7 +27,7 @@ fn chain_boots() -> Item {
         let dur_before = g.equipped_weapon.as_ref().unwrap().durability;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         let dur_after = g.equipped_weapon.as_ref().unwrap().durability;
         assert_eq!(dur_after, dur_before - 1, "weapon should lose 1 durability per melee attack");
@@ -44,7 +44,7 @@ fn chain_boots() -> Item {
         g.player_dexterity = 100; // guarantee hit
         g.equipped_weapon = Some(short_bow());
         let dur_before = g.equipped_weapon.as_ref().unwrap().durability;
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
         g.ranged_attack(8, 5);
         let dur_after = g.equipped_weapon.as_ref().unwrap().durability;
         assert_eq!(dur_after, dur_before - 1, "ranged weapon should lose 1 durability per shot");
@@ -61,7 +61,7 @@ fn chain_boots() -> Item {
         g.equipped_weapon = Some(sword);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.equipped_weapon.is_none(), "weapon should be destroyed at 0 durability");
         assert!(g.messages.iter().any(|m| m.contains("breaks")),
@@ -79,7 +79,7 @@ fn chain_boots() -> Item {
         let dur_before = g.equipped_armor.as_ref().unwrap().durability;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy); // triggers enemy attack back
         let dur_after = g.equipped_armor.as_ref().unwrap().durability;
         assert!(dur_after < dur_before, "armor should lose durability when hit");
@@ -94,7 +94,7 @@ fn chain_boots() -> Item {
         let dur_before = g.equipped_helmet.as_ref().unwrap().durability;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         let dur_after = g.equipped_helmet.as_ref().unwrap().durability;
         assert!(dur_after < dur_before, "helmet should lose durability when hit");
@@ -109,7 +109,7 @@ fn chain_boots() -> Item {
         let dur_before = g.equipped_shield.as_ref().unwrap().durability;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         let dur_after = g.equipped_shield.as_ref().unwrap().durability;
         assert!(dur_after < dur_before, "shield should lose durability when hit");
@@ -124,7 +124,7 @@ fn chain_boots() -> Item {
         let dur_before = g.equipped_boots.as_ref().unwrap().durability;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         let dur_after = g.equipped_boots.as_ref().unwrap().durability;
         assert!(dur_after < dur_before, "boots should lose durability when hit");
@@ -142,7 +142,7 @@ fn chain_boots() -> Item {
         g.equipped_armor = Some(armor);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         assert!(g.equipped_armor.is_none(), "armor should be destroyed at 0 durability");
         assert!(g.messages.iter().any(|m| m.contains("breaks")),
@@ -168,7 +168,7 @@ fn chain_boots() -> Item {
         g.equipped_weapon = Some(sword);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 200, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 200, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         for i in 0..4 {
             g.attack_adjacent(gx, gy);
             assert_eq!(g.equipped_weapon.as_ref().unwrap().durability, 4 - i as i32,
@@ -201,7 +201,7 @@ fn chain_boots() -> Item {
         let dur_before = g.equipped_armor.as_ref().unwrap().durability;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
         g.attack_adjacent(gx, gy);
         // If dodged, durability should remain the same
         let dur_after = g.equipped_armor.as_ref().unwrap().durability;
@@ -279,7 +279,7 @@ fn chain_boots() -> Item {
         g.equipped_armor = Some(leather_armor());
         let dur_before = g.equipped_armor.as_ref().unwrap().durability;
         // Place a ranged enemy at distance 3
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 5, glyph: 'a', name: "Goblin Archer", facing_left: false, defense: 0, is_ranged: true });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 5, glyph: 'a', name: "Goblin Archer", facing_left: false, defense: 0, is_ranged: true, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
         // Advance a turn so the archer shoots
         g.advance_turn();
         // The archer may miss (30% miss rate), so check if armor changed at all
