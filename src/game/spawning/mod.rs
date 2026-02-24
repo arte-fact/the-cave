@@ -78,16 +78,18 @@ impl Game {
 
     /// Place the dragon boss in the cave level, far from the player.
     fn place_dragon_boss(&mut self) {
+        let c = &self.config.combat;
         let map = self.world.current_map();
         for y in (1..map.height - 1).rev() {
             for x in (1..map.width - 1).rev() {
                 if map.is_walkable(x, y)
                     && map.get(x, y) == Tile::Floor
-                    && (x - self.player_x).abs() + (y - self.player_y).abs() > 5
+                    && (x - self.player_x).abs() + (y - self.player_y).abs() > c.dragon_min_distance
                     && !self.enemies.iter().any(|e| e.x == x && e.y == y)
                 {
                     self.enemies.push(Enemy {
-                        x, y, hp: 40, attack: 10, defense: 6, glyph: 'D', name: "Dragon", facing_left: false, is_ranged: false,
+                        x, y, hp: c.dragon_hp, attack: c.dragon_attack, defense: c.dragon_defense,
+                        glyph: 'D', name: "Dragon", facing_left: false, is_ranged: false,
                     });
                     return;
                 }

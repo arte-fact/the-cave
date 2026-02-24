@@ -1,31 +1,32 @@
+use crate::config::MapGenConfig;
 use super::super::{Map, Tile, Visibility};
 use super::{xorshift64, count_neighbors_of};
 
 impl Map {
     /// Build cave tiles via cellular automata: random fill + smoothing passes.
     /// Used by both `generate` (simple cave) and `generate_cave` (dragon lair).
-    fn cellular_automata_cave(width: i32, height: i32, seed: u64) -> Vec<Tile> {
+    fn cellular_automata_cave(width: i32, height: i32, seed: u64, cfg: &MapGenConfig) -> Vec<Tile> {
         let len = (width * height) as usize;
         let mut tiles = vec![Tile::Wall; len];
         let mut rng = seed;
 
-        // Random fill — ~45% walls for interior cells
+        // Random fill — wall_pct% walls for interior cells
         for y in 1..height - 1 {
             for x in 1..width - 1 {
                 rng = xorshift64(rng);
-                if (rng % 100) >= 45 {
+                if (rng % 100) >= cfg.cave_wall_pct {
                     tiles[(y * width + x) as usize] = Tile::Floor;
                 }
             }
         }
 
-        // Cellular automata smoothing (5 passes)
-        for _ in 0..5 {
+        // Cellular automata smoothing
+        for _ in 0..cfg.cave_smooth_passes {
             let prev = tiles.clone();
             for y in 1..height - 1 {
                 for x in 1..width - 1 {
                     let walls = count_neighbors_of(&prev, width, x, y, Tile::Wall);
-                    tiles[(y * width + x) as usize] = if walls >= 5 {
+                    tiles[(y * width + x) as usize] = if walls >= cfg.cave_neighbor_threshold {
                         Tile::Wall
                     } else {
                         Tile::Floor
@@ -41,15 +42,16 @@ impl Map {
     /// `seed` drives the initial random fill so caves are reproducible in tests.
     #[cfg(test)]
     pub fn generate(width: i32, height: i32, seed: u64) -> Self {
-        let tiles = Self::cellular_automata_cave(width, height, seed);
+        let cfg = MapGenConfig::normal();
+        let tiles = Self::cellular_automata_cave(width, height, seed, &cfg);
         let len = tiles.len();
         Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] }
     }
 
     /// Generate a dragon's lair cave using cellular automata.
     /// Ensures floor connectivity and places StairsUp. No StairsDown.
-    pub fn generate_cave(width: i32, height: i32, seed: u64) -> Self {
-        let tiles = Self::cellular_automata_cave(width, height, seed);
+    pub fn generate_cave(width: i32, height: i32, seed: u64, cfg: &MapGenConfig) -> Self {
+        let tiles = Self::cellular_automata_cave(width, height, seed, cfg);
         let len = tiles.len();
         let mut map = Self { width, height, tiles, visibility: vec![Visibility::Hidden; len] };
 

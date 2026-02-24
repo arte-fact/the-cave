@@ -21,7 +21,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(overworld: Map, dungeon_entrances: Vec<(i32, i32)>, seed: u64) -> Self {
+    pub fn new(overworld: Map, dungeon_entrances: Vec<(i32, i32)>, seed: u64, mapgen: &crate::config::MapGenConfig) -> Self {
         let mut dungeons = Vec::new();
         let mut rng = seed;
         // Exactly one dungeon gets a cave level (the dragon's lair)
@@ -33,14 +33,14 @@ impl World {
         let map_height = overworld.height;
         for (i, &(_, ey)) in dungeon_entrances.iter().enumerate() {
             rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
-            let depth = 3;
+            let depth = mapgen.dungeon_depth;
             let has_cave = i == cave_index;
             let biome = if has_cave {
                 DungeonBiome::DragonLair
             } else {
                 DungeonBiome::for_dungeon(rng, ey, map_height)
             };
-            dungeons.push(Dungeon::generate(depth, rng, has_cave, biome));
+            dungeons.push(Dungeon::generate(depth, rng, has_cave, biome, mapgen));
         }
         Self {
             overworld,

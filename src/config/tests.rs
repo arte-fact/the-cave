@@ -58,3 +58,110 @@ fn difficulty_labels() {
     assert_eq!(Difficulty::Normal.label(), "Normal");
     assert_eq!(Difficulty::Hard.label(), "Hard");
 }
+
+#[test]
+fn enemy_registry_has_entries() {
+    let cfg = GameConfig::normal();
+    assert!(!cfg.enemies.is_empty(), "enemy registry should not be empty");
+    assert!(cfg.enemies.len() >= 70, "expected at least 70 enemies, got {}", cfg.enemies.len());
+}
+
+#[test]
+fn enemy_def_lookup_works() {
+    let def = enemy_def("Dragon").expect("Dragon should be in registry");
+    assert_eq!(def.hp, 40);
+    assert_eq!(def.attack, 10);
+    assert_eq!(def.defense, 6);
+    assert_eq!(def.glyph, 'D');
+    assert!(!def.is_ranged);
+    assert_eq!(def.xp, 100);
+}
+
+#[test]
+fn enemy_def_returns_none_for_unknown() {
+    assert!(enemy_def("NonExistent").is_none());
+}
+
+#[test]
+fn all_enemies_have_valid_stats() {
+    for def in ENEMY_DEFS {
+        assert!(def.hp > 0, "{} has 0 hp", def.name);
+        assert!(def.attack > 0, "{} has 0 attack", def.name);
+        assert!(def.defense >= 0, "{} has negative defense", def.name);
+        assert!(def.xp > 0, "{} has 0 xp", def.name);
+        assert!(!def.name.is_empty(), "enemy has empty name");
+        assert!(!def.description.is_empty(), "enemy {} has empty description", def.name);
+    }
+}
+
+#[test]
+fn no_duplicate_enemy_names() {
+    let mut names = std::collections::HashSet::new();
+    for def in ENEMY_DEFS {
+        assert!(names.insert(def.name), "duplicate enemy name: {}", def.name);
+    }
+}
+
+#[test]
+fn xp_for_known_enemies() {
+    assert_eq!(xp_for_enemy("Giant Rat"), 3);
+    assert_eq!(xp_for_enemy("Dragon"), 100);
+    assert_eq!(xp_for_enemy("Goblin"), 4);
+}
+
+#[test]
+fn xp_for_unknown_defaults_to_3() {
+    assert_eq!(xp_for_enemy("Unknown Monster"), 3);
+}
+
+#[test]
+fn enemy_description_for_known() {
+    let desc = enemy_description("Dragon");
+    assert_ne!(desc, "A mysterious creature.");
+    assert!(desc.contains("guardian"));
+}
+
+#[test]
+fn enemy_description_for_unknown() {
+    assert_eq!(enemy_description("Unknown Monster"), "A mysterious creature.");
+}
+
+#[test]
+fn item_table_config_defaults() {
+    let cfg = GameConfig::normal();
+    assert_eq!(cfg.item_tables.tier_bleed_up_pct, 20);
+    assert_eq!(cfg.item_tables.tier_bleed_down_pct, 10);
+    assert_eq!(cfg.item_tables.ranged_default_range, 4);
+    assert!(!cfg.item_tables.ranged_base_ranges.is_empty());
+}
+
+#[test]
+fn spawn_tables_rare_monsters() {
+    let cfg = GameConfig::normal();
+    assert!(!cfg.spawn_tables.rare_monster_names.is_empty());
+    assert!(cfg.spawn_tables.rare_monster_names.contains(&"Wendigo"));
+    assert!(cfg.spawn_tables.rare_monster_names.contains(&"Dryad"));
+    assert!(!cfg.spawn_tables.rare_monster_names.contains(&"Wolf"));
+}
+
+#[test]
+fn spawn_tables_loot_tiers() {
+    let cfg = GameConfig::normal();
+    assert!(!cfg.spawn_tables.monster_loot_tiers.is_empty());
+    // Weaker rares drop tier 1, stronger drop tier 2
+    let dryad_tier = cfg.spawn_tables.monster_loot_tiers.iter().find(|&&(n, _)| n == "Dryad").map(|&(_, t)| t);
+    assert_eq!(dryad_tier, Some(1));
+    let wendigo_tier = cfg.spawn_tables.monster_loot_tiers.iter().find(|&&(n, _)| n == "Wendigo").map(|&(_, t)| t);
+    assert_eq!(wendigo_tier, Some(2));
+}
+
+#[test]
+fn ranged_base_ranges_cover_all_bows() {
+    let cfg = GameConfig::normal();
+    let names: Vec<&str> = cfg.item_tables.ranged_base_ranges.iter().map(|&(n, _)| n).collect();
+    assert!(names.contains(&"Short Bow"));
+    assert!(names.contains(&"Long Bow"));
+    assert!(names.contains(&"Elven Bow"));
+    assert!(names.contains(&"Crossbow"));
+    assert!(names.contains(&"Heavy Crossbow"));
+}

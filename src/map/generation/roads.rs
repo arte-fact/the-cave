@@ -1,9 +1,9 @@
+use crate::config::MapGenConfig;
 use super::super::{Map, Tile};
 
 impl Map {
     /// Build roads connecting all dungeon entrances using MST + weighted A*.
-    /// Cost: grass=1, tree=3, road=0 (reuse), wall/other=impassable.
-    pub fn build_roads(&mut self, entrances: &[(i32, i32)]) {
+    pub fn build_roads(&mut self, entrances: &[(i32, i32)], cfg: &MapGenConfig) {
         if entrances.len() < 2 {
             return;
         }
@@ -12,7 +12,7 @@ impl Map {
 
         // For each MST edge, run weighted A* and carve the road
         for (a, b) in mst_edges {
-            let path = self.weighted_path(entrances[a], entrances[b]);
+            let path = self.weighted_path(entrances[a], entrances[b], cfg);
             for (x, y) in path {
                 let tile = self.get(x, y);
                 if tile == Tile::Grass || tile == Tile::Tree {
@@ -22,9 +22,9 @@ impl Map {
         }
     }
 
-    /// Weighted A* for road carving. Grass=1, Tree=3, Road=0.5, Wall/border=impassable.
+    /// Weighted A* for road carving. Costs configurable via MapGenConfig.
     /// Allows pathing through trees (to carve roads) and grass.
-    fn weighted_path(&self, start: (i32, i32), goal: (i32, i32)) -> Vec<(i32, i32)> {
+    fn weighted_path(&self, start: (i32, i32), goal: (i32, i32), cfg: &MapGenConfig) -> Vec<(i32, i32)> {
         use std::collections::BinaryHeap;
         use std::cmp::Reverse;
 
@@ -52,7 +52,7 @@ impl Map {
                 if nx <= 0 || ny <= 0 || nx >= self.width - 1 || ny >= self.height - 1 {
                     continue; // stay off the border
                 }
-                let cost = match tile_cost(self.get(nx, ny)) {
+                let cost = match tile_cost(self.get(nx, ny), cfg) {
                     Some(c) => c,
                     None => continue,
                 };
@@ -144,13 +144,13 @@ fn prim_mst(entrances: &[(i32, i32)]) -> Vec<(usize, usize)> {
 }
 
 /// Road pathing tile cost. Returns None for impassable tiles.
-fn tile_cost(tile: Tile) -> Option<i32> {
+fn tile_cost(tile: Tile, cfg: &MapGenConfig) -> Option<i32> {
     match tile {
-        Tile::Grass => Some(2),
-        Tile::Tree => Some(6),
-        Tile::Road => Some(1),
-        Tile::Floor => Some(2),
-        Tile::DungeonEntrance => Some(1),
+        Tile::Grass => Some(cfg.road_cost_grass),
+        Tile::Tree => Some(cfg.road_cost_tree),
+        Tile::Road => Some(cfg.road_cost_road),
+        Tile::Floor => Some(cfg.road_cost_floor),
+        Tile::DungeonEntrance => Some(cfg.road_cost_entrance),
         _ => None, // Wall, etc = impassable
     }
 }

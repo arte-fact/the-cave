@@ -376,10 +376,11 @@ fn fit_canvas(canvas: &HtmlCanvasElement) -> (f64, f64) {
 }
 
 fn new_game_with_config(seed: u64, config: GameConfig) -> Game {
-    let mut map = Map::generate_forest(200, 200, seed);
-    let entrances = map.place_dungeons(seed.wrapping_add(1));
-    map.build_roads(&entrances);
-    let world = World::new(map, entrances, seed.wrapping_add(2));
+    let mg = &config.mapgen;
+    let mut map = Map::generate_forest(mg.overworld_width, mg.overworld_height, seed, mg);
+    let entrances = map.place_dungeons(seed.wrapping_add(1), mg);
+    map.build_roads(&entrances, mg);
+    let world = World::new(map, entrances, seed.wrapping_add(2), mg);
     let mut game = Game::new_overworld_with_config(world, config);
     game.spawn_enemies(seed.wrapping_mul(6364136223846793005));
     game.spawn_overworld_items(seed.wrapping_add(3));

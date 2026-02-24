@@ -10,7 +10,9 @@ pub use types::*;
 #[cfg(test)]
 use items::{random_item, meat_drop};
 #[cfg(test)]
-use types::{tile_name, tile_desc, enemy_desc, xp_for_enemy, item_info_desc};
+use types::{tile_name, tile_desc, item_info_desc};
+#[cfg(test)]
+use crate::config::xp_for_enemy;
 
 use crate::config::GameConfig;
 use crate::map::Map;

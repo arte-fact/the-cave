@@ -5,7 +5,7 @@ use super::Game;
 impl Game {
     /// Apply diminishing XP returns for overworld kills. Dungeon kills unaffected.
     fn xp_with_diminishing(&self, enemy_name: &str) -> u32 {
-        let base = super::types::xp_for_enemy(enemy_name);
+        let base = crate::config::xp_for_enemy(enemy_name);
         if self.world.location != Location::Overworld {
             return base;
         }
@@ -25,16 +25,19 @@ impl Game {
     }
 
     pub(super) fn check_level_up(&mut self) {
-        let sp = self.config.progression.skill_points_per_level;
-        let hp_per = self.config.progression.hp_per_level;
+        let prog = &self.config.progression;
+        let sp = prog.skill_points_per_level;
+        let hp_per = prog.hp_per_level;
+        let heal_pct = prog.levelup_heal_missing_pct;
+        let heal_min = prog.levelup_heal_min;
         while self.player_xp >= self.xp_to_next_level() {
             self.player_xp -= self.xp_to_next_level();
             self.player_level += 1;
             self.skill_points += sp;
-            // Small base HP bump on level up + partial heal (50% of missing HP)
+            // Small base HP bump on level up + partial heal
             self.player_max_hp += hp_per;
             let missing = self.player_max_hp - self.player_hp;
-            self.player_hp += missing / 2 + 1; // +1 so you always heal at least 1
+            self.player_hp += missing * heal_pct / 100 + heal_min;
             self.player_hp = self.player_hp.min(self.player_max_hp);
             self.messages.push(format!(
                 "Level up! You are now level {}. +{} skill points!",
@@ -50,25 +53,29 @@ impl Game {
             return false;
         }
         self.skill_points -= 1;
+        let prog = &self.config.progression;
+        let combat = &self.config.combat;
         match skill {
             SkillKind::Strength => {
                 self.strength += 1;
                 self.messages.push(format!("Strength increased to {}.", self.strength));
             }
             SkillKind::Vitality => {
+                let hp_gain = prog.vitality_hp_per_point;
                 self.vitality += 1;
-                self.player_max_hp += 3;
-                self.player_hp = (self.player_hp + 3).min(self.player_max_hp);
-                self.messages.push(format!("Vitality increased to {}. Max HP +3.", self.vitality));
+                self.player_max_hp += hp_gain;
+                self.player_hp = (self.player_hp + hp_gain).min(self.player_max_hp);
+                self.messages.push(format!("Vitality increased to {}. Max HP +{}.", self.vitality, hp_gain));
             }
             SkillKind::Dexterity => {
                 self.player_dexterity += 1;
-                let dodge = (self.player_dexterity * 2).min(20);
+                let dodge = (self.player_dexterity * combat.dodge_pct_per_dex).min(combat.dodge_cap_pct);
                 self.messages.push(format!("Dexterity increased to {}. Dodge {}%.", self.player_dexterity, dodge));
             }
             SkillKind::Stamina => {
-                self.max_stamina += 5;
-                self.stamina = (self.stamina + 5).min(self.max_stamina);
+                let stam_gain = prog.stamina_per_point;
+                self.max_stamina += stam_gain;
+                self.stamina = (self.stamina + stam_gain).min(self.max_stamina);
                 self.messages.push(format!("Max stamina increased to {}.", self.max_stamina));
             }
         }
@@ -96,9 +103,9 @@ impl Game {
             self.ground_items.push(GroundItem { x: ex, y: ey, item: meat });
             self.messages.push("It dropped some meat.".into());
         }
-        if super::spawning::is_rare_monster(name) {
+        if super::spawning::is_rare_monster(name, self.config.spawn_tables.rare_monster_names) {
             let mut loot_rng = (ex as u64).wrapping_mul(31).wrapping_add(ey as u64).wrapping_mul(6364136223846793005);
-            if let Some(loot) = super::items::monster_loot_drop(name, &mut loot_rng) {
+            if let Some(loot) = super::items::monster_loot_drop(name, &mut loot_rng, self.config.spawn_tables.monster_loot_tiers) {
                 let loot_name = loot.name;
                 self.ground_items.push(GroundItem { x: ex, y: ey, item: loot });
                 self.messages.push(format!("The {name} dropped {loot_name}!"));

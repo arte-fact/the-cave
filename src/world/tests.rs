@@ -1,10 +1,12 @@
 use super::*;
+use crate::config::MapGenConfig;
 
 fn test_world() -> World {
-    let mut map = Map::generate_forest(200, 200, 42);
-    let entrances = map.place_dungeons(42);
-    map.build_roads(&entrances);
-    World::new(map, entrances, 99)
+    let cfg = MapGenConfig::normal();
+    let mut map = Map::generate_forest(200, 200, 42, &cfg);
+    let entrances = map.place_dungeons(42, &cfg);
+    map.build_roads(&entrances, &cfg);
+    World::new(map, entrances, 99, &cfg)
 }
 
 #[test]

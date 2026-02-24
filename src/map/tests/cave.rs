@@ -1,8 +1,10 @@
 use super::super::*;
+use crate::config::MapGenConfig;
 
 #[test]
 fn cave_has_stairs_up() {
-    let cave = Map::generate_cave(80, 60, 42);
+    let cfg = MapGenConfig::normal();
+    let cave = Map::generate_cave(80, 60, 42, &cfg);
     let has_up = (0..cave.height)
         .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
         .any(|(x, y)| cave.get(x, y) == Tile::StairsUp);
@@ -11,7 +13,8 @@ fn cave_has_stairs_up() {
 
 #[test]
 fn cave_has_no_stairs_down() {
-    let cave = Map::generate_cave(80, 60, 42);
+    let cfg = MapGenConfig::normal();
+    let cave = Map::generate_cave(80, 60, 42, &cfg);
     let has_down = (0..cave.height)
         .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
         .any(|(x, y)| cave.get(x, y) == Tile::StairsDown);
@@ -20,7 +23,8 @@ fn cave_has_no_stairs_down() {
 
 #[test]
 fn cave_floor_connected() {
-    let cave = Map::generate_cave(80, 60, 42);
+    let cfg = MapGenConfig::normal();
+    let cave = Map::generate_cave(80, 60, 42, &cfg);
     // BFS from StairsUp to all walkable tiles
     let stairs = cave.find_tile(Tile::StairsUp).expect("no StairsUp in cave");
     let len = (cave.width * cave.height) as usize;
@@ -58,7 +62,8 @@ fn cave_floor_connected() {
 
 #[test]
 fn cave_has_enough_floor() {
-    let cave = Map::generate_cave(80, 60, 42);
+    let cfg = MapGenConfig::normal();
+    let cave = Map::generate_cave(80, 60, 42, &cfg);
     let floor_count = (0..cave.height)
         .flat_map(|y| (0..cave.width).map(move |x| (x, y)))
         .filter(|&(x, y)| cave.get(x, y) == Tile::Floor || cave.get(x, y) == Tile::StairsUp)
@@ -70,7 +75,8 @@ fn cave_has_enough_floor() {
 
 #[test]
 fn dungeon_with_cave_has_4_levels() {
-    let d = Dungeon::generate(3, 42, true, DungeonBiome::DragonLair);
+    let cfg = MapGenConfig::normal();
+    let d = Dungeon::generate(3, 42, true, DungeonBiome::DragonLair, &cfg);
     assert_eq!(d.levels.len(), 4, "dragon dungeon should have 4 levels");
     // Cave level is 80x60
     assert_eq!((d.levels[3].width, d.levels[3].height), (80, 60));
@@ -78,14 +84,16 @@ fn dungeon_with_cave_has_4_levels() {
 
 #[test]
 fn dungeon_without_cave_has_3_levels() {
-    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren);
+    let cfg = MapGenConfig::normal();
+    let d = Dungeon::generate(3, 42, false, DungeonBiome::GoblinWarren, &cfg);
     assert_eq!(d.levels.len(), 3);
 }
 
 #[test]
 fn cave_dungeon_level2_has_stairs_down() {
     // With a cave, level 2 (the last BSP level) should have StairsDown connecting to cave
-    let d = Dungeon::generate(3, 42, true, DungeonBiome::DragonLair);
+    let cfg = MapGenConfig::normal();
+    let d = Dungeon::generate(3, 42, true, DungeonBiome::DragonLair, &cfg);
     let level2 = &d.levels[2];
     let has_down = (0..level2.height)
         .flat_map(|y| (0..level2.width).map(move |x| (x, y)))

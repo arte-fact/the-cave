@@ -9,7 +9,7 @@ mod quickbar;
 
 use super::*;
 use crate::map::Tile;
-use crate::config::GameConfig;
+use crate::config::{GameConfig, MapGenConfig};
 
 pub(super) fn test_game() -> Game {
     let map = Map::generate(30, 20, 42);
@@ -27,10 +27,11 @@ pub(super) fn rusty_sword() -> Item {
 }
 
 pub(super) fn overworld_game() -> Game {
-    let mut map = Map::generate_forest(200, 200, 42);
-    let entrances = map.place_dungeons(42);
-    map.build_roads(&entrances);
-    let world = World::new(map, entrances, 99);
+    let cfg = MapGenConfig::normal();
+    let mut map = Map::generate_forest(200, 200, 42, &cfg);
+    let entrances = map.place_dungeons(42, &cfg);
+    map.build_roads(&entrances, &cfg);
+    let world = World::new(map, entrances, 99, &cfg);
     let mut g = Game::new_overworld(world);
     g.spawn_enemies(777);
     g

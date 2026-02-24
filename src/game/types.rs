@@ -185,185 +185,43 @@ pub(super) fn tile_desc(tile: Tile) -> &'static str {
     }
 }
 
-pub(super) fn enemy_desc(name: &str) -> &'static str {
-    match name {
-        // Forest beasts
-        "Giant Rat"       => "A disease-carrying rodent the size of a dog.",
-        "Giant Bat"       => "A bat with a wingspan wider than a man.",
-        "Wolf"            => "A cunning pack hunter. Fast and relentless.",
-        "Giant Spider"    => "A venomous arachnid that lurks in the shadows.",
-        "Boar"            => "A ferocious wild pig with razor-sharp tusks.",
-        "Bear"            => "A massive predator. Top of the forest chain.",
-        "Lycanthrope"     => "A cursed shapeshifter. Savage in beast form.",
-        // Forest — animals
-        "Fox"             => "A quick and sly predator. Hard to pin down.",
-        "Viper"           => "A venomous snake. Strikes without warning.",
-        "Cougar"          => "A stealthy big cat. Silent and deadly.",
-        "Badger"          => "Small but ferocious. Fights to the death.",
-        "Buzzard"         => "A circling scavenger. Swoops down on the weak.",
-        "Black Mamba"     => "The deadliest snake. Lightning-fast venom.",
-        "Coyote"          => "A crafty opportunist. Hunts in pairs.",
-        "Hyena"           => "A cackling predator. Stronger than it looks.",
-        "Honey Badger"    => "Fearless and relentless. Never backs down.",
-        "Lynx"            => "A ghost of the forest. Strikes from ambush.",
-        "Black Bear"      => "A powerful woodland bear. Protective of its territory.",
-        "Ocelot"          => "A spotted jungle cat. Silent and swift.",
-        "Jackal"          => "A sly scavenger of the warm plains.",
-        "Monitor Lizard"  => "A large tropical reptile with a venomous bite.",
-        "Water Buffalo"   => "A massive beast. Charges with unstoppable force.",
-        "Yak"             => "A shaggy mountain beast. Tough and thick-skinned.",
-        "Alligator"       => "An armored ambush predator. Crushes with its jaws.",
-        "Male Lion"       => "King of beasts. A rare and terrifying encounter.",
-        // Forest — monsters
-        "Dryad"           => "A woodland spirit. Protects the ancient trees.",
-        "Forest Spirit"   => "An ethereal guardian of the deep woods.",
-        "Centaur"         => "Half-man, half-horse. Patrols the forest trails.",
-        "Wendigo"         => "A gaunt horror of the frozen woods. Insatiable hunger.",
-        // Dungeon — shallow
-        "Kobold"          => "A small reptilian scavenger. Cowardly but cunning.",
-        "Small Slime"     => "A translucent ooze. Dissolves what it touches.",
-        "Goblin"          => "A sneaky green creature. Dangerous in numbers.",
-        "Skeleton"        => "Animated bones bound by dark magic.",
-        "Giant Centipede" => "A writhing mass of legs and mandibles.",
-        "Myconid"         => "A walking mushroom that releases toxic spores.",
-        "Large Myconid"   => "A towering fungal creature. Its spores choke the air.",
-        // Dungeon — mid
-        "Goblin Archer"   => "A goblin with a crude bow. Deadly at range.",
-        "Zombie"          => "A shambling corpse. Slow but relentless.",
-        "Skeleton Archer" => "Dead bones with unerring aim.",
-        "Big Slime"       => "A massive ooze. Absorbs blows like nothing.",
-        "Orc"             => "A fierce tribal warrior. Bred for battle.",
-        "Giant Ant"       => "An oversized insect with crushing mandibles.",
-        "Goblin Mage"     => "A goblin versed in crude fire magic.",
-        "Hag"             => "A wretched crone. Curses those who draw near.",
-        "Goblin Brute"    => "A hulking goblin. All muscle, no brains.",
-        "Satyr"           => "A wild goat-man. Plays a maddening tune.",
-        "Orc Warchief"    => "A battle-scarred commander. Inspires fury in others.",
-        // Dungeon — deep
-        "Ghoul"           => "A ravenous undead. Paralyzes with its claws.",
-        "Orc Blademaster" => "An elite orc warrior. Master of the blade.",
-        "Wraith"          => "A hateful spirit. Drains the life from victims.",
-        "Naga"            => "A serpentine spellcaster. Ancient and cunning.",
-        "Troll"           => "A towering brute. Regenerates from any wound.",
-        "Ettin"           => "A two-headed giant. Twice the fury.",
-        "Rock Golem"      => "An animated stone construct. Nearly indestructible.",
-        "Minotaur"        => "A bull-headed monster that charges through corridors.",
-        "Medusa"          => "Her gaze turns flesh to stone.",
-        "Banshee"         => "A wailing spirit. Her screams can kill.",
-        "Faceless Monk"   => "A silent cultist. Its face is smooth, featureless skin.",
-        "Unholy Cardinal" => "A heretic priest wreathed in dark flame.",
-        "Writhing Mass"   => "A pulsing mound of flesh. Origin unknown.",
-        // Cave — boss floor
-        "Death Knight"    => "A fallen paladin. Commands undead legions.",
-        "Lich"            => "An undead sorcerer of immense power.",
-        "Dragon"          => "The cave's ancient guardian. Legendary power.",
-        "Drake"           => "A young dragon. Still deadly.",
-        "Basilisk"        => "Its gaze paralyzes. Its bite kills.",
-        "Imp"             => "A fiendish creature from the abyss.",
-        "Manticore"       => "Lion, scorpion, and bat in one terrible form.",
-        "Reaper"          => "Death incarnate. Few survive its scythe.",
-        _ => "A mysterious creature.",
-    }
-}
-
-pub(super) fn xp_for_enemy(name: &str) -> u32 {
-    match name {
-        // Forest
-        "Giant Rat" => 3,
-        "Giant Bat" => 4,
-        "Wolf" => 5,
-        "Giant Spider" => 6,
-        "Boar" => 7,
-        "Bear" => 12,
-        "Fox" => 4,
-        "Viper" => 5,
-        "Cougar" => 8,
-        "Badger" => 5,
-        "Buzzard" => 4,
-        "Black Mamba" => 6,
-        "Coyote" => 5,
-        "Hyena" => 6,
-        "Honey Badger" => 7,
-        "Lynx" => 5,
-        "Black Bear" => 8,
-        "Ocelot" => 5,
-        "Jackal" => 4,
-        "Monitor Lizard" => 7,
-        "Water Buffalo" => 14,
-        "Yak" => 12,
-        "Alligator" => 10,
-        "Male Lion" => 16,
-        // Rare overworld monsters (buffed)
-        "Dryad" => 20,
-        "Forest Spirit" => 18,
-        "Centaur" => 25,
-        "Dire Wolf" => 22,
-        "Lycanthrope" => 35,
-        "Wendigo" => 40,
-        // Dungeon — shallow
-        "Kobold" => 3,
-        "Small Slime" => 3,
-        "Goblin" => 4,
-        "Skeleton" => 6,
-        "Giant Centipede" => 4,
-        "Myconid" => 3,
-        "Large Myconid" => 4,
-        // Dungeon — mid
-        "Goblin Archer" => 5,
-        "Zombie" => 6,
-        "Skeleton Archer" => 7,
-        "Big Slime" => 7,
-        "Orc" => 10,
-        "Giant Ant" => 6,
-        "Goblin Mage" => 7,
-        "Hag" => 8,
-        "Goblin Brute" => 6,
-        "Satyr" => 7,
-        "Orc Warchief" => 14,
-        // Dungeon — deep
-        "Ghoul" => 11,
-        "Orc Blademaster" => 14,
-        "Wraith" => 13,
-        "Naga" => 16,
-        "Troll" => 15,
-        "Ettin" => 16,
-        "Rock Golem" => 18,
-        "Minotaur" => 17,
-        "Medusa" => 16,
-        "Banshee" => 14,
-        "Faceless Monk" => 12,
-        "Unholy Cardinal" => 17,
-        "Writhing Mass" => 16,
-        // Cave
-        "Death Knight" => 22,
-        "Lich" => 25,
-        "Dragon" => 100,
-        "Drake" => 18,
-        "Basilisk" => 20,
-        "Imp" => 16,
-        "Manticore" => 22,
-        "Reaper" => 24,
-        _ => 3,
-    }
-}
-
 /// Stamina cost to attack with a weapon of the given weight.
-/// Melee: base 6 + weight * 2 (range: 8–16 for weights 1–5).
-/// Ranged: base 4 + weight (range: 5–9 for weights 1–5).
-/// Unarmed (no weapon / weight 0): uses melee formula → 6.
-pub fn weapon_stamina_cost(kind: &ItemKind, weight: i32) -> i32 {
+/// Melee: melee_base + weight * melee_weight_mult.
+/// Ranged: ranged_base + weight * ranged_weight_mult.
+/// Unarmed (no weapon / weight 0): uses melee formula.
+pub fn weapon_stamina_cost(
+    kind: &ItemKind,
+    weight: i32,
+    melee_base: i32,
+    melee_weight_mult: i32,
+    ranged_base: i32,
+    ranged_weight_mult: i32,
+) -> i32 {
     match kind {
-        ItemKind::RangedWeapon => 4 + weight,
-        _ => 6 + weight * 2,
+        ItemKind::RangedWeapon => ranged_base + weight * ranged_weight_mult,
+        _ => melee_base + weight * melee_weight_mult,
     }
 }
 
+/// Format item description with default stamina cost parameters.
+/// Used by tests and as a convenience wrapper.
 pub(super) fn item_info_desc(item: &Item) -> String {
+    item_info_desc_with_config(item, 6, 2, 4, 1)
+}
+
+/// Format item description with configurable stamina cost parameters.
+pub(super) fn item_info_desc_with_config(
+    item: &Item,
+    melee_base: i32,
+    melee_weight_mult: i32,
+    ranged_base: i32,
+    ranged_weight_mult: i32,
+) -> String {
     let effect = match &item.effect {
         ItemEffect::Heal(n) => format!("Restores {} HP", n),
         ItemEffect::DamageAoe(n) => format!("Deals {} damage in area", n),
         ItemEffect::BuffAttack(n) => {
-            let cost = weapon_stamina_cost(&item.kind, item.weight);
+            let cost = weapon_stamina_cost(&item.kind, item.weight, melee_base, melee_weight_mult, ranged_base, ranged_weight_mult);
             format!("+{} Attack, {} stamina", n, cost)
         }
         ItemEffect::BuffDefense(n) => format!("+{} Defense", n),
