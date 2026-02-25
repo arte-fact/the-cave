@@ -59,7 +59,7 @@ pub static ENEMY_DEFS: &[EnemyDef] = &[
     // ── Overworld — common wildlife ──────────────────────────────────
     EnemyDef { name: "Fox",             hp: 4,  attack: 2, defense: 1, glyph: 'f', is_ranged: false, xp: 4,  behavior: Ti, description: "A quick and sly predator. Hard to pin down." },
     EnemyDef { name: "Buzzard",         hp: 4,  attack: 2, defense: 0, glyph: 'q', is_ranged: false, xp: 4,  behavior: P,  description: "A circling scavenger. Swoops down on the weak." },
-    EnemyDef { name: "Giant Rat",       hp: 3,  attack: 1, defense: 0, glyph: 'r', is_ranged: false, xp: 3,  behavior: P,  description: "A disease-carrying rodent the size of a dog." },
+    EnemyDef { name: "Giant Rat",       hp: 3,  attack: 1, defense: 0, glyph: 'r', is_ranged: false, xp: 3,  behavior: Ti, description: "A disease-carrying rodent the size of a dog." },
     EnemyDef { name: "Giant Bat",       hp: 4,  attack: 2, defense: 0, glyph: 'a', is_ranged: false, xp: 4,  behavior: Ti, description: "A bat with a wingspan wider than a man." },
     EnemyDef { name: "Small Slime",     hp: 4,  attack: 1, defense: 0, glyph: 'S', is_ranged: false, xp: 3,  behavior: P,  description: "A translucent ooze. Dissolves what it touches." },
     EnemyDef { name: "Giant Centipede", hp: 4,  attack: 2, defense: 0, glyph: 'e', is_ranged: false, xp: 4,  behavior: Ti, description: "A writhing mass of legs and mandibles." },

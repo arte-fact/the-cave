@@ -6,7 +6,7 @@ use EnemyBehavior::{Passive as P, Timid as Ti, Territorial as Te, Aggressive as 
 pub(super) type EnemyStats = (i32, i32, i32, char, &'static str, bool, EnemyBehavior);
 
 // === Common fodder (appear across many biomes) ===
-pub(super) const GIANT_RAT: EnemyStats       = (3, 1, 0, 'r', "Giant Rat", false, P);
+pub(super) const GIANT_RAT: EnemyStats       = (3, 1, 0, 'r', "Giant Rat", false, Ti);
 pub(super) const GIANT_BAT: EnemyStats       = (4, 2, 0, 'a', "Giant Bat", false, Ti);
 pub(super) const SMALL_SLIME: EnemyStats     = (4, 1, 0, 'S', "Small Slime", false, P);
 pub(super) const GIANT_CENTIPEDE: EnemyStats = (4, 2, 0, 'e', "Giant Centipede", false, Ti);
