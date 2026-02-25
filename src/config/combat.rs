@@ -110,9 +110,9 @@ impl CombatConfig {
             timid_flee_range: 5,
             passive_flee_range: 4,
             smart_pathfind_range: 10,
-            dragon_hp: 90,
-            dragon_attack: 16,
-            dragon_defense: 9,
+            dragon_hp: 108,
+            dragon_attack: 19,
+            dragon_defense: 11,
             dragon_min_distance: 5,
         }
     }

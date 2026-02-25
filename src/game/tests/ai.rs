@@ -290,7 +290,7 @@ fn behavior_assigned_from_config() {
     assert_eq!(enemy_behavior("Viper"), EnemyBehavior::Stalker);
     assert_eq!(enemy_behavior("Bear"), EnemyBehavior::Territorial);
     assert_eq!(enemy_behavior("Lynx"), EnemyBehavior::Stalker);
-    assert_eq!(enemy_behavior("Giant Rat"), EnemyBehavior::Passive);
+    assert_eq!(enemy_behavior("Giant Rat"), EnemyBehavior::Timid);
 }
 
 #[test]
