@@ -69,9 +69,9 @@ fn enemy_registry_has_entries() {
 #[test]
 fn enemy_def_lookup_works() {
     let def = enemy_def("Dragon").expect("Dragon should be in registry");
-    assert_eq!(def.hp, 90);
-    assert_eq!(def.attack, 16);
-    assert_eq!(def.defense, 9);
+    assert_eq!(def.hp, 108);
+    assert_eq!(def.attack, 19);
+    assert_eq!(def.defense, 11);
     assert_eq!(def.glyph, 'D');
     assert!(!def.is_ranged);
     assert_eq!(def.xp, 200);
