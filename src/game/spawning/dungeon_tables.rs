@@ -2,6 +2,20 @@ use crate::game::Enemy;
 use crate::map::DungeonBiome;
 use super::enemies::*;
 
+/// Return the boss enemy stats for a given biome (for guaranteed boss placement).
+pub(super) fn boss_for_biome(biome: DungeonBiome) -> EnemyStats {
+    match biome {
+        DungeonBiome::GoblinWarren  => ORC_WARCHIEF,
+        DungeonBiome::UndeadCrypt   => LICH,
+        DungeonBiome::FungalGrotto  => LG_WRITHING_MASS,
+        DungeonBiome::OrcStronghold => TWO_HEADED_ETTIN,
+        DungeonBiome::AbyssalTemple => REAPER,
+        DungeonBiome::BeastDen      => WENDIGO,
+        DungeonBiome::SerpentPit    => BASILISK,
+        DungeonBiome::DragonLair    => DEATH_KNIGHT, // not used for bosses but needed for exhaustive match
+    }
+}
+
 /// Roll an enemy based on the dungeon biome and level.
 pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize, rng: u64) -> Enemy {
     let roll = rng % 100;
@@ -16,7 +30,7 @@ pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize
         DungeonBiome::DragonLair => roll_cave(roll),
     };
     let (hp, attack, def, glyph, name, ranged, behavior) = stats;
-    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged, behavior, spawn_x: x, spawn_y: y, provoked: false }
+    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged, behavior, spawn_x: x, spawn_y: y, provoked: false, is_boss: false }
 }
 
 // === Dragon's Lair cave level ===
@@ -70,7 +84,7 @@ fn roll_goblin_warren_deep(roll: u64) -> EnemyStats {
     else if roll < 55 { TROLL }
     else if roll < 70 { GOBLIN_ARCHER }
     else if roll < 85 { GOBLIN_MAGE }
-    else              { ORC_WARCHIEF }
+    else              { ORC_BLADEMASTER }
 }
 
 // === Undead Crypt ===
@@ -111,7 +125,7 @@ fn roll_undead_crypt_deep(roll: u64) -> EnemyStats {
     else if roll < 55 { UNHOLY_CARDINAL }
     else if roll < 70 { WRAITH }
     else if roll < 85 { GHOUL }
-    else              { LICH }
+    else              { BANSHEE }
 }
 
 // === Fungal Grotto ===
@@ -148,10 +162,10 @@ fn roll_fungal_grotto_l1(roll: u64) -> EnemyStats {
 
 fn roll_fungal_grotto_deep(roll: u64) -> EnemyStats {
     if roll < 20      { SM_WRITHING_MASS }
-    else if roll < 40 { LG_WRITHING_MASS }
-    else if roll < 55 { WRITHING_HUMANOID }
-    else if roll < 70 { BIG_SLIME }
-    else if roll < 85 { LAMPREYMANDER }
+    else if roll < 40 { WRITHING_HUMANOID }
+    else if roll < 55 { BIG_SLIME }
+    else if roll < 70 { LAMPREYMANDER }
+    else if roll < 85 { SM_WRITHING_MASS }
     else              { LARGE_MYCONID }
 }
 
@@ -188,11 +202,11 @@ fn roll_orc_stronghold_l1(roll: u64) -> EnemyStats {
 
 fn roll_orc_stronghold_deep(roll: u64) -> EnemyStats {
     if roll < 25      { ETTIN }
-    else if roll < 40 { TWO_HEADED_ETTIN }
-    else if roll < 55 { ORC_WARCHIEF }
-    else if roll < 70 { ORC_BLADEMASTER }
-    else if roll < 85 { TROLL }
-    else              { ORC_WIZARD }
+    else if roll < 40 { ORC_BLADEMASTER }
+    else if roll < 55 { TROLL }
+    else if roll < 70 { ORC_WIZARD }
+    else if roll < 85 { ORC }
+    else              { ETTIN }
 }
 
 // === Abyssal Temple ===
@@ -232,7 +246,7 @@ fn roll_abyssal_temple_deep(roll: u64) -> EnemyStats {
     else if roll < 50 { NAGA }
     else if roll < 65 { UNHOLY_CARDINAL }
     else if roll < 80 { WRAITH }
-    else              { REAPER }
+    else              { IMP }
 }
 
 // === Beast Den ===
@@ -270,13 +284,13 @@ fn roll_beast_den_l1(roll: u64) -> EnemyStats {
 }
 
 fn roll_beast_den_deep(roll: u64) -> EnemyStats {
-    if roll < 22      { WENDIGO }
-    else if roll < 38 { MANTICORE }
-    else if roll < 50 { LYCANTHROPE }
-    else if roll < 62 { DIRE_WOLF }
-    else if roll < 74 { WATER_BUFFALO }
-    else if roll < 86 { YAK }
-    else              { GIANT_SPIDER }
+    if roll < 22      { MANTICORE }
+    else if roll < 38 { LYCANTHROPE }
+    else if roll < 50 { DIRE_WOLF }
+    else if roll < 62 { WATER_BUFFALO }
+    else if roll < 74 { YAK }
+    else if roll < 86 { GIANT_SPIDER }
+    else              { MANTICORE }
 }
 
 // === Serpent Pit ===
@@ -313,10 +327,10 @@ fn roll_serpent_pit_l1(roll: u64) -> EnemyStats {
 }
 
 fn roll_serpent_pit_deep(roll: u64) -> EnemyStats {
-    if roll < 25      { BASILISK }
-    else if roll < 45 { MEDUSA }
-    else if roll < 60 { NAGA }
-    else if roll < 75 { COCKATRICE }
+    if roll < 25      { MEDUSA }
+    else if roll < 45 { NAGA }
+    else if roll < 60 { COCKATRICE }
+    else if roll < 75 { MEDUSA }
     else if roll < 88 { BLACK_MAMBA }
     else              { LIZARDFOLK }
 }
@@ -350,7 +364,7 @@ mod tests {
         let glyphs = collect_glyphs(DungeonBiome::GoblinWarren, 2, 1000);
         assert!(glyphs.contains(&'o') || glyphs.contains(&'O'),
             "deep Goblin Warren should have orcs");
-        assert!(glyphs.contains(&'5'), "deep should have Orc Warchief");
+        // Boss (Orc Warchief) now spawned separately via place_dungeon_boss()
     }
 
     #[test]
@@ -361,11 +375,11 @@ mod tests {
     }
 
     #[test]
-    fn undead_crypt_deep_has_boss_enemies() {
+    fn undead_crypt_deep_has_strong_undead() {
         let glyphs = collect_glyphs(DungeonBiome::UndeadCrypt, 2, 1000);
         assert!(glyphs.contains(&'Q'), "deep should have banshees");
         assert!(glyphs.contains(&'K'), "deep should have death knights");
-        assert!(glyphs.contains(&'l'), "deep should have lich");
+        // Boss (Lich) now spawned separately via place_dungeon_boss()
     }
 
     #[test]
@@ -378,7 +392,7 @@ mod tests {
     #[test]
     fn fungal_grotto_deep_has_aberrations() {
         let glyphs = collect_glyphs(DungeonBiome::FungalGrotto, 2, 1000);
-        assert!(glyphs.contains(&'8'), "deep should have writhing mass");
+        // Boss (Writhing Mass '8') now spawned separately via place_dungeon_boss()
         assert!(glyphs.contains(&'('), "deep should have small writhing mass");
         assert!(glyphs.contains(&')'), "deep should have writhing humanoid");
     }
@@ -407,7 +421,7 @@ mod tests {
     #[test]
     fn beast_den_deep_has_apex_predators() {
         let glyphs = collect_glyphs(DungeonBiome::BeastDen, 2, 1000);
-        assert!(glyphs.contains(&'0'), "deep should have wendigo");
+        // Boss (Wendigo '0') now spawned separately via place_dungeon_boss()
         assert!(glyphs.contains(&'X'), "deep should have manticore");
     }
 
@@ -421,7 +435,7 @@ mod tests {
     #[test]
     fn serpent_pit_deep_has_petrifiers() {
         let glyphs = collect_glyphs(DungeonBiome::SerpentPit, 2, 1000);
-        assert!(glyphs.contains(&'C'), "deep should have basilisks");
+        // Boss (Basilisk 'C') now spawned separately via place_dungeon_boss()
         assert!(glyphs.contains(&'P'), "deep should have medusa");
     }
 
@@ -464,6 +478,27 @@ mod tests {
             rng = xorshift64(rng);
             let e = roll_biome_enemy(5, 5, DungeonBiome::DragonLair, 0, rng);
             assert!(e.hp >= 10, "cave enemy {} has too low hp: {}", e.name, e.hp);
+        }
+    }
+
+    #[test]
+    fn boss_for_biome_returns_valid_stats() {
+        for biome in DungeonBiome::PLACEABLE {
+            let (hp, atk, def, _glyph, name, _ranged, _behavior) = boss_for_biome(biome);
+            assert!(hp > 0, "{name} should have positive HP");
+            assert!(atk > 0, "{name} should have positive attack");
+            assert!(def >= 0, "{name} should have non-negative defense");
+        }
+    }
+
+    #[test]
+    fn bosses_not_in_deep_random_tables() {
+        // Ensure bosses no longer appear in deep-level random rolls
+        for biome in DungeonBiome::PLACEABLE {
+            let glyphs = collect_glyphs(biome, 2, 2000);
+            let boss_glyph = boss_for_biome(biome).3;
+            assert!(!glyphs.contains(&boss_glyph),
+                "{:?} deep table should not contain boss glyph '{}'", biome, boss_glyph);
         }
     }
 }

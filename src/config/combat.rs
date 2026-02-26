@@ -77,6 +77,12 @@ pub struct CombatConfig {
     pub dragon_defense: i32,
     /// Minimum Manhattan distance from player when placing dragon boss.
     pub dragon_min_distance: i32,
+
+    // --- Legendary set bonus ---
+    /// Flat defense bonus when all 4 legendary pieces (helmet, armor, shield, boots) are equipped.
+    pub legendary_set_defense_bonus: i32,
+    /// Dragon damage taken is multiplied by this percentage when full set is equipped (50 = take 50% damage).
+    pub legendary_dragon_damage_pct: i32,
 }
 
 impl CombatConfig {
@@ -114,6 +120,8 @@ impl CombatConfig {
             dragon_attack: 19,
             dragon_defense: 11,
             dragon_min_distance: 5,
+            legendary_set_defense_bonus: 10,
+            legendary_dragon_damage_pct: 50,
         }
     }
 }

@@ -27,10 +27,8 @@ pub struct MapGenConfig {
     // --- BSP dungeon placement on overworld ---
     /// Minimum zone size for BSP subdivision.
     pub bsp_min_zone: i32,
-    /// Chance (0-100) that a BSP zone gets a dungeon entrance.
-    pub dungeon_place_chance_pct: u64,
-    /// Minimum number of dungeon entrances guaranteed.
-    pub dungeon_min_count: usize,
+    /// Exact number of dungeon entrances to place on the overworld.
+    pub dungeon_count: usize,
 
     // --- BSP dungeon interior ---
     /// Minimum room dimension for BSP room generation.
@@ -63,8 +61,7 @@ impl MapGenConfig {
             cave_width: 80,
             cave_height: 60,
             bsp_min_zone: 30,
-            dungeon_place_chance_pct: 60,
-            dungeon_min_count: 3,
+            dungeon_count: 5,
             bsp_min_room: 5,
             dungeon_depth: 3,
             dungeon_level_sizes: [(40, 30), (50, 35), (60, 40)],

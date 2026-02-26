@@ -6,7 +6,7 @@ use super::enemies::*;
 pub(super) fn roll_overworld_enemy(x: i32, y: i32, rng: u64, _map_height: i32) -> Enemy {
     let roll = rng % 100;
     let (hp, attack, def, glyph, name, ranged, behavior) = roll_forest(roll);
-    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged, behavior, spawn_x: x, spawn_y: y, provoked: false }
+    Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged, behavior, spawn_x: x, spawn_y: y, provoked: false, is_boss: false }
 }
 
 /// Temperate forest table: ~88% wildlife, ~12% rare monsters.

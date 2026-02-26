@@ -31,7 +31,7 @@ use super::{test_game, overworld_game, rusty_sword};
         let (ex, ey) = (g.player_x + 1, g.player_y);
         g.enemies.push(Enemy {
             x: ex, y: ey, hp: 10, attack: 3, defense: 0, glyph: 'g', name: "Goblin", facing_left: false, is_ranged: false,
-            behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false,
+            behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false, is_boss: false,
         });
         let info = g.inspect_tile(ex, ey).unwrap();
         let enemy = info.enemy.unwrap();
@@ -133,7 +133,7 @@ use super::{test_game, overworld_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert_eq!(g.player_xp, 4); // goblin = 4 XP
     }
@@ -208,7 +208,7 @@ use super::{test_game, overworld_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert!(g.messages.iter().any(|m| m.contains("+4 XP")));
     }
@@ -294,7 +294,7 @@ use super::{test_game, overworld_game, rusty_sword};
         g.strength = 3;
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         // Base attack 5 + strength 3 = 8 damage
         assert_eq!(g.enemies[0].hp, 20 - 8);

@@ -5,6 +5,7 @@ mod movement;
 mod survival;
 mod spawning;
 mod progression;
+pub mod legendary;
 
 pub use types::*;
 #[cfg(test)]

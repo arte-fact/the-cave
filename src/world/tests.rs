@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::MapGenConfig;
+use crate::game::ItemKind;
 
 fn test_world() -> World {
     let cfg = MapGenConfig::normal();
@@ -68,4 +69,47 @@ fn from_single_map_has_no_dungeons() {
     assert!(w.dungeons.is_empty());
     assert!(w.dungeon_entrances.is_empty());
     assert_eq!(w.location, Location::Overworld);
+}
+
+#[test]
+fn five_dungeons_total() {
+    let w = test_world();
+    assert_eq!(w.dungeons.len(), 5);
+}
+
+#[test]
+fn exactly_one_dragon_lair() {
+    let w = test_world();
+    let lair_count = w.dungeons.iter().filter(|d| d.biome == DungeonBiome::DragonLair).count();
+    assert_eq!(lair_count, 1, "should have exactly one Dragon's Lair");
+}
+
+#[test]
+fn all_regular_dungeons_unique_biomes() {
+    let w = test_world();
+    let regular: Vec<DungeonBiome> = w.dungeons.iter()
+        .filter(|d| d.biome != DungeonBiome::DragonLair)
+        .map(|d| d.biome)
+        .collect();
+    assert_eq!(regular.len(), 4, "should have 4 regular dungeons");
+    let unique: std::collections::HashSet<_> = regular.iter().collect();
+    assert_eq!(unique.len(), 4, "all regular dungeons should have unique biomes");
+}
+
+#[test]
+fn legendary_slots_cover_all_four_types() {
+    let w = test_world();
+    let slots: Vec<ItemKind> = w.legendary_slots.iter().filter_map(|s| s.clone()).collect();
+    assert_eq!(slots.len(), 4, "should have 4 legendary slots");
+    assert!(slots.contains(&ItemKind::Helmet));
+    assert!(slots.contains(&ItemKind::Armor));
+    assert!(slots.contains(&ItemKind::Shield));
+    assert!(slots.contains(&ItemKind::Boots));
+}
+
+#[test]
+fn dragon_lair_has_no_legendary_slot() {
+    let w = test_world();
+    let cave_idx = w.dungeons.iter().position(|d| d.biome == DungeonBiome::DragonLair).unwrap();
+    assert_eq!(w.legendary_slots[cave_idx], None, "Dragon's Lair should have no legendary slot");
 }

@@ -9,10 +9,21 @@ fn test_overworld() -> (Map, Vec<(i32, i32)>) {
 }
 
 #[test]
-fn at_least_three_dungeons() {
+fn exactly_five_dungeons() {
     let (_, entrances) = test_overworld();
-    assert!(entrances.len() >= 3,
-        "need at least 3 dungeons, got {}", entrances.len());
+    assert_eq!(entrances.len(), 5,
+        "expected exactly 5 dungeons, got {}", entrances.len());
+}
+
+#[test]
+fn exactly_five_dungeon_entrances_multiple_seeds() {
+    let cfg = MapGenConfig::normal();
+    for seed in [1u64, 42, 99, 1337, 9999] {
+        let mut map = Map::generate_forest(200, 200, seed, &cfg);
+        let entrances = map.place_dungeons(seed, &cfg);
+        assert_eq!(entrances.len(), 5,
+            "seed {seed}: expected 5 dungeons, got {}", entrances.len());
+    }
 }
 
 #[test]

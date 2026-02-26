@@ -2,7 +2,7 @@ use super::*;
 use super::{test_game, health_potion};
 
     fn raw_food(amount: i32) -> Item {
-        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount, FoodSideEffect::None), weight: 0, durability: 0 }
+        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
     }
 
     // --- Stamina ---
@@ -126,7 +126,7 @@ use super::{test_game, health_potion};
         let ex = g.player_x + 2;
         let ey = g.player_y;
         if g.current_map().is_walkable(ex, ey) {
-            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false });
+            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false, is_boss: false });
             // Move away from enemy
             if g.current_map().is_walkable(g.player_x, g.player_y + 1) {
                 g.move_player(0, 1);
@@ -146,7 +146,7 @@ use super::{test_game, health_potion};
         let ex = g.player_x + 4;
         let ey = g.player_y;
         if !g.current_map().is_walkable(ex, ey) { return; }
-        g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false });
+        g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false, is_boss: false });
 
         // First move: enemies should be skipped
         let dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)];
@@ -342,7 +342,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'w', name: "Wolf", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'w', name: "Wolf", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Wolf Meat"),
             "wolf should drop meat");
@@ -354,7 +354,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'b', name: "Boar", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'b', name: "Boar", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Boar Meat"));
     }
@@ -365,7 +365,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'B', name: "Bear", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'B', name: "Bear", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Bear Meat"));
     }
@@ -376,7 +376,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'r', name: "Giant Rat", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Rat Meat"),
             "giant rat should drop rat meat");
@@ -388,7 +388,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert!(g.ground_items.iter().any(|gi| gi.item.name == "Stolen Rations"),
             "goblin should drop stolen rations");
@@ -545,7 +545,7 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300,
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -559,7 +559,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let base_atk = g.effective_attack();
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300,
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false,
         });
         assert_eq!(g.effective_attack(), base_atk + 4);
     }
@@ -570,7 +570,7 @@ use super::{test_game, health_potion};
         let mut g = Game::new(map);
         let base_def = g.effective_defense();
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300,
+            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300, legendary: false,
         });
         assert_eq!(g.effective_defense(), base_def + 4);
     }
@@ -580,10 +580,10 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300,
+            kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300, legendary: false,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300,
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_ring.as_ref().unwrap().name, "Gold Ring");
@@ -597,7 +597,7 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250,
+            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -610,7 +610,7 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250,
+            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -623,7 +623,7 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250,
+            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -636,10 +636,10 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_helmet = Some(Item {
-            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250,
+            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400,
+            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_helmet.as_ref().unwrap().name, "Iron Helmet");
@@ -651,10 +651,10 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_shield = Some(Item {
-            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250,
+            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400,
+            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_shield.as_ref().unwrap().name, "Iron Shield");
@@ -666,10 +666,10 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_boots = Some(Item {
-            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250,
+            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600,
+            kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_boots.as_ref().unwrap().name, "Plate Boots");
@@ -681,19 +681,19 @@ use super::{test_game, health_potion};
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_armor = Some(Item {
-            kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400,
+            kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false,
         });
         g.equipped_helmet = Some(Item {
-            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400,
+            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
         });
         g.equipped_shield = Some(Item {
-            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400,
+            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
         });
         g.equipped_boots = Some(Item {
-            kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400,
+            kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false,
         });
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300,
+            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300, legendary: false,
         });
         // base 0 + armor 4 + helmet 3 + shield 3 + boots 2 + ring 4 = 16
         assert_eq!(g.effective_defense(), 16);

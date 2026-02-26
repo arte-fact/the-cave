@@ -36,7 +36,15 @@ impl Game {
         weapon_stamina_cost(kind, weight, c.melee_stamina_base, c.melee_stamina_weight_mult, c.ranged_stamina_base, c.ranged_stamina_weight_mult)
     }
 
-    /// Player's total defense: base + armor + helmet + shield + boots + ring.
+    /// Returns true if the player has all 4 legendary set pieces equipped
+    /// (helmet, armor, shield, boots all with `legendary: true`).
+    pub fn has_legendary_set(&self) -> bool {
+        [&self.equipped_helmet, &self.equipped_armor, &self.equipped_shield, &self.equipped_boots]
+            .iter()
+            .all(|slot| slot.as_ref().is_some_and(|item| item.legendary))
+    }
+
+    /// Player's total defense: base + armor + helmet + shield + boots + ring + set bonus.
     pub fn effective_defense(&self) -> i32 {
         let mut total = self.player_defense;
         for item in [&self.equipped_armor, &self.equipped_helmet, &self.equipped_shield, &self.equipped_boots].into_iter().flatten() {
@@ -44,6 +52,9 @@ impl Game {
         }
         if let Some(ring) = &self.equipped_ring {
             if let ItemEffect::BuffDefense(bonus) = ring.effect { total += bonus; }
+        }
+        if self.has_legendary_set() {
+            total += self.config.combat.legendary_set_defense_bonus;
         }
         total
     }
@@ -327,13 +338,19 @@ impl Game {
     /// Enemy melee attack (adjacent to player).
     fn enemy_melee_attack(&mut self, i: usize, pdef: i32) {
         let raw = self.enemies[i].attack;
-        let dmg = calc_damage(raw, pdef);
+        let mut dmg = calc_damage(raw, pdef);
         let name = self.enemies[i].name;
         let dodge_seed = self.turn as u64 * 7 + i as u64 * 13 + 997;
 
         if self.roll_dodge(dodge_seed, name, "attack") {
             return;
         }
+
+        // Dragon damage reduction when player has full legendary set
+        if self.enemies[i].glyph == 'D' && self.has_legendary_set() {
+            dmg = (dmg * self.config.combat.legendary_dragon_damage_pct / 100).max(1);
+        }
+
         self.apply_enemy_melee_hit(i, dmg, format!("{name} hits you for {dmg} damage."));
     }
 
