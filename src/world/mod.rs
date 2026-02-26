@@ -7,6 +7,14 @@ pub enum Location {
     Dungeon { index: usize, level: usize },
 }
 
+/// Per-dungeon saved state for enemy/item persistence across level transitions.
+pub struct DungeonState {
+    /// Per-level saved enemies. `None` = unvisited (spawn fresh).
+    pub enemies: Vec<Option<Vec<Enemy>>>,
+    /// Per-level saved ground items. `None` = unvisited (spawn fresh).
+    pub items: Vec<Option<Vec<GroundItem>>>,
+}
+
 pub struct World {
     pub overworld: Map,
     pub dungeons: Vec<Dungeon>,
@@ -21,6 +29,8 @@ pub struct World {
     /// Legendary equipment slot assigned to each regular (non-DragonLair) dungeon.
     /// Index matches dungeon index. `None` for the DragonLair dungeon.
     pub legendary_slots: Vec<Option<ItemKind>>,
+    /// Per-dungeon level persistence (enemies & items survive transitions).
+    pub dungeon_states: Vec<DungeonState>,
 }
 
 impl World {
@@ -64,6 +74,11 @@ impl World {
             }
         }
 
+        let dungeon_states = dungeons.iter().map(|d| DungeonState {
+            enemies: vec![None; d.levels.len()],
+            items: vec![None; d.levels.len()],
+        }).collect();
+
         Self {
             overworld,
             dungeons,
@@ -73,6 +88,7 @@ impl World {
             saved_overworld_enemies: Vec::new(),
             saved_overworld_items: Vec::new(),
             legendary_slots,
+            dungeon_states,
         }
     }
 
@@ -88,6 +104,7 @@ impl World {
             saved_overworld_enemies: Vec::new(),
             saved_overworld_items: Vec::new(),
             legendary_slots: Vec::new(),
+            dungeon_states: Vec::new(),
         }
     }
 
@@ -103,6 +120,21 @@ impl World {
             Location::Overworld => &mut self.overworld,
             Location::Dungeon { index, level } => &mut self.dungeons[index].levels[level],
         }
+    }
+
+    /// Save enemies and items for a dungeon level (persistence across transitions).
+    pub fn save_level(&mut self, dungeon_index: usize, level: usize, enemies: Vec<Enemy>, items: Vec<GroundItem>) {
+        let state = &mut self.dungeon_states[dungeon_index];
+        state.enemies[level] = Some(enemies);
+        state.items[level] = Some(items);
+    }
+
+    /// Take saved state for a dungeon level, leaving `None` (so next visit spawns fresh if not re-saved).
+    pub fn take_level(&mut self, dungeon_index: usize, level: usize) -> Option<(Vec<Enemy>, Vec<GroundItem>)> {
+        let state = &mut self.dungeon_states[dungeon_index];
+        let enemies = state.enemies[level].take()?;
+        let items = state.items[level].take()?;
+        Some((enemies, items))
     }
 
     /// Find dungeon index for an overworld entrance position.

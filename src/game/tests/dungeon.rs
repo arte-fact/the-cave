@@ -172,3 +172,64 @@ fn transition_message_on_exit_dungeon() {
     g.exit_dungeon();
     assert!(g.messages.iter().any(|m| m.contains("overworld")));
 }
+
+#[test]
+fn killed_enemies_stay_dead_on_return() {
+    let mut g = overworld_game();
+    g.enter_dungeon(0);
+    let count_l0 = g.enemies.len();
+    assert!(count_l0 > 0, "dungeon should have enemies");
+    // Kill half the enemies
+    let kill_count = count_l0 / 2;
+    for _ in 0..kill_count {
+        g.enemies.pop();
+    }
+    let remaining = g.enemies.len();
+    // Descend then ascend back
+    g.descend(0, 0);
+    g.ascend(0, 1);
+    assert_eq!(g.enemies.len(), remaining, "killed enemies should stay dead");
+}
+
+#[test]
+fn items_persist_across_transitions() {
+    let mut g = overworld_game();
+    g.enter_dungeon(0);
+    let item_count_l0 = g.ground_items.len();
+    // Remove some items (simulating pickup)
+    let remove_count = item_count_l0.min(2);
+    for _ in 0..remove_count {
+        g.ground_items.pop();
+    }
+    let remaining = g.ground_items.len();
+    // Descend then ascend back
+    g.descend(0, 0);
+    g.ascend(0, 1);
+    assert_eq!(g.ground_items.len(), remaining, "picked-up items should stay gone");
+}
+
+#[test]
+fn reenter_dungeon_preserves_state() {
+    let mut g = overworld_game();
+    g.enter_dungeon(0);
+    let count_l0 = g.enemies.len();
+    assert!(count_l0 > 0);
+    // Kill one enemy
+    g.enemies.pop();
+    let remaining = g.enemies.len();
+    // Exit to overworld
+    g.exit_dungeon();
+    // Re-enter same dungeon
+    g.enter_dungeon(0);
+    assert_eq!(g.enemies.len(), remaining, "enemy should stay dead after re-entering dungeon");
+}
+
+#[test]
+fn unvisited_level_spawns_fresh() {
+    let mut g = overworld_game();
+    g.enter_dungeon(0);
+    // Level 0 is visited, now descend to level 1 (first visit)
+    g.descend(0, 0);
+    assert!(!g.enemies.is_empty(), "unvisited level should spawn fresh enemies");
+    assert!(!g.ground_items.is_empty(), "unvisited level should spawn fresh items");
+}

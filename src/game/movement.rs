@@ -105,14 +105,26 @@ impl Game {
         self.player_x = sx;
         self.player_y = sy;
 
-        self.enemies.clear();
-        self.spawn_dungeon_enemies(dungeon_index, 0);
-        self.spawn_dungeon_items(dungeon_index, 0);
+        if let Some((enemies, items)) = self.world.take_level(dungeon_index, 0) {
+            self.enemies = enemies;
+            self.ground_items = items;
+        } else {
+            self.enemies.clear();
+            self.spawn_dungeon_enemies(dungeon_index, 0);
+            self.spawn_dungeon_items(dungeon_index, 0);
+        }
         self.messages.push("You descend into the dungeon.".into());
         self.update_fov();
     }
 
     pub(crate) fn exit_dungeon(&mut self) {
+        // Save current dungeon level state before leaving
+        if let Location::Dungeon { index, level } = self.world.location {
+            let enemies = std::mem::take(&mut self.enemies);
+            let items = std::mem::take(&mut self.ground_items);
+            self.world.save_level(index, level, enemies, items);
+        }
+
         let (ox, oy) = self.world.saved_overworld_pos;
         self.player_x = ox;
         self.player_y = oy;
@@ -124,29 +136,49 @@ impl Game {
     }
 
     pub(crate) fn descend(&mut self, dungeon_index: usize, current_level: usize) {
-        self.world.location = Location::Dungeon { index: dungeon_index, level: current_level + 1 };
+        // Save current level state
+        let enemies = std::mem::take(&mut self.enemies);
+        let items = std::mem::take(&mut self.ground_items);
+        self.world.save_level(dungeon_index, current_level, enemies, items);
+
+        let next = current_level + 1;
+        self.world.location = Location::Dungeon { index: dungeon_index, level: next };
         let map = self.world.current_map();
         let (sx, sy) = map.find_tile(Tile::StairsUp).unwrap_or_else(|| map.find_spawn());
         self.player_x = sx;
         self.player_y = sy;
-        self.enemies.clear();
-        self.ground_items.clear();
-        self.spawn_dungeon_enemies(dungeon_index, current_level + 1);
-        self.spawn_dungeon_items(dungeon_index, current_level + 1);
-        self.messages.push(format!("You descend to level {}.", current_level + 2));
+
+        if let Some((enemies, items)) = self.world.take_level(dungeon_index, next) {
+            self.enemies = enemies;
+            self.ground_items = items;
+        } else {
+            self.spawn_dungeon_enemies(dungeon_index, next);
+            self.spawn_dungeon_items(dungeon_index, next);
+        }
+        self.messages.push(format!("You descend to level {}.", next + 1));
         self.update_fov();
     }
 
     pub(crate) fn ascend(&mut self, dungeon_index: usize, current_level: usize) {
-        self.world.location = Location::Dungeon { index: dungeon_index, level: current_level - 1 };
+        // Save current level state
+        let enemies = std::mem::take(&mut self.enemies);
+        let items = std::mem::take(&mut self.ground_items);
+        self.world.save_level(dungeon_index, current_level, enemies, items);
+
+        let prev = current_level - 1;
+        self.world.location = Location::Dungeon { index: dungeon_index, level: prev };
         let map = self.world.current_map();
         let (sx, sy) = map.find_tile(Tile::StairsDown).unwrap_or_else(|| map.find_spawn());
         self.player_x = sx;
         self.player_y = sy;
-        self.enemies.clear();
-        self.ground_items.clear();
-        self.spawn_dungeon_enemies(dungeon_index, current_level - 1);
-        self.spawn_dungeon_items(dungeon_index, current_level - 1);
+
+        if let Some((enemies, items)) = self.world.take_level(dungeon_index, prev) {
+            self.enemies = enemies;
+            self.ground_items = items;
+        } else {
+            self.spawn_dungeon_enemies(dungeon_index, prev);
+            self.spawn_dungeon_items(dungeon_index, prev);
+        }
         self.messages.push(format!("You ascend to level {}.", current_level));
         self.update_fov();
     }
