@@ -36,7 +36,9 @@ impl Game {
     pub(super) fn spawn_dungeon_enemies(&mut self, dungeon_index: usize, level: usize) {
         let dungeon = &self.world.dungeons[dungeon_index];
         let biome = dungeon.biome;
-        let is_cave = biome == DungeonBiome::DragonLair && level == dungeon.levels.len() - 1;
+        let total_levels = dungeon.levels.len();
+        let is_cave = biome == DungeonBiome::DragonLair && level == total_levels - 1;
+        let is_deepest = level == total_levels - 1;
 
         let map = self.world.current_map();
         let seed = (dungeon_index as u64)
@@ -74,6 +76,33 @@ impl Game {
         if is_cave {
             self.place_dragon_boss();
         }
+        // Place guaranteed biome boss on deepest non-cave level
+        else if is_deepest && biome != DungeonBiome::DragonLair {
+            self.place_dungeon_boss(biome);
+        }
+    }
+
+    /// Place a guaranteed biome boss on the deepest level, far from the player.
+    fn place_dungeon_boss(&mut self, biome: DungeonBiome) {
+        let stats = dungeon_tables::boss_for_biome(biome);
+        let (hp, attack, def, glyph, name, ranged, behavior) = stats;
+        let map = self.world.current_map();
+        for y in (1..map.height - 1).rev() {
+            for x in (1..map.width - 1).rev() {
+                if map.is_walkable(x, y)
+                    && map.get(x, y) == Tile::Floor
+                    && (x - self.player_x).abs() + (y - self.player_y).abs() > 5
+                    && !self.enemies.iter().any(|e| e.x == x && e.y == y)
+                {
+                    self.enemies.push(Enemy {
+                        x, y, hp, attack, defense: def, glyph, name,
+                        facing_left: false, is_ranged: ranged, behavior,
+                        spawn_x: x, spawn_y: y, provoked: false, is_boss: true,
+                    });
+                    return;
+                }
+            }
+        }
     }
 
     /// Place the dragon boss in the cave level, far from the player.
@@ -91,7 +120,7 @@ impl Game {
                         x, y, hp: c.dragon_hp, attack: c.dragon_attack, defense: c.dragon_defense,
                         glyph: 'D', name: "Dragon", facing_left: false, is_ranged: false,
                         behavior: crate::config::EnemyBehavior::Aggressive,
-                        spawn_x: x, spawn_y: y, provoked: false,
+                        spawn_x: x, spawn_y: y, provoked: false, is_boss: true,
                     });
                     return;
                 }

@@ -1,6 +1,7 @@
 use crate::world::Location;
 use super::types::*;
 use super::Game;
+use super::legendary;
 
 impl Game {
     /// Apply diminishing XP returns for overworld kills. Dungeon kills unaffected.
@@ -111,6 +112,19 @@ impl Game {
                 self.messages.push(format!("The {name} dropped {loot_name}!"));
             }
         }
+        // Boss kill: drop legendary item
+        if self.enemies[enemy_idx].is_boss {
+            if let Location::Dungeon { index, .. } = self.world.location {
+                if let Some(Some(slot)) = self.world.legendary_slots.get(index) {
+                    let biome = self.world.dungeons[index].biome;
+                    let item = legendary::legendary_item(biome, slot);
+                    let item_name = item.name;
+                    self.ground_items.push(GroundItem { x: ex, y: ey, item });
+                    self.messages.push(format!("The {name} dropped {item_name}!"));
+                }
+            }
+        }
+
         if self.enemies[enemy_idx].glyph == 'D' {
             self.won = true;
             self.messages.push("You conquered the cave!".into());

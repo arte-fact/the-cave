@@ -54,6 +54,8 @@ pub struct Item {
     /// hit absorbed. When durability reaches 0 the item breaks and is destroyed.
     /// 0 = not applicable (consumables).
     pub durability: i32,
+    /// Whether this item is a legendary set piece (boss drop).
+    pub legendary: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +85,8 @@ pub struct Enemy {
     pub spawn_y: i32,
     /// Whether this enemy has been provoked (attacked or triggered).
     pub provoked: bool,
+    /// Whether this enemy is a dungeon boss (guaranteed legendary drop on kill).
+    pub is_boss: bool,
 }
 
 #[derive(Debug, PartialEq)]

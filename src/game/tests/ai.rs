@@ -5,7 +5,7 @@ fn enemy_with_behavior(x: i32, y: i32, hp: i32, attack: i32, name: &'static str,
     Enemy {
         x, y, hp, attack, defense: 0, glyph: name.chars().next().unwrap_or('?'),
         name, facing_left: false, is_ranged: false,
-        behavior, spawn_x: x, spawn_y: y, provoked: false,
+        behavior, spawn_x: x, spawn_y: y, provoked: false, is_boss: false,
     }
 }
 

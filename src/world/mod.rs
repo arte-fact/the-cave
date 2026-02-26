@@ -1,4 +1,4 @@
-use crate::game::{Enemy, GroundItem};
+use crate::game::{Enemy, GroundItem, ItemKind};
 use crate::map::{Dungeon, DungeonBiome, DungeonStyle, Map};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -18,6 +18,9 @@ pub struct World {
     pub saved_overworld_enemies: Vec<Enemy>,
     /// Overworld ground items saved when entering a dungeon.
     pub saved_overworld_items: Vec<GroundItem>,
+    /// Legendary equipment slot assigned to each regular (non-DragonLair) dungeon.
+    /// Index matches dungeon index. `None` for the DragonLair dungeon.
+    pub legendary_slots: Vec<Option<ItemKind>>,
 }
 
 impl World {
@@ -30,18 +33,37 @@ impl World {
         } else {
             (seed % dungeon_entrances.len() as u64) as usize
         };
-        let map_height = overworld.height;
-        for (i, &(_, ey)) in dungeon_entrances.iter().enumerate() {
+
+        // Pick unique biomes for the regular (non-DragonLair) dungeons
+        let regular_count = if dungeon_entrances.is_empty() { 0 } else { dungeon_entrances.len() - 1 };
+        let unique_biomes = DungeonBiome::select_unique(regular_count, seed);
+        let mut biome_iter = unique_biomes.iter();
+
+        // Legendary slots: Helmet, Armor, Shield, Boots — one per regular dungeon
+        let legendary_kinds = [ItemKind::Helmet, ItemKind::Armor, ItemKind::Shield, ItemKind::Boots];
+        let mut legendary_slots = Vec::new();
+        let mut legend_idx = 0;
+
+        for (i, &(_ex, _ey)) in dungeon_entrances.iter().enumerate() {
             rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
             let depth = mapgen.dungeon_depth;
             let has_cave = i == cave_index;
             let biome = if has_cave {
                 DungeonBiome::DragonLair
             } else {
-                DungeonBiome::for_dungeon(rng, ey, map_height)
+                *biome_iter.next().unwrap_or(&DungeonBiome::GoblinWarren)
             };
             dungeons.push(Dungeon::generate(depth, rng, has_cave, biome, mapgen));
+
+            if has_cave {
+                legendary_slots.push(None);
+            } else {
+                let slot = legendary_kinds.get(legend_idx).cloned();
+                legendary_slots.push(slot);
+                legend_idx += 1;
+            }
         }
+
         Self {
             overworld,
             dungeons,
@@ -50,6 +72,7 @@ impl World {
             saved_overworld_pos: (0, 0),
             saved_overworld_enemies: Vec::new(),
             saved_overworld_items: Vec::new(),
+            legendary_slots,
         }
     }
 
@@ -64,6 +87,7 @@ impl World {
             saved_overworld_pos: (0, 0),
             saved_overworld_enemies: Vec::new(),
             saved_overworld_items: Vec::new(),
+            legendary_slots: Vec::new(),
         }
     }
 

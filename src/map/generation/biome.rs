@@ -45,6 +45,21 @@ impl DungeonBiome {
         DungeonBiome::SerpentPit,
     ];
 
+    /// Select `count` unique biomes from PLACEABLE (no duplicates).
+    /// Uses Fisher-Yates shuffle with xorshift64 for deterministic selection.
+    pub fn select_unique(count: usize, seed: u64) -> Vec<DungeonBiome> {
+        let mut pool = Self::PLACEABLE.to_vec();
+        let mut rng = seed;
+        let n = pool.len();
+        for i in (1..n).rev() {
+            rng = xorshift64(rng);
+            let j = (rng % (i as u64 + 1)) as usize;
+            pool.swap(i, j);
+        }
+        pool.truncate(count);
+        pool
+    }
+
     /// Select a biome for a dungeon based on seed and overworld position.
     pub fn for_dungeon(seed: u64, entrance_y: i32, map_height: i32) -> Self {
         let overworld = OverworldBiome::at_y(entrance_y, map_height);
@@ -261,5 +276,45 @@ mod tests {
             assert!(!biome.name().is_empty(), "{:?} has empty name", biome);
         }
         assert_eq!(DungeonBiome::DragonLair.name(), "Dragon's Lair");
+    }
+
+    // --- select_unique ---
+
+    #[test]
+    fn select_unique_returns_four() {
+        let biomes = DungeonBiome::select_unique(4, 42);
+        assert_eq!(biomes.len(), 4);
+    }
+
+    #[test]
+    fn select_unique_no_duplicates() {
+        let biomes = DungeonBiome::select_unique(4, 42);
+        let set: std::collections::HashSet<_> = biomes.iter().collect();
+        assert_eq!(set.len(), 4, "should have 4 unique biomes");
+    }
+
+    #[test]
+    fn select_unique_excludes_dragon_lair() {
+        for seed in 0..100 {
+            let biomes = DungeonBiome::select_unique(4, seed);
+            assert!(!biomes.contains(&DungeonBiome::DragonLair),
+                "seed {seed}: select_unique should never include DragonLair");
+        }
+    }
+
+    #[test]
+    fn select_unique_is_deterministic() {
+        let a = DungeonBiome::select_unique(4, 42);
+        let b = DungeonBiome::select_unique(4, 42);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn select_unique_varies_with_seed() {
+        let mut seen = std::collections::HashSet::new();
+        for seed in 0..20 {
+            seen.insert(DungeonBiome::select_unique(4, seed));
+        }
+        assert!(seen.len() >= 3, "should produce varied results across seeds");
     }
 }

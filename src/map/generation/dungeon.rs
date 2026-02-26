@@ -4,17 +4,26 @@ use super::biome::DungeonBiome;
 use super::xorshift64;
 
 impl Map {
-    /// Place small dungeon entrance structures on a forest map using BSP zone partitioning.
-    /// Returns the list of dungeon entrance positions.
+    /// Place exactly `cfg.dungeon_count` dungeon entrance structures on a forest map
+    /// using BSP zone partitioning. Returns the list of dungeon entrance positions.
     pub fn place_dungeons(&mut self, seed: u64, cfg: &MapGenConfig) -> Vec<(i32, i32)> {
         let mut rng = seed;
-        let zones = bsp_subdivide(2, 2, self.width - 4, self.height - 4, cfg.bsp_min_zone, &mut rng);
+        let mut zones = bsp_subdivide(2, 2, self.width - 4, self.height - 4, cfg.bsp_min_zone, &mut rng);
+
+        // Fisher-Yates shuffle zones deterministically
+        let n = zones.len();
+        for i in (1..n).rev() {
+            rng = xorshift64(rng);
+            let j = (rng % (i as u64 + 1)) as usize;
+            zones.swap(i, j);
+        }
+
         let mut entrances = Vec::new();
+        let target = cfg.dungeon_count;
 
         for zone in &zones {
-            rng = xorshift64(rng);
-            if rng % 100 >= cfg.dungeon_place_chance_pct {
-                continue;
+            if entrances.len() >= target {
+                break;
             }
 
             // Place a small stone entrance structure (3x2) at zone center:
@@ -47,12 +56,17 @@ impl Map {
             entrances.push((cx, cy + 1));
         }
 
-        // Guarantee minimum dungeons by retrying with offset seed
-        if entrances.len() < cfg.dungeon_min_count {
+        // Fallback: retry with offset seed if fewer zones than needed
+        if entrances.len() < target {
             let extra = self.place_dungeons(seed.wrapping_add(7), cfg);
-            entrances.extend(extra);
+            for e in extra {
+                if entrances.len() >= target { break; }
+                entrances.push(e);
+            }
         }
 
+        // Truncate to exact count
+        entrances.truncate(target);
         entrances
     }
 

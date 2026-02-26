@@ -120,7 +120,7 @@ fn attack_adjacent_diagonal() {
         name: "Goblin", glyph: 'g',
         attack: 1, defense: 0,
         facing_left: false, is_ranged: false,
-        behavior: EnemyBehavior::Aggressive, spawn_x: 6, spawn_y: 6, provoked: false,
+        behavior: EnemyBehavior::Aggressive, spawn_x: 6, spawn_y: 6, provoked: false, is_boss: false,
     });
     let result = g.attack_adjacent(6, 6);
     assert_ne!(result, TurnResult::Blocked, "diagonal attack should work");
@@ -138,7 +138,7 @@ fn attack_adjacent_too_far() {
         name: "Goblin", glyph: 'g',
         attack: 1, defense: 0,
         facing_left: false, is_ranged: false,
-        behavior: EnemyBehavior::Aggressive, spawn_x: 7, spawn_y: 7, provoked: false,
+        behavior: EnemyBehavior::Aggressive, spawn_x: 7, spawn_y: 7, provoked: false, is_boss: false,
     });
     let result = g.attack_adjacent(7, 7);
     assert_eq!(result, TurnResult::Blocked, "distance 2 should be blocked");

@@ -94,7 +94,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 10, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 10, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.attack_adjacent(gx, gy);
         assert_eq!(g.enemies[0].hp, 10 - g.player_attack);
         assert_eq!(g.player_x, gx - 1); // player didn't move
@@ -106,7 +106,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 3, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 3, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let result = g.attack_adjacent(gx, gy);
         assert!(matches!(result, TurnResult::Killed { .. }));
         assert!(g.enemies[0].hp <= 0);
@@ -119,7 +119,7 @@ use super::{test_game, rusty_sword};
         g.player_dexterity = 0; // disable dodge for deterministic test
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 3, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let hp_before = g.player_hp;
         g.attack_adjacent(gx, gy);
         // Enemy attacks back during enemy_turn (adjacent, calc_damage(3, 0) = 3)
@@ -134,7 +134,7 @@ use super::{test_game, rusty_sword};
         g.player_dexterity = 0; // disable dodge
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 99, attack: 5, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let result = g.attack_adjacent(gx, gy);
         assert!(matches!(result, TurnResult::PlayerDied));
         assert!(!g.alive);
@@ -156,7 +156,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let dx = g.player_x + 1;
         let dy = g.player_y;
-        g.enemies.push(Enemy { x: dx, y: dy, hp: 1, attack: 0, glyph: 'D', name: "Dragon", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: dx, spawn_y: dy, provoked: false });
+        g.enemies.push(Enemy { x: dx, y: dy, hp: 1, attack: 0, glyph: 'D', name: "Dragon", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: dx, spawn_y: dy, provoked: false, is_boss: false });
         let result = g.attack_adjacent(dx, dy);
         assert!(matches!(result, TurnResult::Won));
         assert!(g.won);
@@ -184,7 +184,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 20, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let msg_count_before = g.messages.len();
         g.attack_adjacent(gx, gy);
         assert!(g.messages.len() > msg_count_before, "combat should generate messages");
@@ -197,7 +197,7 @@ use super::{test_game, rusty_sword};
         let ex = g.player_x + 3;
         let ey = g.player_y;
         if g.current_map().is_walkable(ex, ey) {
-            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false });
+            g.enemies.push(Enemy { x: ex, y: ey, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: ex, spawn_y: ey, provoked: false, is_boss: false });
             if g.current_map().is_walkable(g.player_x, g.player_y + 1) {
                 g.move_player(0, 1);
                 let new_dist = (g.enemies[0].x - g.player_x).abs() + (g.enemies[0].y - g.player_y).abs();
@@ -207,16 +207,16 @@ use super::{test_game, rusty_sword};
     }
 
     fn short_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250 }
+        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250, legendary: false }
     }
     fn crossbow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250 }
+        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250, legendary: false }
     }
     fn long_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400 }
+        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400, legendary: false }
     }
     fn elven_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600 }
+        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600, legendary: false }
     }
 
     #[test]
@@ -352,7 +352,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.player_dexterity = 100; // guarantee hit
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 2, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         let result = g.ranged_attack(8, 5);
         assert!(matches!(result, TurnResult::Moved));
         // With dex 100, should definitely hit. Ranged damage includes distance + DEX bonuses.
@@ -369,7 +369,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.player_dexterity = 100;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 3, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 3, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         g.ranged_attack(8, 5);
         assert!(g.enemies[0].hp <= 0);
         assert!(g.messages.iter().any(|m| m.contains("slay")));
@@ -385,7 +385,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.player_dexterity = 100;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 10, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 10, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         let hp_before = g.player_hp;
         g.ranged_attack(8, 5);
         // Enemy is 3 tiles away — no retaliation from the ranged shot itself
@@ -404,7 +404,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.equipped_weapon = Some(short_bow());
         // Place enemy far beyond range
-        g.enemies.push(Enemy { x: 25, y: 5, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 25, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 25, y: 5, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 25, spawn_y: 5, provoked: false, is_boss: false });
         let result = g.ranged_attack(25, 5);
         assert!(matches!(result, TurnResult::Blocked));
         assert_eq!(g.enemies[0].hp, 10, "out-of-range shot should not damage");
@@ -421,7 +421,7 @@ use super::{test_game, rusty_sword};
         g.player_x = 5;
         g.player_y = 5;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 9, y: 5, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 9, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 9, y: 5, hp: 10, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 9, spawn_y: 5, provoked: false, is_boss: false });
         let result = g.ranged_attack(9, 5);
         assert!(matches!(result, TurnResult::Blocked));
         assert!(g.messages.iter().any(|m| m.contains("line of sight")));
@@ -460,7 +460,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 10;
         g.player_dexterity = 100;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 7, y: 10, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 7, spawn_y: 10, provoked: false });
+        g.enemies.push(Enemy { x: 7, y: 10, hp: 20, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 7, spawn_y: 10, provoked: false, is_boss: false });
         g.ranged_attack(7, 10); // shooting left
         assert!(g.player_facing_left);
     }
@@ -526,7 +526,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let stam_before = g.stamina;
         let cost = g.melee_stamina_cost(); // per-weapon stamina cost
         g.attack_adjacent(gx, gy);
@@ -540,7 +540,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.stamina = 0;
         let result = g.attack_adjacent(gx, gy);
         assert!(matches!(result, TurnResult::Blocked));
@@ -558,7 +558,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.player_dexterity = 100;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         let stam_before = g.stamina;
         let cost = g.ranged_stamina_cost(); // per-weapon stamina cost
         g.ranged_attack(8, 5);
@@ -576,7 +576,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.player_dexterity = 100;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 100, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         g.stamina = 0;
         let result = g.ranged_attack(8, 5);
         assert!(matches!(result, TurnResult::Blocked));
@@ -590,7 +590,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         g.stamina = g.melee_stamina_cost(); // per-weapon cost
         let result = g.attack_adjacent(gx, gy);
         assert!(!matches!(result, TurnResult::Blocked));
@@ -613,7 +613,7 @@ use super::{test_game, rusty_sword};
         // Iron Dagger: weight 1 → cost = 6 + 1*2 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/',
-            effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200,
+            effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false,
         });
         assert_eq!(g.melee_stamina_cost(), 8);
     }
@@ -625,7 +625,7 @@ use super::{test_game, rusty_sword};
         // Great Hammer: weight 5 → cost = 6 + 5*2 = 16
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/',
-            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500,
+            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false,
         });
         assert_eq!(g.melee_stamina_cost(), 16);
     }
@@ -640,7 +640,7 @@ use super::{test_game, rusty_sword};
         // Heavy Crossbow: weight 4 → cost = 4 + 4 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}',
-            effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400,
+            effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400, legendary: false,
         });
         assert_eq!(g.ranged_stamina_cost(), 8);
     }
@@ -652,7 +652,7 @@ use super::{test_game, rusty_sword};
         // Enchanted Blade: weight 1, +9 ATK → cost = 6 + 1*2 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/',
-            effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500,
+            effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500, legendary: false,
         });
         assert_eq!(g.melee_stamina_cost(), 8);
         // Elven Bow: weight 1, +6 ATK → cost = 4 + 1 = 5
@@ -667,11 +667,11 @@ use super::{test_game, rusty_sword};
         // Equip a heavy weapon (weight 5, cost 16)
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Great Axe", glyph: '/',
-            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500,
+            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false,
         });
         let gx = g.player_x + 1;
         let gy = g.player_y;
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 50, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let stam_before = g.stamina;
         g.attack_adjacent(gx, gy);
         // Combat turns do NOT regen stamina
@@ -711,7 +711,7 @@ use super::{test_game, rusty_sword};
         g.player_y = 5;
         g.player_dexterity = 100;
         g.equipped_weapon = Some(short_bow());
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 99, attack: 1, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         let turn_before = g.turn;
         g.ranged_attack(8, 5);
         assert_eq!(g.turn, turn_before + 1, "ranged attack should advance turn counter");
@@ -724,7 +724,7 @@ use super::{test_game, rusty_sword};
         let gx = g.player_x + 1;
         let gy = g.player_y;
         // Enemy with 1 HP — guaranteed one-hit kill
-        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false });
+        g.enemies.push(Enemy { x: gx, y: gy, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: gx, spawn_y: gy, provoked: false, is_boss: false });
         let stam_before = g.stamina;
         let cost = g.melee_stamina_cost();
         let result = g.attack_adjacent(gx, gy);
@@ -744,7 +744,7 @@ use super::{test_game, rusty_sword};
         g.player_dexterity = 100; // guarantee hit
         g.equipped_weapon = Some(short_bow());
         // Enemy with 1 HP — guaranteed one-hit kill
-        g.enemies.push(Enemy { x: 8, y: 5, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false });
+        g.enemies.push(Enemy { x: 8, y: 5, hp: 1, attack: 0, glyph: 'g', name: "Goblin", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: 8, spawn_y: 5, provoked: false, is_boss: false });
         let stam_before = g.stamina;
         let cost = g.ranged_stamina_cost();
         g.ranged_attack(8, 5);
@@ -759,7 +759,7 @@ use super::{test_game, rusty_sword};
         let mut g = Game::new(map);
         let dx = g.player_x + 1;
         let dy = g.player_y;
-        g.enemies.push(Enemy { x: dx, y: dy, hp: 1, attack: 0, glyph: 'D', name: "Dragon", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: dx, spawn_y: dy, provoked: false });
+        g.enemies.push(Enemy { x: dx, y: dy, hp: 1, attack: 0, glyph: 'D', name: "Dragon", facing_left: false, defense: 0, is_ranged: false, behavior: EnemyBehavior::Aggressive, spawn_x: dx, spawn_y: dy, provoked: false, is_boss: false });
         let stam_before = g.stamina;
         let cost = g.melee_stamina_cost();
         let result = g.attack_adjacent(dx, dy);
@@ -767,4 +767,112 @@ use super::{test_game, rusty_sword};
         // Dragon kill early-returns, skipping end_combat_turn (no regen)
         let expected = stam_before - cost;
         assert_eq!(g.stamina, expected, "stamina should drain on dragon kill: before={stam_before}, cost={cost}");
+    }
+
+    // === Legendary set bonus ===
+
+    fn equip_legendary_set(g: &mut Game) {
+        use crate::map::DungeonBiome;
+        g.equipped_helmet = Some(super::legendary::legendary_item(DungeonBiome::GoblinWarren, &ItemKind::Helmet));
+        g.equipped_armor = Some(super::legendary::legendary_item(DungeonBiome::GoblinWarren, &ItemKind::Armor));
+        g.equipped_shield = Some(super::legendary::legendary_item(DungeonBiome::GoblinWarren, &ItemKind::Shield));
+        g.equipped_boots = Some(super::legendary::legendary_item(DungeonBiome::GoblinWarren, &ItemKind::Boots));
+    }
+
+    #[test]
+    fn has_legendary_set_true_when_complete() {
+        let mut g = test_game();
+        equip_legendary_set(&mut g);
+        assert!(g.has_legendary_set());
+    }
+
+    #[test]
+    fn has_legendary_set_false_when_partial() {
+        let mut g = test_game();
+        equip_legendary_set(&mut g);
+        g.equipped_boots = None; // remove one piece
+        assert!(!g.has_legendary_set());
+    }
+
+    #[test]
+    fn has_legendary_set_false_with_non_legendary() {
+        let mut g = test_game();
+        equip_legendary_set(&mut g);
+        // Replace armor with non-legendary
+        g.equipped_armor = Some(Item {
+            kind: ItemKind::Armor, name: "Chain Mail", glyph: '[',
+            effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false,
+        });
+        assert!(!g.has_legendary_set());
+    }
+
+    #[test]
+    fn set_bonus_adds_defense() {
+        let mut g = test_game();
+        let base_def = g.effective_defense();
+        equip_legendary_set(&mut g);
+        let set_def = g.effective_defense();
+        // Individual: 5 + 6 + 5 + 4 = 20, plus 10 set bonus = 30 total from set
+        assert_eq!(set_def, base_def + 20 + 10,
+            "legendary set should add 20 individual + 10 bonus defense");
+    }
+
+    #[test]
+    fn dragon_damage_reduced_with_set() {
+        let mut g = test_game();
+        equip_legendary_set(&mut g);
+        g.player_hp = 100;
+        g.player_max_hp = 100;
+        let hp_before = g.player_hp;
+        let pdef = g.effective_defense();
+
+        // Place dragon adjacent
+        let dx = g.player_x + 1;
+        let dy = g.player_y;
+        g.enemies.push(Enemy {
+            x: dx, y: dy, hp: 100, attack: 19, defense: 11, glyph: 'D', name: "Dragon",
+            facing_left: false, is_ranged: false, behavior: EnemyBehavior::Aggressive,
+            spawn_x: dx, spawn_y: dy, provoked: false, is_boss: true,
+        });
+
+        // Calculate expected damage: base calc_damage then halved
+        let base_dmg = super::calc_damage(19, pdef);
+        let expected_dmg = (base_dmg * 50 / 100).max(1);
+
+        // Run one enemy turn so dragon attacks
+        g.enemy_turn();
+
+        if g.player_hp < hp_before {
+            // Dragon attacked (didn't dodge)
+            let actual_dmg = hp_before - g.player_hp;
+            assert_eq!(actual_dmg, expected_dmg,
+                "dragon damage should be halved with full set: base={base_dmg}, expected={expected_dmg}, actual={actual_dmg}");
+        }
+        // If no damage, dragon dodged — that's fine
+    }
+
+    #[test]
+    fn dragon_damage_not_reduced_without_set() {
+        let mut g = test_game();
+        g.player_hp = 100;
+        g.player_max_hp = 100;
+        g.player_defense = 0;
+        let pdef = g.effective_defense();
+
+        let dx = g.player_x + 1;
+        let dy = g.player_y;
+        g.enemies.push(Enemy {
+            x: dx, y: dy, hp: 100, attack: 19, defense: 11, glyph: 'D', name: "Dragon",
+            facing_left: false, is_ranged: false, behavior: EnemyBehavior::Aggressive,
+            spawn_x: dx, spawn_y: dy, provoked: false, is_boss: true,
+        });
+
+        let base_dmg = super::calc_damage(19, pdef);
+        g.enemy_turn();
+
+        if g.player_hp < 100 {
+            let actual_dmg = 100 - g.player_hp;
+            assert_eq!(actual_dmg, base_dmg,
+                "without set, dragon should deal full damage: base={base_dmg}, actual={actual_dmg}");
+        }
     }
