@@ -44,6 +44,7 @@ impl Game {
         let seed = (dungeon_index as u64)
             .wrapping_mul(31)
             .wrapping_add(level as u64)
+            .wrapping_add(1) // avoid 0 — xorshift64(0) = 0 (fixed point)
             .wrapping_mul(6364136223846793005);
         let mut rng = seed;
         for y in 1..map.height - 1 {

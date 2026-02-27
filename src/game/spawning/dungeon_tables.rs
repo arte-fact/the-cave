@@ -491,6 +491,52 @@ mod tests {
         }
     }
 
+    /// Regression test: seed must never be 0 (xorshift64 fixed point).
+    /// When seed=0, all enemies are the same type because rng is stuck at 0.
+    #[test]
+    fn dungeon_seed_never_zero() {
+        // Reproduce the seed formula from spawn_dungeon_enemies
+        for dungeon_index in 0..10usize {
+            for level in 0..4usize {
+                let seed = (dungeon_index as u64)
+                    .wrapping_mul(31)
+                    .wrapping_add(level as u64)
+                    .wrapping_add(1)
+                    .wrapping_mul(6364136223846793005);
+                assert_ne!(seed, 0,
+                    "seed must not be 0 for dungeon_index={dungeon_index}, level={level}");
+            }
+        }
+    }
+
+    /// Ensure every biome/level produces at least 3 distinct enemy types
+    /// when using the actual seed formula (not a hand-picked test seed).
+    #[test]
+    fn actual_seeds_produce_diverse_enemies() {
+        for dungeon_index in 0..8usize {
+            for level in 0..3usize {
+                let seed = (dungeon_index as u64)
+                    .wrapping_mul(31)
+                    .wrapping_add(level as u64)
+                    .wrapping_add(1)
+                    .wrapping_mul(6364136223846793005);
+                let mut rng = seed;
+                let mut seen = std::collections::HashSet::new();
+                for _ in 0..200 {
+                    rng = xorshift64(rng);
+                    // skip spawn-chance roll (always advance)
+                    rng = xorshift64(rng);
+                    let biome = DungeonBiome::PLACEABLE[dungeon_index % DungeonBiome::PLACEABLE.len()];
+                    let e = roll_biome_enemy(5, 5, biome, level, rng);
+                    seen.insert(e.glyph);
+                }
+                assert!(seen.len() >= 3,
+                    "dungeon {dungeon_index} level {level} produced only {} enemy types: {:?}",
+                    seen.len(), seen);
+            }
+        }
+    }
+
     #[test]
     fn bosses_not_in_deep_random_tables() {
         // Ensure bosses no longer appear in deep-level random rolls
