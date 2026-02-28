@@ -20,6 +20,7 @@ fn normal_defaults_match_original_hardcoded_values() {
     assert_eq!(cfg.fov.overworld_radius, 8);
     assert_eq!(cfg.fov.dungeon_radius, 6);
     assert_eq!(cfg.spawn.overworld_enemy_pct, 2);
+    assert_eq!(cfg.spawn.spawn_safe_radius, 5);
 }
 
 #[test]
@@ -29,6 +30,7 @@ fn easy_is_more_forgiving_than_normal() {
     assert!(easy.player.starting_hp > normal.player.starting_hp);
     assert!(easy.survival.hunger_interval_overworld > normal.survival.hunger_interval_overworld);
     assert!(easy.spawn.overworld_enemy_pct < normal.spawn.overworld_enemy_pct);
+    assert!(easy.spawn.spawn_safe_radius > normal.spawn.spawn_safe_radius);
     assert!(easy.progression.skill_points_per_level > normal.progression.skill_points_per_level);
 }
 
@@ -39,6 +41,7 @@ fn hard_is_tougher_than_normal() {
     assert!(hard.player.starting_hp < normal.player.starting_hp);
     assert!(hard.survival.hunger_interval_overworld < normal.survival.hunger_interval_overworld);
     assert!(hard.spawn.overworld_enemy_pct > normal.spawn.overworld_enemy_pct);
+    assert!(hard.spawn.spawn_safe_radius < normal.spawn.spawn_safe_radius);
     assert!(hard.survival.starvation_damage > normal.survival.starvation_damage);
 }
 

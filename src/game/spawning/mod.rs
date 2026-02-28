@@ -22,7 +22,9 @@ impl Game {
                 if !map.is_walkable(x, y) {
                     continue;
                 }
-                if x == self.player_x && y == self.player_y {
+                let dx = (x - self.player_x).abs();
+                let dy = (y - self.player_y).abs();
+                if dx.max(dy) <= self.config.spawn.spawn_safe_radius {
                     continue;
                 }
                 if rng.gen_range(0u64..100) < self.config.spawn.overworld_enemy_pct {
@@ -54,7 +56,9 @@ impl Game {
                 if !map.is_walkable(x, y) {
                     continue;
                 }
-                if x == self.player_x && y == self.player_y {
+                let dx = (x - self.player_x).abs();
+                let dy = (y - self.player_y).abs();
+                if dx.max(dy) <= self.config.spawn.spawn_safe_radius {
                     continue;
                 }
                 let tile = map.get(x, y);
