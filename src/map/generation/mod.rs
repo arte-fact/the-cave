@@ -11,12 +11,9 @@ use super::{Map, Tile};
 
 // --- Shared helpers ---
 
-pub(super) fn xorshift64(mut state: u64) -> u64 {
-    state ^= state << 13;
-    state ^= state >> 7;
-    state ^= state << 17;
-    state
-}
+pub(super) use rand::Rng;
+pub(super) use rand::SeedableRng;
+pub(super) use rand_chacha::ChaCha8Rng;
 
 fn count_neighbors_of(tiles: &[Tile], width: i32, x: i32, y: i32, target: Tile) -> i32 {
     let height = tiles.len() as i32 / width;

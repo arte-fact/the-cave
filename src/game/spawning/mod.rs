@@ -6,14 +6,17 @@ pub(super) use overworld::is_rare_monster;
 
 use crate::map::{DungeonBiome, Tile};
 use super::types::*;
-use super::{Game, xorshift64};
+use super::Game;
+use rand::SeedableRng;
+use rand::Rng;
+use rand_chacha::ChaCha8Rng;
 
 impl Game {
     /// Spawn creatures on the overworld, using biome-appropriate tables.
     pub fn spawn_enemies(&mut self, seed: u64) {
         let map = self.world.current_map();
         let map_height = map.height;
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         for y in 2..map.height - 2 {
             for x in 2..map.width - 2 {
                 if !map.is_walkable(x, y) {
@@ -22,10 +25,9 @@ impl Game {
                 if x == self.player_x && y == self.player_y {
                     continue;
                 }
-                rng = xorshift64(rng);
-                if rng % 100 < self.config.spawn.overworld_enemy_pct {
-                    rng = xorshift64(rng);
-                    let enemy = overworld::roll_overworld_enemy(x, y, rng, map_height);
+                if rng.gen_range(0u64..100) < self.config.spawn.overworld_enemy_pct {
+                    let roll = rng.gen_range(0u64..100);
+                    let enemy = overworld::roll_overworld_enemy(x, y, roll, map_height);
                     self.enemies.push(enemy);
                 }
             }
@@ -44,9 +46,9 @@ impl Game {
         let seed = (dungeon_index as u64)
             .wrapping_mul(31)
             .wrapping_add(level as u64)
-            .wrapping_add(1) // avoid 0 — xorshift64(0) = 0 (fixed point)
+            .wrapping_add(1)
             .wrapping_mul(6364136223846793005);
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         for y in 1..map.height - 1 {
             for x in 1..map.width - 1 {
                 if !map.is_walkable(x, y) {
@@ -59,15 +61,14 @@ impl Game {
                 if tile == Tile::StairsUp || tile == Tile::StairsDown {
                     continue;
                 }
-                rng = xorshift64(rng);
                 let spawn_chance = if is_cave {
                     self.config.spawn.cave_enemy_pct
                 } else {
                     self.config.spawn.dungeon_enemy_pct
                 };
-                if rng % 100 < spawn_chance {
-                    rng = xorshift64(rng);
-                    let enemy = dungeon_tables::roll_biome_enemy(x, y, biome, level, rng);
+                if rng.gen_range(0u64..100) < spawn_chance {
+                    let roll = rng.gen_range(0u64..100);
+                    let enemy = dungeon_tables::roll_biome_enemy(x, y, biome, level, roll);
                     self.enemies.push(enemy);
                 }
             }

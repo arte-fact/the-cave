@@ -1,5 +1,7 @@
 use super::*;
 use super::{test_game, health_potion, rusty_sword};
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 
 fn stamina_potion() -> Item {
     Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false }
@@ -440,11 +442,11 @@ fn chain_mail() -> Item {
     #[test]
     fn random_item_tiers_correct() {
         // Tier 0 produces basic items
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..50).map(|_| random_item(0, &mut rng)).collect();
         assert!(items.iter().any(|i| i.name == "Health Potion" || i.name == "Rusty Sword"));
         // Tier 2 produces advanced items
-        rng = 42;
+        rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..50).map(|_| random_item(2, &mut rng)).collect();
         assert!(items.iter().any(|i| i.name == "Superior Health Potion" || i.name == "Enchanted Blade" || i.name == "Dragon Scale"));
     }

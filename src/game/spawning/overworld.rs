@@ -3,8 +3,8 @@ use super::enemies::*;
 
 /// Roll an overworld enemy. All overworld encounters are temperate forest
 /// wildlife with a small chance (~12%) of a rare, powerful monster.
-pub(super) fn roll_overworld_enemy(x: i32, y: i32, rng: u64, _map_height: i32) -> Enemy {
-    let roll = rng % 100;
+/// `roll` must be in 0..100.
+pub(super) fn roll_overworld_enemy(x: i32, y: i32, roll: u64, _map_height: i32) -> Enemy {
     let (hp, attack, def, glyph, name, ranged, behavior) = roll_forest(roll);
     Enemy { x, y, hp, attack, defense: def, glyph, name, facing_left: false, is_ranged: ranged, behavior, spawn_x: x, spawn_y: y, provoked: false, is_boss: false }
 }
@@ -41,7 +41,9 @@ pub fn is_rare_monster(name: &str, rare_names: &[&str]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::xorshift64;
+    use rand::Rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
     use crate::config::GameConfig;
 
     fn rare_names() -> &'static [&'static str] {
@@ -51,10 +53,10 @@ mod tests {
     #[test]
     fn overworld_spawns_forest_animals() {
         let mut seen_glyphs = std::collections::HashSet::new();
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for _ in 0..2000 {
-            rng = xorshift64(rng);
-            let e = roll_overworld_enemy(50, 10, rng, 200);
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_overworld_enemy(50, 10, roll, 200);
             seen_glyphs.insert(e.glyph);
         }
         // Should have common temperate forest animals
@@ -70,12 +72,12 @@ mod tests {
     #[test]
     fn overworld_has_no_jungle_animals() {
         let mut seen_glyphs = std::collections::HashSet::new();
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         // Test both north and south positions — should be same table
         for y in [10, 180] {
             for _ in 0..2000 {
-                rng = xorshift64(rng);
-                let e = roll_overworld_enemy(50, y, rng, 200);
+                let roll = rng.gen_range(0u64..100);
+                let e = roll_overworld_enemy(50, y, roll, 200);
                 seen_glyphs.insert(e.glyph);
             }
         }
@@ -92,10 +94,10 @@ mod tests {
     fn rare_monsters_appear_but_are_uncommon() {
         let mut monster_count = 0;
         let total = 5000;
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for _ in 0..total {
-            rng = xorshift64(rng);
-            let e = roll_overworld_enemy(50, 50, rng, 200);
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_overworld_enemy(50, 50, roll, 200);
             if is_rare_monster(e.name, rare_names()) {
                 monster_count += 1;
             }
@@ -107,11 +109,11 @@ mod tests {
 
     #[test]
     fn rare_monsters_are_strong() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut found_any = false;
         for _ in 0..5000 {
-            rng = xorshift64(rng);
-            let e = roll_overworld_enemy(50, 50, rng, 200);
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_overworld_enemy(50, 50, roll, 200);
             if is_rare_monster(e.name, rare_names()) {
                 found_any = true;
                 assert!(e.hp >= 16, "{} should have >= 16 hp, got {}", e.name, e.hp);
@@ -123,10 +125,10 @@ mod tests {
 
     #[test]
     fn overworld_enemies_valid_stats() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for _ in 0..1000 {
-            rng = xorshift64(rng);
-            let e = roll_overworld_enemy(50, 50, rng, 200);
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_overworld_enemy(50, 50, roll, 200);
             assert!(e.hp > 0, "{} has 0 hp", e.name);
             assert!(e.attack > 0, "{} has 0 attack", e.name);
             assert!(e.defense >= 0, "{} has negative defense", e.name);
@@ -136,13 +138,13 @@ mod tests {
 
     #[test]
     fn north_and_south_spawn_same_enemies() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut north_glyphs = std::collections::HashSet::new();
         let mut south_glyphs = std::collections::HashSet::new();
         for _ in 0..2000 {
-            rng = xorshift64(rng);
-            north_glyphs.insert(roll_overworld_enemy(50, 10, rng, 200).glyph);
-            south_glyphs.insert(roll_overworld_enemy(50, 180, rng, 200).glyph);
+            let roll = rng.gen_range(0u64..100);
+            north_glyphs.insert(roll_overworld_enemy(50, 10, roll, 200).glyph);
+            south_glyphs.insert(roll_overworld_enemy(50, 180, roll, 200).glyph);
         }
         assert_eq!(north_glyphs, south_glyphs,
             "north and south should spawn same enemies");

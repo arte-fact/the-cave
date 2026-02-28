@@ -1,20 +1,19 @@
 use crate::config::MapGenConfig;
 use super::super::{Map, Tile};
 use super::biome::DungeonBiome;
-use super::xorshift64;
+use super::{ChaCha8Rng, SeedableRng, Rng};
 
 impl Map {
     /// Place exactly `cfg.dungeon_count` dungeon entrance structures on a forest map
     /// using BSP zone partitioning. Returns the list of dungeon entrance positions.
     pub fn place_dungeons(&mut self, seed: u64, cfg: &MapGenConfig) -> Vec<(i32, i32)> {
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         let mut zones = bsp_subdivide(2, 2, self.width - 4, self.height - 4, cfg.bsp_min_zone, &mut rng);
 
         // Fisher-Yates shuffle zones deterministically
         let n = zones.len();
         for i in (1..n).rev() {
-            rng = xorshift64(rng);
-            let j = (rng % (i as u64 + 1)) as usize;
+            let j = rng.gen_range(0..i + 1);
             zones.swap(i, j);
         }
 
@@ -74,7 +73,7 @@ impl Map {
     /// Recursive BSP splits create rooms connected by L-shaped corridors.
     pub fn generate_bsp_dungeon(width: i32, height: i32, seed: u64, level: usize, total_levels: usize, cfg: &MapGenConfig) -> Self {
         let mut map = Map::new_filled(width, height, Tile::Wall);
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
         // BSP split into rooms
         let min_room = cfg.bsp_min_room;
@@ -184,23 +183,23 @@ impl Dungeon {
     pub fn generate(depth: usize, seed: u64, has_cave: bool, biome: DungeonBiome, cfg: &MapGenConfig) -> Self {
         let mut levels = Vec::new();
         let mut styles = Vec::new();
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
         // Total levels: BSP depth + optional cave
         let total = if has_cave { depth + 1 } else { depth };
 
         for level in 0..depth {
             let (w, h) = dungeon_level_size(level, cfg);
-            rng = xorshift64(rng);
-            let map = Map::generate_bsp_dungeon(w, h, rng, level, total, cfg);
+            let level_seed = rng.gen::<u64>();
+            let map = Map::generate_bsp_dungeon(w, h, level_seed, level, total, cfg);
             levels.push(map);
             styles.push(biome.style_for_level(level, false));
         }
 
         // Append cave level if this is the dragon's dungeon
         if has_cave {
-            rng = xorshift64(rng);
-            let cave = Map::generate_cave(cfg.cave_width, cfg.cave_height, rng, cfg);
+            let cave_seed = rng.gen::<u64>();
+            let cave = Map::generate_cave(cfg.cave_width, cfg.cave_height, cave_seed, cfg);
             levels.push(cave);
             styles.push(DungeonStyle::RedCavern);
         }
@@ -219,39 +218,37 @@ fn dungeon_level_size(level: usize, cfg: &MapGenConfig) -> (i32, i32) {
 }
 
 /// BSP room generation: recursively split a rectangle, returning leaf rooms.
-fn bsp_rooms(x: i32, y: i32, w: i32, h: i32, min_room: i32, rng: &mut u64) -> Vec<(i32, i32, i32, i32)> {
+fn bsp_rooms(x: i32, y: i32, w: i32, h: i32, min_room: i32, rng: &mut ChaCha8Rng) -> Vec<(i32, i32, i32, i32)> {
     // Minimum room size with 1-tile padding for walls
     let min_split = min_room * 2 + 1;
 
     if w < min_split && h < min_split {
         // Leaf node — create a room with some random shrinkage
-        *rng = xorshift64(*rng);
-        let pad_x = if w > min_room + 2 { (*rng as i32 % 2).abs() } else { 0 };
-        *rng = xorshift64(*rng);
-        let pad_y = if h > min_room + 2 { (*rng as i32 % 2).abs() } else { 0 };
+        let pad_x = if w > min_room + 2 { rng.gen_range(0..2i32) } else { 0 };
+        let pad_y = if h > min_room + 2 { rng.gen_range(0..2i32) } else { 0 };
         let rw = (w - pad_x * 2).max(min_room);
         let rh = (h - pad_y * 2).max(min_room);
         return vec![(x + pad_x, y + pad_y, rw, rh)];
     }
 
-    *rng = xorshift64(*rng);
     let split_h = if w < min_split {
         false
     } else if h < min_split {
         true
     } else {
-        (*rng).is_multiple_of(2)
+        rng.gen_range(0u64..2) == 0
     };
 
-    *rng = xorshift64(*rng);
     if split_h {
-        let split = min_room + 1 + (*rng as i32 % (w - min_split + 1).max(1)).abs();
+        let range = (w - min_split + 1).max(1);
+        let split = min_room + 1 + rng.gen_range(0..range);
         let split = split.min(w - min_room - 1);
         let mut rooms = bsp_rooms(x, y, split, h, min_room, rng);
         rooms.extend(bsp_rooms(x + split, y, w - split, h, min_room, rng));
         rooms
     } else {
-        let split = min_room + 1 + (*rng as i32 % (h - min_split + 1).max(1)).abs();
+        let range = (h - min_split + 1).max(1);
+        let split = min_room + 1 + rng.gen_range(0..range);
         let split = split.min(h - min_room - 1);
         let mut rooms = bsp_rooms(x, y, w, split, min_room, rng);
         rooms.extend(bsp_rooms(x, y + split, w, h - split, min_room, rng));
@@ -261,30 +258,30 @@ fn bsp_rooms(x: i32, y: i32, w: i32, h: i32, min_room: i32, rng: &mut u64) -> Ve
 
 /// BSP subdivide a rectangle into zones of at least `min_size` in each dimension.
 /// Returns a list of (x, y, w, h) leaf rectangles.
-fn bsp_subdivide(x: i32, y: i32, w: i32, h: i32, min_size: i32, rng: &mut u64) -> Vec<(i32, i32, i32, i32)> {
+fn bsp_subdivide(x: i32, y: i32, w: i32, h: i32, min_size: i32, rng: &mut ChaCha8Rng) -> Vec<(i32, i32, i32, i32)> {
     // Too small to split further
     if w < min_size * 2 && h < min_size * 2 {
         return vec![(x, y, w, h)];
     }
 
-    *rng = xorshift64(*rng);
     // Prefer splitting the longer dimension
     let split_h = if w < min_size * 2 {
         false
     } else if h < min_size * 2 {
         true
     } else {
-        (*rng).is_multiple_of(2)
+        rng.gen_range(0u64..2) == 0
     };
 
-    *rng = xorshift64(*rng);
     if split_h {
-        let split = min_size + (*rng as i32 % (w - min_size * 2 + 1)).abs();
+        let range = (w - min_size * 2 + 1).max(1);
+        let split = min_size + rng.gen_range(0..range);
         let mut result = bsp_subdivide(x, y, split, h, min_size, rng);
         result.extend(bsp_subdivide(x + split, y, w - split, h, min_size, rng));
         result
     } else {
-        let split = min_size + (*rng as i32 % (h - min_size * 2 + 1)).abs();
+        let range = (h - min_size * 2 + 1).max(1);
+        let split = min_size + rng.gen_range(0..range);
         let mut result = bsp_subdivide(x, y, w, split, min_size, rng);
         result.extend(bsp_subdivide(x, y + split, w, h - split, min_size, rng));
         result

@@ -1,6 +1,6 @@
 use crate::config::MapGenConfig;
 use super::super::{Map, Tile, Visibility};
-use super::{xorshift64, count_neighbors_of};
+use super::{ChaCha8Rng, SeedableRng, Rng, count_neighbors_of};
 
 impl Map {
     /// Build cave tiles via cellular automata: random fill + smoothing passes.
@@ -8,13 +8,12 @@ impl Map {
     fn cellular_automata_cave(width: i32, height: i32, seed: u64, cfg: &MapGenConfig) -> Vec<Tile> {
         let len = (width * height) as usize;
         let mut tiles = vec![Tile::Wall; len];
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
         // Random fill — wall_pct% walls for interior cells
         for y in 1..height - 1 {
             for x in 1..width - 1 {
-                rng = xorshift64(rng);
-                if (rng % 100) >= cfg.cave_wall_pct {
+                if rng.gen_range(0u64..100) >= cfg.cave_wall_pct {
                     tiles[(y * width + x) as usize] = Tile::Floor;
                 }
             }

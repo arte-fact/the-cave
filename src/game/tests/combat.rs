@@ -1,5 +1,7 @@
 use super::*;
 use super::{test_game, rusty_sword};
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 
     #[test]
     fn player_starts_with_full_hp() {
@@ -502,17 +504,17 @@ use super::{test_game, rusty_sword};
     #[test]
     fn ranged_weapons_in_loot_tables() {
         // Tier 0 should produce bows/crossbows
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..200).map(|_| random_item(0, &mut rng)).collect();
         assert!(items.iter().any(|i| i.kind == ItemKind::RangedWeapon),
             "tier 0 should generate ranged weapons");
         // Tier 1 should produce long bows/heavy crossbows
-        rng = 42;
+        rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..200).map(|_| random_item(1, &mut rng)).collect();
         assert!(items.iter().any(|i| i.kind == ItemKind::RangedWeapon),
             "tier 1 should generate ranged weapons");
         // Tier 2 should produce elven bow
-        rng = 42;
+        rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..200).map(|_| random_item(2, &mut rng)).collect();
         assert!(items.iter().any(|i| i.name == "Elven Bow"),
             "tier 2 should generate Elven Bow");
@@ -681,7 +683,7 @@ use super::{test_game, rusty_sword};
     #[test]
     fn melee_weapons_deal_more_damage_than_ranged_same_tier() {
         // For each tier, melee BuffAttack should be >= ranged BuffAttack
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for tier in 0..=2 {
             let items: Vec<_> = (0..1000).map(|_| random_item(tier, &mut rng)).collect();
             let melee_atks: Vec<i32> = items.iter()

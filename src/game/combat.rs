@@ -1,5 +1,8 @@
 use super::types::*;
-use super::{Game, xorshift64, calc_damage};
+use super::{Game, calc_damage};
+use rand::SeedableRng;
+use rand::Rng;
+use rand_chacha::ChaCha8Rng;
 
 impl Game {
     /// Player's total attack: base + strength + weapon bonus.
@@ -64,7 +67,7 @@ impl Game {
     fn roll_dodge(&mut self, dodge_seed: u64, attacker_name: &str, label: &str) -> bool {
         let c = &self.config.combat;
         let dodge_chance = (self.player_dexterity * c.dodge_pct_per_dex).min(c.dodge_cap_pct) as u64;
-        let dodge_roll = xorshift64(dodge_seed) % 100;
+        let dodge_roll = ChaCha8Rng::seed_from_u64(dodge_seed).gen_range(0u64..100);
         if dodge_roll < dodge_chance {
             self.messages.push(format!("You dodge {attacker_name}'s {label}!"));
             self.floating_texts.push(FloatingText {
@@ -317,7 +320,7 @@ impl Game {
         let raw = self.enemies[i].attack;
         let dmg = calc_damage(raw, pdef);
         let seed = self.turn as u64 * 13 + i as u64 * 7 + ex as u64 * 31 + 337;
-        let roll = xorshift64(seed) % 100;
+        let roll = ChaCha8Rng::seed_from_u64(seed).gen_range(0u64..100);
         let name = self.enemies[i].name;
 
         if roll >= self.config.combat.enemy_ranged_miss_threshold {
@@ -368,7 +371,7 @@ impl Game {
 
         let mut cands: Vec<(i32, i32)> = Vec::new();
         if fdx != 0 && fdy != 0 { cands.push((ex + fdx, ey + fdy)); }
-        if xorshift64(seed) % 2 == 0 {
+        if ChaCha8Rng::seed_from_u64(seed).gen_range(0u64..2) == 0 {
             if fdx != 0 { cands.push((ex + fdx, ey)); }
             if fdy != 0 { cands.push((ex, ey + fdy)); }
         } else {
@@ -437,7 +440,7 @@ impl Game {
                 cands.push((ex + dx, ey + dy));
             }
         }
-        if xorshift64(seed) % 2 == 0 {
+        if ChaCha8Rng::seed_from_u64(seed).gen_range(0u64..2) == 0 {
             if dx != 0 { cands.push((ex + dx, ey)); }
             if dy != 0 { cands.push((ex, ey + dy)); }
         } else {
@@ -479,7 +482,7 @@ impl Game {
                 cands.push((ex + dx, ey + dy));
             }
         }
-        if xorshift64(seed) % 2 == 0 {
+        if ChaCha8Rng::seed_from_u64(seed).gen_range(0u64..2) == 0 {
             if dx != 0 { cands.push((ex + dx, ey)); }
             if dy != 0 { cands.push((ex, ey + dy)); }
         } else {
@@ -659,7 +662,7 @@ impl Game {
 
         let hit_chance = self.ranged_hit_chance(distance);
         let seed = self.turn as u64 * 7 + self.player_x as u64 * 31 + self.player_y as u64 * 17;
-        let roll = (xorshift64(seed) % 100) as i32;
+        let roll = ChaCha8Rng::seed_from_u64(seed).gen_range(0i32..100);
         let name = self.enemies[idx].name;
 
         // Wear ranged weapon on every shot (hit or miss)
