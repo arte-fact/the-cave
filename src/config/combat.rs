@@ -70,6 +70,10 @@ pub struct CombatConfig {
     pub passive_flee_range: i32,
     /// Max range for A* smart pathfinding (beyond this, greedy only).
     pub smart_pathfind_range: i32,
+    /// Percentage chance (0–100) that an idle enemy wanders each turn.
+    pub idle_wander_chance: u64,
+    /// Maximum Chebyshev distance an enemy will wander from its spawn point.
+    pub idle_wander_leash: i32,
 
     // --- Dragon boss ---
     pub dragon_hp: i32,
@@ -116,6 +120,8 @@ impl CombatConfig {
             timid_flee_range: 5,
             passive_flee_range: 4,
             smart_pathfind_range: 10,
+            idle_wander_chance: 25,
+            idle_wander_leash: 3,
             dragon_hp: 108,
             dragon_attack: 19,
             dragon_defense: 11,

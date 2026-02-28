@@ -218,16 +218,30 @@ impl Game {
 
     // ── Behavior implementations ─────────────────────────────────────
 
-    /// Passive: do nothing unless provoked, then flee.
+    /// Passive: attack once when adjacent (then self-provoke), flee when provoked,
+    /// idle wander otherwise.
     fn ai_passive(&mut self, i: usize) {
-        if !self.enemies[i].provoked { return; }
-        let dist = self.manhattan_to_player(i);
-        if dist <= self.config.combat.passive_flee_range {
-            self.enemy_flee(i);
+        if self.enemies[i].provoked {
+            let dist = self.manhattan_to_player(i);
+            if dist <= self.config.combat.passive_flee_range {
+                self.enemy_flee(i);
+            }
+            return;
         }
+        // Adjacent → attack once, then self-provoke so it flees next turn
+        let chebyshev = (self.enemies[i].x - self.player_x).abs()
+            .max((self.enemies[i].y - self.player_y).abs());
+        if chebyshev == 1 {
+            let pdef = self.effective_defense();
+            self.enemy_melee_attack(i, pdef);
+            self.enemies[i].provoked = true;
+            return;
+        }
+        self.try_idle_wander(i);
     }
 
     /// Timid: flee from player. Fight back only when cornered (adjacent + provoked).
+    /// Idle wander when player is far.
     fn ai_timid(&mut self, i: usize) {
         let chebyshev = (self.enemies[i].x - self.player_x).abs()
             .max((self.enemies[i].y - self.player_y).abs());
@@ -239,10 +253,13 @@ impl Game {
         let dist = self.manhattan_to_player(i);
         if dist <= self.config.combat.timid_flee_range {
             self.enemy_flee(i);
+        } else {
+            self.try_idle_wander(i);
         }
     }
 
     /// Territorial: leashed to spawn. Engages when close or provoked.
+    /// Idle wander when not alerted.
     fn ai_territorial(&mut self, i: usize) {
         let c = &self.config.combat;
         let dist_from_spawn = (self.enemies[i].x - self.enemies[i].spawn_x).abs()
@@ -257,16 +274,23 @@ impl Game {
         let dist = self.manhattan_to_player(i);
         if self.enemies[i].provoked || dist <= c.territorial_alert_range {
             self.ai_standard_combat(i, c.enemy_chase_range);
+        } else {
+            self.try_idle_wander(i);
         }
     }
 
-    /// Aggressive: standard chase-and-attack.
+    /// Aggressive: standard chase-and-attack. Idle wander when player is far.
     fn ai_aggressive(&mut self, i: usize) {
         let chase = self.config.combat.enemy_chase_range;
-        self.ai_standard_combat(i, chase);
+        let dist = self.manhattan_to_player(i);
+        if dist <= chase {
+            self.ai_standard_combat(i, chase);
+        } else {
+            self.try_idle_wander(i);
+        }
     }
 
-    /// Stalker: motionless until proximity trigger, then relentless extended chase.
+    /// Stalker: idle wander until proximity trigger, then relentless extended chase.
     fn ai_stalker(&mut self, i: usize) {
         let c = &self.config.combat;
         if !self.enemies[i].provoked {
@@ -274,7 +298,8 @@ impl Game {
             if dist <= c.stalker_activation_range {
                 self.enemies[i].provoked = true;
             } else {
-                return; // motionless
+                self.try_idle_wander(i);
+                return;
             }
         }
         self.ai_standard_combat(i, c.stalker_chase_range);
@@ -505,6 +530,54 @@ impl Game {
                 return;
             }
         }
+    }
+
+    /// Attempt an idle wander step: with `idle_wander_chance`% probability,
+    /// move to a random adjacent walkable tile within `idle_wander_leash`
+    /// Chebyshev distance of the enemy's spawn point.
+    fn try_idle_wander(&mut self, i: usize) -> bool {
+        let c = &self.config.combat;
+        let seed = self.turn as u64 * 17 + i as u64 * 41 + 251;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
+
+        if rng.gen_range(0u64..100) >= c.idle_wander_chance {
+            return false;
+        }
+
+        let ex = self.enemies[i].x;
+        let ey = self.enemies[i].y;
+        let sx = self.enemies[i].spawn_x;
+        let sy = self.enemies[i].spawn_y;
+        let px = self.player_x;
+        let py = self.player_y;
+
+        let dirs: [(i32, i32); 4] = [(0, -1), (0, 1), (-1, 0), (1, 0)];
+        let mut cands: Vec<(i32, i32)> = Vec::new();
+        for (dx, dy) in dirs {
+            let nx = ex + dx;
+            let ny = ey + dy;
+            let dist_from_spawn = (nx - sx).abs().max((ny - sy).abs());
+            if dist_from_spawn > c.idle_wander_leash { continue; }
+            if nx == px && ny == py { continue; }
+            if self.world.current_map().is_walkable(nx, ny)
+                && !self.enemies.iter().any(|e| e.hp > 0 && e.x == nx && e.y == ny)
+            {
+                cands.push((nx, ny));
+            }
+        }
+
+        if cands.is_empty() {
+            return false;
+        }
+
+        let idx = rng.gen_range(0..cands.len());
+        let (nx, ny) = cands[idx];
+        let move_dx = nx - ex;
+        if move_dx < 0 { self.enemies[i].facing_left = true; }
+        if move_dx > 0 { self.enemies[i].facing_left = false; }
+        self.enemies[i].x = nx;
+        self.enemies[i].y = ny;
+        true
     }
 
     /// Explicitly attack an enemy at the given position (must be adjacent).
