@@ -1,5 +1,5 @@
 use super::dungeon::DungeonStyle;
-use super::xorshift64;
+use super::{ChaCha8Rng, SeedableRng, Rng};
 
 /// A dungeon biome determines the thematic identity of a dungeon:
 /// its visual style per level, enemy roster, and boss encounter.
@@ -46,14 +46,13 @@ impl DungeonBiome {
     ];
 
     /// Select `count` unique biomes from PLACEABLE (no duplicates).
-    /// Uses Fisher-Yates shuffle with xorshift64 for deterministic selection.
+    /// Uses Fisher-Yates shuffle with ChaCha8Rng for deterministic selection.
     pub fn select_unique(count: usize, seed: u64) -> Vec<DungeonBiome> {
         let mut pool = Self::PLACEABLE.to_vec();
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         let n = pool.len();
         for i in (1..n).rev() {
-            rng = xorshift64(rng);
-            let j = (rng % (i as u64 + 1)) as usize;
+            let j = rng.gen_range(0..i + 1);
             pool.swap(i, j);
         }
         pool.truncate(count);
@@ -82,8 +81,8 @@ impl DungeonBiome {
             ],
         };
 
-        let rng = xorshift64(seed);
-        candidates[(rng % candidates.len() as u64) as usize]
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
+        candidates[rng.gen_range(0..candidates.len())]
     }
 
     /// Get the visual style for a specific level of this biome.

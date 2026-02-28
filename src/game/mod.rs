@@ -304,12 +304,5 @@ pub(super) fn calc_damage(atk: i32, def: i32) -> i32 {
     ((atk * atk) / (atk + d)).max(1)
 }
 
-pub(super) fn xorshift64(mut state: u64) -> u64 {
-    state ^= state << 13;
-    state ^= state >> 7;
-    state ^= state << 17;
-    state
-}
-
 #[cfg(test)]
 mod tests;

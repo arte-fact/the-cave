@@ -1,5 +1,7 @@
 use super::*;
 use super::{health_potion, rusty_sword};
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 
 fn leather_armor() -> Item {
     Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250, legendary: false }
@@ -214,7 +216,7 @@ fn chain_boots() -> Item {
 
     #[test]
     fn generated_items_have_durability() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..200).map(|_| random_item(0, &mut rng)).collect();
         for item in &items {
             if item.kind.is_consumable() {
@@ -246,7 +248,7 @@ fn chain_boots() -> Item {
 
     #[test]
     fn higher_tier_items_have_more_durability() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let t0: Vec<_> = (0..500).map(|_| random_item(0, &mut rng)).collect();
         let t2: Vec<_> = (0..500).map(|_| random_item(2, &mut rng)).collect();
 

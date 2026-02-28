@@ -17,8 +17,8 @@ pub(super) fn boss_for_biome(biome: DungeonBiome) -> EnemyStats {
 }
 
 /// Roll an enemy based on the dungeon biome and level.
-pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize, rng: u64) -> Enemy {
-    let roll = rng % 100;
+/// `roll` must be in 0..100.
+pub(super) fn roll_biome_enemy(x: i32, y: i32, biome: DungeonBiome, level: usize, roll: u64) -> Enemy {
     let stats = match biome {
         DungeonBiome::GoblinWarren => roll_goblin_warren(level, roll),
         DungeonBiome::UndeadCrypt => roll_undead_crypt(level, roll),
@@ -338,14 +338,16 @@ fn roll_serpent_pit_deep(roll: u64) -> EnemyStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::xorshift64;
+    use rand::Rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     fn collect_glyphs(biome: DungeonBiome, level: usize, count: usize) -> std::collections::HashSet<char> {
         let mut seen = std::collections::HashSet::new();
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for _ in 0..count {
-            rng = xorshift64(rng);
-            let e = roll_biome_enemy(5, 5, biome, level, rng);
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_biome_enemy(5, 5, biome, level, roll);
             seen.insert(e.glyph);
         }
         seen
@@ -441,12 +443,12 @@ mod tests {
 
     #[test]
     fn all_biome_enemies_have_valid_stats() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for biome in DungeonBiome::PLACEABLE {
             for level in 0..3 {
                 for _ in 0..500 {
-                    rng = xorshift64(rng);
-                    let e = roll_biome_enemy(5, 5, biome, level, rng);
+                    let roll = rng.gen_range(0u64..100);
+                    let e = roll_biome_enemy(5, 5, biome, level, roll);
                     assert!(e.hp > 0, "{:?} L{level} {}: hp={}", biome, e.name, e.hp);
                     assert!(e.attack > 0, "{:?} L{level} {}: atk={}", biome, e.name, e.attack);
                 }
@@ -457,14 +459,14 @@ mod tests {
     #[test]
     fn deeper_biome_levels_are_stronger() {
         for biome in DungeonBiome::PLACEABLE {
-            let mut rng = 42u64;
+            let mut rng = ChaCha8Rng::seed_from_u64(42);
             let mut l0_total_hp = 0i64;
             let mut l2_total_hp = 0i64;
             for _ in 0..500 {
-                rng = xorshift64(rng);
-                l0_total_hp += roll_biome_enemy(5, 5, biome, 0, rng).hp as i64;
-                rng = xorshift64(rng);
-                l2_total_hp += roll_biome_enemy(5, 5, biome, 2, rng).hp as i64;
+                let roll = rng.gen_range(0u64..100);
+                l0_total_hp += roll_biome_enemy(5, 5, biome, 0, roll).hp as i64;
+                let roll = rng.gen_range(0u64..100);
+                l2_total_hp += roll_biome_enemy(5, 5, biome, 2, roll).hp as i64;
             }
             assert!(l2_total_hp > l0_total_hp,
                 "{:?}: L2 avg hp ({}) should exceed L0 avg hp ({})", biome, l2_total_hp / 500, l0_total_hp / 500);
@@ -473,10 +475,10 @@ mod tests {
 
     #[test]
     fn cave_enemies_are_strong() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         for _ in 0..200 {
-            rng = xorshift64(rng);
-            let e = roll_biome_enemy(5, 5, DungeonBiome::DragonLair, 0, rng);
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_biome_enemy(5, 5, DungeonBiome::DragonLair, 0, roll);
             assert!(e.hp >= 10, "cave enemy {} has too low hp: {}", e.name, e.hp);
         }
     }
@@ -491,24 +493,6 @@ mod tests {
         }
     }
 
-    /// Regression test: seed must never be 0 (xorshift64 fixed point).
-    /// When seed=0, all enemies are the same type because rng is stuck at 0.
-    #[test]
-    fn dungeon_seed_never_zero() {
-        // Reproduce the seed formula from spawn_dungeon_enemies
-        for dungeon_index in 0..10usize {
-            for level in 0..4usize {
-                let seed = (dungeon_index as u64)
-                    .wrapping_mul(31)
-                    .wrapping_add(level as u64)
-                    .wrapping_add(1)
-                    .wrapping_mul(6364136223846793005);
-                assert_ne!(seed, 0,
-                    "seed must not be 0 for dungeon_index={dungeon_index}, level={level}");
-            }
-        }
-    }
-
     /// Ensure every biome/level produces at least 3 distinct enemy types
     /// when using the actual seed formula (not a hand-picked test seed).
     #[test]
@@ -520,14 +504,14 @@ mod tests {
                     .wrapping_add(level as u64)
                     .wrapping_add(1)
                     .wrapping_mul(6364136223846793005);
-                let mut rng = seed;
+                let mut rng = ChaCha8Rng::seed_from_u64(seed);
                 let mut seen = std::collections::HashSet::new();
                 for _ in 0..200 {
-                    rng = xorshift64(rng);
-                    // skip spawn-chance roll (always advance)
-                    rng = xorshift64(rng);
+                    // skip spawn-chance roll
+                    let _: u64 = rng.gen_range(0u64..100);
+                    let roll = rng.gen_range(0u64..100);
                     let biome = DungeonBiome::PLACEABLE[dungeon_index % DungeonBiome::PLACEABLE.len()];
-                    let e = roll_biome_enemy(5, 5, biome, level, rng);
+                    let e = roll_biome_enemy(5, 5, biome, level, roll);
                     seen.insert(e.glyph);
                 }
                 assert!(seen.len() >= 3,

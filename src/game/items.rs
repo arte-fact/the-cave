@@ -1,6 +1,9 @@
 use crate::map::Tile;
 use super::types::*;
-use super::{Game, xorshift64};
+use super::Game;
+use rand::Rng;
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 
 /// Generate a random item appropriate for the given dungeon tier.
 /// Tier 0 = shallow/overworld, 1 = mid, 2+ = deep.
@@ -11,12 +14,10 @@ use super::{Game, xorshift64};
 /// - Melee weapons deal more damage than ranged weapons of the same tier.
 /// - The rarest tier-2 weapons (Enchanted Blade, Flame Sword, Evil Blade, Elven Bow)
 ///   combine high damage with low weight — rewarding deep dungeon exploration.
-pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
-    *rng = xorshift64(*rng);
-    let roll = *rng % 100;
+pub(super) fn random_item(tier: usize, rng: &mut ChaCha8Rng) -> Item {
+    let roll = rng.gen_range(0u64..100);
     // Sub-roll for variant selection within a category
-    *rng = xorshift64(*rng);
-    let sub = (*rng % 6) as usize;
+    let sub = rng.gen_range(0usize..6);
     match tier {
         0 => {
             if roll < 26 {
@@ -195,7 +196,7 @@ pub(super) fn random_item(tier: usize, rng: &mut u64) -> Item {
 
 /// Returns a strong item drop for rare overworld monsters.
 /// Loot tier looked up from spawn_tables config.
-pub(super) fn monster_loot_drop(enemy_name: &str, rng: &mut u64, loot_tiers: &[(&str, usize)]) -> Option<Item> {
+pub(super) fn monster_loot_drop(enemy_name: &str, rng: &mut ChaCha8Rng, loot_tiers: &[(&str, usize)]) -> Option<Item> {
     let tier = loot_tiers.iter()
         .find(|&&(name, _)| name == enemy_name)
         .map(|&(_, t)| t)?;
@@ -728,24 +729,22 @@ impl Game {
     /// Spawn items on the overworld (rare, near roads).
     pub fn spawn_overworld_items(&mut self, seed: u64) {
         let map = self.world.current_map();
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         for y in 2..map.height - 2 {
             for x in 2..map.width - 2 {
                 let tile = map.get(x, y);
                 if tile != Tile::Road && tile != Tile::Grass {
                     continue;
                 }
-                rng = xorshift64(rng);
                 // Configurable chance on roads vs grass
                 let threshold = if tile == Tile::Road {
                     self.config.spawn.overworld_item_road_pct
                 } else {
                     self.config.spawn.overworld_item_grass_pct
                 };
-                if rng % 1000 >= threshold {
+                if rng.gen_range(0u64..1000) >= threshold {
                     continue;
                 }
-                rng = xorshift64(rng);
                 let item = random_item(0, &mut rng);
                 self.ground_items.push(GroundItem { x, y, item });
             }
@@ -755,20 +754,18 @@ impl Game {
     /// Spawn food on the overworld: berries, mushrooms, plants, water on grass tiles.
     pub fn spawn_overworld_food(&mut self, seed: u64) {
         let map = self.world.current_map();
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         for y in 2..map.height - 2 {
             for x in 2..map.width - 2 {
                 let tile = map.get(x, y);
                 if tile != Tile::Grass {
                     continue;
                 }
-                rng = xorshift64(rng);
                 // Configurable chance per grass tile
-                if rng % 1000 >= self.config.spawn.overworld_food_pct {
+                if rng.gen_range(0u64..1000) >= self.config.spawn.overworld_food_pct {
                     continue;
                 }
-                rng = xorshift64(rng);
-                let roll = rng % 100;
+                let roll = rng.gen_range(0u64..100);
                 let food = if roll < 12 {
                     Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%',
                         effect: ItemEffect::Feed(14, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false }
@@ -820,27 +817,25 @@ impl Game {
         let seed = (dungeon_index as u64)
             .wrapping_mul(37)
             .wrapping_add(level as u64)
+            .wrapping_add(1)
             .wrapping_mul(2654435761);
-        let mut rng = seed;
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         for y in 1..map.height - 1 {
             for x in 1..map.width - 1 {
                 if map.get(x, y) != Tile::Floor {
                     continue;
                 }
-                rng = xorshift64(rng);
                 // Configurable chance per floor tile in dungeons vs cave
                 let threshold = if is_cave {
                     self.config.spawn.cave_item_pct
                 } else {
                     self.config.spawn.dungeon_item_pct
                 };
-                if rng % 100 >= threshold {
+                if rng.gen_range(0u64..100) >= threshold {
                     continue;
                 }
-                rng = xorshift64(rng);
                 let base_tier = if is_cave { 2 } else { level };
-                rng = xorshift64(rng);
-                let bleed_roll = rng % 100;
+                let bleed_roll = rng.gen_range(0u64..100);
                 let it = &self.config.item_tables;
                 let tier = if bleed_roll < it.tier_bleed_up_pct && base_tier < 2 {
                     base_tier + 1 // Lucky find

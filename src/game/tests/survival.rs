@@ -1,5 +1,7 @@
 use super::*;
 use super::{test_game, health_potion};
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 
     fn raw_food(amount: i32) -> Item {
         Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
@@ -471,7 +473,7 @@ use super::{test_game, health_potion};
 
     #[test]
     fn dungeon_food_includes_drinks() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..500).map(|_| random_item(1, &mut rng)).collect();
         let drink_names = ["Dwarven Ale"];
         assert!(items.iter().any(|i| drink_names.contains(&i.name)),
@@ -480,12 +482,12 @@ use super::{test_game, health_potion};
 
     #[test]
     fn deep_dungeon_food_better_than_shallow() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let t0_food: Vec<_> = (0..500)
             .map(|_| random_item(0, &mut rng))
             .filter(|i| i.kind == ItemKind::Food)
             .collect();
-        rng = 42;
+        rng = ChaCha8Rng::seed_from_u64(42);
         let t2_food: Vec<_> = (0..500)
             .map(|_| random_item(2, &mut rng))
             .filter(|i| i.kind == ItemKind::Food)
@@ -497,7 +499,7 @@ use super::{test_game, health_potion};
 
     #[test]
     fn random_item_includes_food() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..200).map(|_| random_item(0, &mut rng)).collect();
         assert!(items.iter().any(|i| i.kind == ItemKind::Food),
             "tier 0 random_item should sometimes produce food");
@@ -505,7 +507,7 @@ use super::{test_game, health_potion};
 
     #[test]
     fn dungeon_random_item_includes_rations() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..200).map(|_| random_item(1, &mut rng)).collect();
         assert!(items.iter().any(|i| i.name == "Dried Rations"),
             "dungeon tier should produce rations");
@@ -703,7 +705,7 @@ use super::{test_game, health_potion};
 
     #[test]
     fn random_item_produces_variety() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let items: Vec<_> = (0..500).map(|_| random_item(1, &mut rng)).collect();
         // Should produce all equippable kinds plus consumables
         assert!(items.iter().any(|i| i.kind == ItemKind::Weapon), "should have weapons");
@@ -719,7 +721,7 @@ use super::{test_game, health_potion};
 
     #[test]
     fn weapon_names_vary() {
-        let mut rng = 42u64;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let weapons: Vec<_> = (0..500)
             .map(|_| random_item(0, &mut rng))
             .filter(|i| i.kind == ItemKind::Weapon)
