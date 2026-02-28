@@ -12,15 +12,19 @@ fn enemy_with_behavior(x: i32, y: i32, hp: i32, attack: i32, name: &'static str,
 // ── Passive ──────────────────────────────────────────────────────────
 
 #[test]
-fn passive_enemy_does_not_attack_adjacent_player() {
+fn passive_enemy_attacks_adjacent_player() {
     let map = Map::new_filled(20, 20, Tile::Floor);
     let mut g = Game::new(map);
     g.player_x = 10;
     g.player_y = 10;
+    g.player_dexterity = 0; // no dodge
     let hp_before = g.player_hp;
     g.enemies.push(enemy_with_behavior(11, 10, 10, 5, "Buzzard", EnemyBehavior::Passive));
     g.enemy_turn();
-    assert_eq!(g.player_hp, hp_before, "passive enemy should not attack");
+    assert!(g.player_hp < hp_before,
+        "passive enemy should attack when adjacent");
+    assert!(g.enemies[0].provoked,
+        "passive enemy should self-provoke after attacking");
 }
 
 #[test]
@@ -40,16 +44,18 @@ fn passive_enemy_flees_when_provoked() {
 }
 
 #[test]
-fn passive_enemy_does_nothing_when_not_provoked() {
+fn passive_enemy_does_not_chase_when_not_provoked() {
     let map = Map::new_filled(20, 20, Tile::Floor);
-    let mut g = Game::new(map);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 0; // disable wander for determinism
+    let mut g = Game::new_with_config(map, config);
     g.player_x = 10;
     g.player_y = 10;
-    // Within passive_flee_range (4) but not provoked → no movement
+    // Chebyshev 2 from player, not adjacent → should not approach
     g.enemies.push(enemy_with_behavior(12, 10, 10, 5, "Buzzard", EnemyBehavior::Passive));
     let (ex, ey) = (g.enemies[0].x, g.enemies[0].y);
     g.enemy_turn();
-    assert_eq!(g.enemies[0].x, ex, "unprovoked passive should stay still");
+    assert_eq!(g.enemies[0].x, ex, "unprovoked passive should not approach player");
     assert_eq!(g.enemies[0].y, ey);
 }
 
@@ -99,9 +105,11 @@ fn timid_enemy_fights_when_cornered() {
 }
 
 #[test]
-fn timid_enemy_does_not_engage_when_far() {
+fn timid_enemy_does_not_chase_when_far() {
     let map = Map::new_filled(30, 30, Tile::Floor);
-    let mut g = Game::new(map);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 0; // disable wander for determinism
+    let mut g = Game::new_with_config(map, config);
     g.player_x = 5;
     g.player_y = 5;
     // Distance 8 — outside timid_flee_range (5), within chase_range (8)
@@ -116,9 +124,11 @@ fn timid_enemy_does_not_engage_when_far() {
 // ── Territorial ──────────────────────────────────────────────────────
 
 #[test]
-fn territorial_ignores_distant_player() {
+fn territorial_does_not_chase_distant_player() {
     let map = Map::new_filled(30, 30, Tile::Floor);
-    let mut g = Game::new(map);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 0; // disable wander for determinism
+    let mut g = Game::new_with_config(map, config);
     g.player_x = 5;
     g.player_y = 5;
     // Distance 7 (> territorial_alert_range 4, < chase_range 8)
@@ -198,16 +208,18 @@ fn aggressive_chases_as_before() {
 // ── Stalker ──────────────────────────────────────────────────────────
 
 #[test]
-fn stalker_does_not_move_when_far() {
+fn stalker_does_not_chase_when_far() {
     let map = Map::new_filled(30, 30, Tile::Floor);
-    let mut g = Game::new(map);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 0; // disable wander for determinism
+    let mut g = Game::new_with_config(map, config);
     g.player_x = 5;
     g.player_y = 5;
     // Distance 7 (> stalker_activation_range 5)
     g.enemies.push(enemy_with_behavior(12, 5, 10, 5, "Viper", EnemyBehavior::Stalker));
     let (ex, ey) = (g.enemies[0].x, g.enemies[0].y);
     g.enemy_turn();
-    assert_eq!(g.enemies[0].x, ex, "stalker should not move when far from player");
+    assert_eq!(g.enemies[0].x, ex, "stalker should not chase when far from player");
     assert_eq!(g.enemies[0].y, ey);
     assert!(!g.enemies[0].provoked, "stalker should not activate when far");
 }
@@ -301,5 +313,94 @@ fn spawned_enemies_have_behavior_field() {
         use crate::config::enemy_behavior;
         assert_eq!(e.behavior, enemy_behavior(e.name),
             "{} should have behavior {:?}", e.name, enemy_behavior(e.name));
+    }
+}
+
+// ── Idle wandering ──────────────────────────────────────────────────
+
+#[test]
+fn passive_enemy_attacks_then_flees() {
+    let map = Map::new_filled(20, 20, Tile::Floor);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 0;
+    let mut g = Game::new_with_config(map, config);
+    g.player_x = 10;
+    g.player_y = 10;
+    g.player_dexterity = 0;
+    let hp_before = g.player_hp;
+    g.enemies.push(enemy_with_behavior(11, 10, 10, 5, "Buzzard", EnemyBehavior::Passive));
+    // Turn 1: attacks and self-provokes
+    g.enemy_turn();
+    assert!(g.player_hp < hp_before, "should attack when adjacent");
+    assert!(g.enemies[0].provoked, "should self-provoke after attack");
+    // Turn 2: flees (now provoked and within passive_flee_range)
+    let dist_before = (g.enemies[0].x - g.player_x).abs() + (g.enemies[0].y - g.player_y).abs();
+    g.enemy_turn();
+    let dist_after = (g.enemies[0].x - g.player_x).abs() + (g.enemies[0].y - g.player_y).abs();
+    assert!(dist_after > dist_before,
+        "provoked passive should flee: dist was {dist_before}, now {dist_after}");
+}
+
+#[test]
+fn idle_wander_stays_within_leash() {
+    let map = Map::new_filled(20, 20, Tile::Floor);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 100;
+    config.combat.idle_wander_leash = 2;
+    let mut g = Game::new_with_config(map, config);
+    g.player_x = 1;
+    g.player_y = 1;
+    g.enemies.push(enemy_with_behavior(10, 10, 10, 5, "Buzzard", EnemyBehavior::Passive));
+    for t in 0..50 {
+        g.turn = t;
+        g.enemy_turn();
+        let dx = (g.enemies[0].x - g.enemies[0].spawn_x).abs();
+        let dy = (g.enemies[0].y - g.enemies[0].spawn_y).abs();
+        let chebyshev = dx.max(dy);
+        assert!(chebyshev <= 2,
+            "enemy wandered to ({},{}) which is {} tiles from spawn ({},{})",
+            g.enemies[0].x, g.enemies[0].y, chebyshev,
+            g.enemies[0].spawn_x, g.enemies[0].spawn_y);
+    }
+}
+
+#[test]
+fn idle_wander_produces_movement() {
+    let map = Map::new_filled(20, 20, Tile::Floor);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 100;
+    let mut g = Game::new_with_config(map, config);
+    g.player_x = 1;
+    g.player_y = 1;
+    g.enemies.push(enemy_with_behavior(10, 10, 10, 5, "Buzzard", EnemyBehavior::Passive));
+    let mut moved = false;
+    for t in 0..20 {
+        g.turn = t;
+        let (bx, by) = (g.enemies[0].x, g.enemies[0].y);
+        g.enemy_turn();
+        if g.enemies[0].x != bx || g.enemies[0].y != by {
+            moved = true;
+            break;
+        }
+    }
+    assert!(moved, "with 100% wander chance, enemy should move at least once in 20 turns");
+}
+
+#[test]
+fn idle_wander_does_not_step_on_player() {
+    let map = Map::new_filled(20, 20, Tile::Floor);
+    let mut config = GameConfig::normal();
+    config.combat.idle_wander_chance = 100;
+    config.combat.idle_wander_leash = 10;
+    let mut g = Game::new_with_config(map, config);
+    // Place player near enemy but beyond Chebyshev 1 so passive doesn't attack
+    g.player_x = 10;
+    g.player_y = 12;
+    g.enemies.push(enemy_with_behavior(10, 10, 10, 5, "Buzzard", EnemyBehavior::Passive));
+    for t in 0..50 {
+        g.turn = t;
+        g.enemy_turn();
+        assert!(!(g.enemies[0].x == g.player_x && g.enemies[0].y == g.player_y),
+            "enemy should never step on player tile");
     }
 }

@@ -143,12 +143,14 @@ fn roll_fungal_grotto(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_fungal_grotto_l0(roll: u64) -> EnemyStats {
-    if roll < 25      { MYCONID }
-    else if roll < 45 { SMALL_SLIME }
-    else if roll < 60 { GIANT_CENTIPEDE }
-    else if roll < 75 { GIANT_EARTHWORM }
-    else if roll < 88 { GIANT_RAT }
-    else              { LARGE_MYCONID }
+    if roll < 15      { MYCONID }
+    else if roll < 25 { SMALL_SLIME }
+    else if roll < 40 { GIANT_ANT }
+    else if roll < 55 { GIANT_CENTIPEDE }
+    else if roll < 65 { GIANT_EARTHWORM }
+    else if roll < 75 { GIANT_RAT }
+    else if roll < 85 { LARGE_MYCONID }
+    else              { LIZARDFOLK }
 }
 
 fn roll_fungal_grotto_l1(roll: u64) -> EnemyStats {
@@ -264,11 +266,14 @@ fn roll_beast_den(level: usize, roll: u64) -> EnemyStats {
 }
 
 fn roll_beast_den_l0(roll: u64) -> EnemyStats {
-    if roll < 20      { GIANT_RAT }
-    else if roll < 40 { GIANT_BAT }
-    else if roll < 55 { LESSER_GIANT_SPIDER }
-    else if roll < 70 { GIANT_CENTIPEDE }
-    else if roll < 85 { KOBOLD_CANINE }
+    if roll < 15      { GIANT_RAT }
+    else if roll < 30 { GIANT_BAT }
+    else if roll < 40 { LESSER_GIANT_SPIDER }
+    else if roll < 50 { GIANT_CENTIPEDE }
+    else if roll < 60 { KOBOLD_CANINE }
+    else if roll < 70 { WOLF }
+    else if roll < 80 { GIANT_SPIDER }
+    else if roll < 90 { MONITOR_LIZARD }
     else              { KOBOLD }
 }
 
@@ -389,6 +394,8 @@ mod tests {
         let glyphs = collect_glyphs(DungeonBiome::FungalGrotto, 0, 1000);
         assert!(glyphs.contains(&'p'), "L0 should have myconids");
         assert!(glyphs.contains(&']'), "L0 should have giant earthworms");
+        assert!(glyphs.contains(&'A'), "L0 should have giant ants");
+        assert!(glyphs.contains(&'>'), "L0 should have lizardfolk");
     }
 
     #[test]
@@ -418,6 +425,8 @@ mod tests {
         assert!(glyphs.contains(&'r'), "L0 should have rats");
         assert!(glyphs.contains(&'a'), "L0 should have bats");
         assert!(glyphs.contains(&'<'), "L0 should have lesser giant spiders");
+        assert!(glyphs.contains(&'w'), "L0 should have wolves");
+        assert!(glyphs.contains(&'i'), "L0 should have giant spiders");
     }
 
     #[test]
@@ -530,5 +539,41 @@ mod tests {
             assert!(!glyphs.contains(&boss_glyph),
                 "{:?} deep table should not contain boss glyph '{}'", biome, boss_glyph);
         }
+    }
+
+    #[test]
+    fn fungal_grotto_l0_has_aggressive_enemies() {
+        use crate::config::EnemyBehavior;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let mut aggressive_count = 0u32;
+        let total = 1000u32;
+        for _ in 0..total {
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_biome_enemy(5, 5, DungeonBiome::FungalGrotto, 0, roll);
+            if e.behavior == EnemyBehavior::Aggressive || e.behavior == EnemyBehavior::Territorial {
+                aggressive_count += 1;
+            }
+        }
+        let pct = aggressive_count * 100 / total;
+        assert!(pct >= 25,
+            "Fungal Grotto L0 should have >= 25% aggressive/territorial enemies, got {pct}%");
+    }
+
+    #[test]
+    fn beast_den_l0_has_aggressive_enemies() {
+        use crate::config::EnemyBehavior;
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let mut aggressive_count = 0u32;
+        let total = 1000u32;
+        for _ in 0..total {
+            let roll = rng.gen_range(0u64..100);
+            let e = roll_biome_enemy(5, 5, DungeonBiome::BeastDen, 0, roll);
+            if e.behavior == EnemyBehavior::Aggressive || e.behavior == EnemyBehavior::Territorial {
+                aggressive_count += 1;
+            }
+        }
+        let pct = aggressive_count * 100 / total;
+        assert!(pct >= 25,
+            "Beast Den L0 should have >= 25% aggressive/territorial enemies, got {pct}%");
     }
 }
