@@ -81,6 +81,8 @@ pub struct SpawnConfig {
     pub dungeon_item_pct: u64,
     /// Item spawn chance per floor tile in cave (percentage 0-100).
     pub cave_item_pct: u64,
+    /// Chebyshev distance around player spawn where no enemies may appear.
+    pub spawn_safe_radius: i32,
 }
 
 /// Difficulty presets.
@@ -155,6 +157,7 @@ impl GameConfig {
                 cave_enemy_pct: 5,
                 dungeon_item_pct: 2,
                 cave_item_pct: 1,
+                spawn_safe_radius: 5,
             },
             mapgen: MapGenConfig::normal(),
             enemies: ENEMY_DEFS,
@@ -183,6 +186,7 @@ impl GameConfig {
         cfg.spawn.cave_enemy_pct = 3;
         cfg.spawn.dungeon_item_pct = 3;
         cfg.spawn.overworld_food_pct = 12;
+        cfg.spawn.spawn_safe_radius = 7;
         cfg
     }
 
@@ -210,6 +214,7 @@ impl GameConfig {
         cfg.spawn.cave_enemy_pct = 7;
         cfg.spawn.dungeon_item_pct = 1;
         cfg.spawn.overworld_food_pct = 5;
+        cfg.spawn.spawn_safe_radius = 3;
         cfg
     }
 

@@ -1,5 +1,5 @@
 use super::*;
-use super::{test_game, rusty_sword};
+use super::{test_game, overworld_game, rusty_sword};
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
@@ -877,4 +877,64 @@ use rand_chacha::ChaCha8Rng;
             assert_eq!(actual_dmg, base_dmg,
                 "without set, dragon should deal full damage: base={base_dmg}, actual={actual_dmg}");
         }
+    }
+
+    // --- Safe spawn area ---
+
+    #[test]
+    fn no_enemies_within_safe_radius() {
+        let g = test_game();
+        let radius = g.config.spawn.spawn_safe_radius;
+        for e in &g.enemies {
+            let dx = (e.x - g.player_x).abs();
+            let dy = (e.y - g.player_y).abs();
+            let chebyshev = dx.max(dy);
+            assert!(
+                chebyshev > radius,
+                "enemy '{}' at ({},{}) is {} tiles from player ({},{}) -- within safe radius {}",
+                e.name, e.x, e.y, chebyshev, g.player_x, g.player_y, radius
+            );
+        }
+    }
+
+    #[test]
+    fn no_enemies_within_safe_radius_overworld() {
+        let g = overworld_game();
+        let radius = g.config.spawn.spawn_safe_radius;
+        for e in &g.enemies {
+            let dx = (e.x - g.player_x).abs();
+            let dy = (e.y - g.player_y).abs();
+            let chebyshev = dx.max(dy);
+            assert!(
+                chebyshev > radius,
+                "enemy '{}' at ({},{}) is {} tiles from player ({},{}) -- within safe radius {}",
+                e.name, e.x, e.y, chebyshev, g.player_x, g.player_y, radius
+            );
+        }
+    }
+
+    #[test]
+    fn no_enemies_within_safe_radius_dungeon() {
+        let mut g = overworld_game();
+        let di = g.world.dungeons.iter()
+            .position(|d| d.levels.len() == 3)
+            .expect("should have a 3-level dungeon");
+        g.enter_dungeon(di);
+        let radius = g.config.spawn.spawn_safe_radius;
+        for e in &g.enemies {
+            let dx = (e.x - g.player_x).abs();
+            let dy = (e.y - g.player_y).abs();
+            let chebyshev = dx.max(dy);
+            assert!(
+                chebyshev > radius,
+                "dungeon enemy '{}' at ({},{}) is {} tiles from player ({},{}) -- within safe radius {}",
+                e.name, e.x, e.y, chebyshev, g.player_x, g.player_y, radius
+            );
+        }
+    }
+
+    #[test]
+    fn enemies_still_spawn_beyond_safe_radius() {
+        let g = overworld_game();
+        assert!(!g.enemies.is_empty(), "enemies should still spawn outside safe radius");
     }
