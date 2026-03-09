@@ -247,6 +247,8 @@ impl Renderer {
                         ctx.set_text_align("left");
                         ctx.set_text_baseline("top");
                         let _ = ctx.fill_text(&format!("{}", i + 1), sx + 2.0 * d, y + 1.0 * d);
+                        // Quantity badge
+                        self.draw_quantity_badge(sx, y, slot_size, item.quantity, d);
                     } else {
                         self.draw_empty_quickbar_slot(sx, y, slot_size, radius, i, d);
                     }
@@ -437,12 +439,17 @@ impl Renderer {
                 ctx.set_text_baseline("middle");
                 let name_x = x + icon_size + pad * 2.0;
                 let name_max_w = w - icon_size - pad * 3.0 - btn_w_reserved;
-                self.fill_text_truncated(item.name, name_x, iy + slot_h / 2.0, name_max_w);
+                let display_name = if item.quantity > 1 {
+                    format!("{} x{}", item.name, item.quantity)
+                } else {
+                    item.name.to_string()
+                };
+                self.fill_text_truncated(&display_name, name_x, iy + slot_h / 2.0, name_max_w);
 
                 // Quick-bar slot badge
                 for s in 0..QUICKBAR_SLOTS {
                     if game.quick_bar.slots[s] == Some(idx) {
-                        let measured_name_w = ctx.measure_text(item.name).ok().map(|m| m.width()).unwrap_or(0.0);
+                        let measured_name_w = ctx.measure_text(&display_name).ok().map(|m| m.width()).unwrap_or(0.0);
                         let name_w = measured_name_w.min(name_max_w);
                         let badge_x = name_x + name_w + 3.0 * d;
                         let badge_y = iy + slot_h / 2.0;
@@ -941,6 +948,9 @@ impl Renderer {
                     ctx.set_text_baseline("top");
                     let _ = ctx.fill_text(&format!("{}", i + 1), sx + 3.0 * d, slot_y + 2.0 * d);
 
+                    // Quantity badge
+                    self.draw_quantity_badge(sx, slot_y, slot_size, item.quantity, d);
+
                     // Flash overlay on use
                     let flash = self.quickbar_flash[i];
                     if flash > 0.0 {
@@ -959,6 +969,23 @@ impl Renderer {
                 self.draw_empty_quickbar_slot(sx, slot_y, slot_size, radius, i, d);
             }
         }
+    }
+
+    /// Draw a quantity badge in the bottom-right corner of a quickbar slot.
+    fn draw_quantity_badge(&self, sx: f64, sy: f64, size: f64, quantity: u32, d: f64) {
+        if quantity <= 1 { return; }
+        let ctx = &self.ctx;
+        let label = format!("{}", quantity);
+        let bx = sx + size - 2.0 * d;
+        let by = sy + size - 2.0 * d;
+        ctx.set_font(&self.font(8.0, "bold"));
+        ctx.set_fill_style_str("rgba(0,0,0,0.7)");
+        ctx.set_text_align("right");
+        ctx.set_text_baseline("bottom");
+        let _ = ctx.fill_text(&label, bx + 0.5 * d, by + 0.5 * d);
+        ctx.set_fill_style_str("#fff");
+        let _ = ctx.fill_text(&label, bx, by);
+        ctx.set_text_align("left");
     }
 
     fn draw_empty_quickbar_slot(&self, sx: f64, sy: f64, size: f64, radius: f64, index: usize, d: f64) {

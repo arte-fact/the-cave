@@ -56,6 +56,8 @@ pub struct Item {
     pub durability: i32,
     /// Whether this item is a legendary set piece (boss drop).
     pub legendary: bool,
+    /// Stack count for consumable items. Equipment always has quantity 1.
+    pub quantity: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -283,6 +285,17 @@ impl ItemKind {
     }
 }
 
+impl Item {
+    /// Returns true if this item can stack with another (same kind, name, and effect).
+    /// Only consumable items are stackable.
+    pub fn can_stack_with(&self, other: &Item) -> bool {
+        self.kind.is_consumable()
+            && self.kind == other.kind
+            && self.name == other.name
+            && self.effect == other.effect
+    }
+}
+
 /// Number of quick-bar slots.
 pub const QUICKBAR_SLOTS: usize = 6;
 
@@ -340,5 +353,25 @@ impl QuickBar {
         if a < QUICKBAR_SLOTS && b < QUICKBAR_SLOTS {
             self.slots.swap(a, b);
         }
+    }
+
+    /// Auto-assign a consumable inventory item to the first empty quick slot.
+    /// Returns true if assigned. Skips if the item is already assigned to a slot.
+    pub fn auto_assign(&mut self, inv_index: usize, item: &Item) -> bool {
+        if !item.kind.is_consumable() {
+            return false;
+        }
+        // Already assigned?
+        if self.slots.iter().any(|s| *s == Some(inv_index)) {
+            return false;
+        }
+        // Find first empty slot
+        for slot in 0..QUICKBAR_SLOTS {
+            if self.slots[slot].is_none() {
+                self.slots[slot] = Some(inv_index);
+                return true;
+            }
+        }
+        false
     }
 }

@@ -2,19 +2,19 @@ use super::*;
 use super::test_game;
 
     fn potion() -> Item {
-        Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(10), weight: 0, durability: 0, legendary: false }
+        Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(10), weight: 0, durability: 0, legendary: false, quantity: 1 }
     }
     fn scroll() -> Item {
-        Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(5), weight: 0, durability: 0, legendary: false }
+        Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(5), weight: 0, durability: 0, legendary: false, quantity: 1 }
     }
     fn food() -> Item {
-        Item { kind: ItemKind::Food, name: "Bread", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
+        Item { kind: ItemKind::Food, name: "Bread", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 }
     }
     fn sword() -> Item {
-        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 350, legendary: false }
+        Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 350, legendary: false, quantity: 1 }
     }
     fn armor() -> Item {
-        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false }
+        Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false, quantity: 1 }
     }
 
     #[test]
@@ -240,4 +240,106 @@ use super::test_game;
         // Now remove index 2 (was the scroll, shifted from 3)
         qb.on_item_removed(2);
         assert_eq!(qb.slots[1], None);
+    }
+
+    // ── Auto-assign tests ───────────────────────────────────────────
+
+    #[test]
+    fn auto_assign_consumable_to_first_empty() {
+        let mut qb = QuickBar::new();
+        assert!(qb.auto_assign(0, &potion()));
+        assert_eq!(qb.slots[0], Some(0));
+    }
+
+    #[test]
+    fn auto_assign_fills_sequentially() {
+        let mut qb = QuickBar::new();
+        qb.auto_assign(0, &potion());
+        qb.auto_assign(1, &scroll());
+        qb.auto_assign(2, &food());
+        assert_eq!(qb.slots[0], Some(0));
+        assert_eq!(qb.slots[1], Some(1));
+        assert_eq!(qb.slots[2], Some(2));
+    }
+
+    #[test]
+    fn auto_assign_rejects_weapon() {
+        let mut qb = QuickBar::new();
+        assert!(!qb.auto_assign(0, &sword()));
+        assert!(qb.slots.iter().all(|s| s.is_none()));
+    }
+
+    #[test]
+    fn auto_assign_skips_already_assigned() {
+        let mut qb = QuickBar::new();
+        qb.assign(2, 0, &potion());
+        assert!(!qb.auto_assign(0, &potion()), "already assigned to slot 2");
+    }
+
+    #[test]
+    fn auto_assign_returns_false_when_full() {
+        let mut qb = QuickBar::new();
+        for i in 0..QUICKBAR_SLOTS {
+            qb.auto_assign(i, &potion());
+        }
+        assert!(!qb.auto_assign(99, &potion()));
+    }
+
+    #[test]
+    fn pickup_auto_assigns_to_quickbar() {
+        let mut g = test_game();
+        g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: potion() });
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.quick_bar.slots[0], Some(0), "potion should auto-assign to slot 0");
+    }
+
+    #[test]
+    fn pickup_weapon_does_not_auto_assign() {
+        let mut g = test_game();
+        g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: sword() });
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 1);
+        assert!(g.quick_bar.slots.iter().all(|s| s.is_none()), "weapon should not auto-assign");
+    }
+
+    #[test]
+    fn pickup_stacked_item_not_reassigned() {
+        let mut g = test_game();
+        // Put a potion in inventory + quickbar
+        g.inventory.push(potion());
+        g.quick_bar.assign(0, 0, &g.inventory[0].clone());
+        // Pick up another potion — should stack, not reassign
+        g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: potion() });
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 1);
+        assert_eq!(g.inventory[0].quantity, 2);
+        assert_eq!(g.quick_bar.slots[0], Some(0), "quickbar still points to same slot");
+        // No duplicate assignment
+        assert!(g.quick_bar.slots[1..].iter().all(|s| s.is_none()));
+    }
+
+    #[test]
+    fn use_stacked_item_keeps_quickbar_slot() {
+        let mut g = test_game();
+        let mut p = potion();
+        p.quantity = 3;
+        g.inventory.push(p);
+        g.quick_bar.assign(0, 0, &g.inventory[0].clone());
+        g.player_hp = 10;
+        g.use_item(0);
+        // Quantity decremented, item still exists, quickbar preserved
+        assert_eq!(g.inventory[0].quantity, 2);
+        assert_eq!(g.quick_bar.slots[0], Some(0), "quickbar should stay");
+    }
+
+    #[test]
+    fn use_last_stacked_item_clears_quickbar() {
+        let mut g = test_game();
+        g.inventory.push(potion());
+        g.quick_bar.assign(0, 0, &g.inventory[0].clone());
+        g.player_hp = 10;
+        g.use_item(0);
+        assert!(g.inventory.is_empty());
+        assert_eq!(g.quick_bar.slots[0], None, "quickbar should clear");
     }
