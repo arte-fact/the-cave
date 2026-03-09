@@ -4,19 +4,19 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 fn stamina_potion() -> Item {
-    Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false }
+    Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false, quantity: 1 }
 }
 fn scroll_fire() -> Item {
-    Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0, durability: 0, legendary: false }
+    Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0, durability: 0, legendary: false, quantity: 1 }
 }
 fn iron_sword() -> Item {
-    Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false }
+    Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false, quantity: 1 }
 }
 fn leather_armor() -> Item {
-    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250, legendary: false }
+    Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250, legendary: false, quantity: 1 }
 }
 fn chain_mail() -> Item {
-    Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false }
+    Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false, quantity: 1 }
 }
 
     // --- Pickup ---
@@ -281,7 +281,7 @@ fn chain_mail() -> Item {
         // Defense higher than enemy attack
         g.equipped_armor = Some(Item {
             kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[',
-            effect: ItemEffect::BuffDefense(6), weight: 0, durability: 600, legendary: false,
+            effect: ItemEffect::BuffDefense(6), weight: 0, durability: 600, legendary: false, quantity: 1,
         });
         let hp_before = g.player_hp;
         let gx = g.player_x + 1;
@@ -781,4 +781,143 @@ fn chain_mail() -> Item {
         assert!(helmet.durability > 0, "starting helmet should have durability");
         let boots = g.equipped_boots.as_ref().unwrap();
         assert!(boots.durability > 0, "starting boots should have durability");
+    }
+
+    // ── Stacking tests ──────────────────────────────────────────────
+
+    #[test]
+    fn pickup_stacks_identical_consumables() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        // Add a potion to inventory
+        g.inventory.push(health_potion());
+        // Place same potion on ground at player position
+        g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: health_potion() });
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 1, "should stack into one slot");
+        assert_eq!(g.inventory[0].quantity, 2, "quantity should be 2");
+    }
+
+    #[test]
+    fn pickup_stacks_multiple_same_items() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        // Place 3 potions on the ground
+        for _ in 0..3 {
+            g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: health_potion() });
+        }
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 1, "should stack into one slot");
+        assert_eq!(g.inventory[0].quantity, 4);
+    }
+
+    #[test]
+    fn pickup_different_consumables_no_stack() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.ground_items.push(GroundItem {
+            x: g.player_x, y: g.player_y,
+            item: Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false, quantity: 1 },
+        });
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 2, "different potions should not stack");
+    }
+
+    #[test]
+    fn pickup_stacking_bypasses_inventory_cap() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let max_inv = g.config.player.max_inventory;
+        // Fill inventory with potions and swords
+        for _ in 0..max_inv - 1 {
+            g.inventory.push(rusty_sword());
+        }
+        g.inventory.push(health_potion());
+        // Inventory is now full
+        assert_eq!(g.inventory.len(), max_inv);
+        // Place matching potion on ground — should stack even though inventory is full
+        g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: health_potion() });
+        assert!(g.pickup_items_explicit());
+        assert_eq!(g.inventory.len(), max_inv, "no new slot used");
+        assert_eq!(g.inventory.last().unwrap().quantity, 2);
+    }
+
+    #[test]
+    fn weapons_dont_stack() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(rusty_sword());
+        g.ground_items.push(GroundItem { x: g.player_x, y: g.player_y, item: rusty_sword() });
+        g.pickup_items_explicit();
+        assert_eq!(g.inventory.len(), 2, "weapons should not stack");
+    }
+
+    #[test]
+    fn use_item_decrements_stack() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let mut potion = health_potion();
+        potion.quantity = 3;
+        g.inventory.push(potion);
+        g.player_hp = 10;
+        g.use_item(0);
+        assert_eq!(g.inventory.len(), 1, "item should remain");
+        assert_eq!(g.inventory[0].quantity, 2, "quantity should decrement");
+    }
+
+    #[test]
+    fn use_item_removes_at_quantity_one() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion()); // quantity 1
+        g.player_hp = 10;
+        g.use_item(0);
+        assert!(g.inventory.is_empty(), "should remove when quantity hits 0");
+    }
+
+    #[test]
+    fn drop_item_decrements_stack() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        let mut potion = health_potion();
+        potion.quantity = 3;
+        g.inventory.push(potion);
+        g.drop_item(0);
+        assert_eq!(g.inventory.len(), 1, "item should remain in inventory");
+        assert_eq!(g.inventory[0].quantity, 2);
+        assert_eq!(g.ground_items.len(), 1);
+        assert_eq!(g.ground_items[0].item.quantity, 1, "dropped item has quantity 1");
+    }
+
+    #[test]
+    fn drop_item_removes_at_quantity_one() {
+        let map = Map::generate(30, 20, 42);
+        let mut g = Game::new(map);
+        g.inventory.push(health_potion());
+        g.drop_item(0);
+        assert!(g.inventory.is_empty());
+        assert_eq!(g.ground_items.len(), 1);
+    }
+
+    #[test]
+    fn can_stack_with_same_consumable() {
+        let a = health_potion();
+        let b = health_potion();
+        assert!(a.can_stack_with(&b));
+    }
+
+    #[test]
+    fn cannot_stack_different_name() {
+        let a = health_potion();
+        let b = Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false, quantity: 1 };
+        assert!(!a.can_stack_with(&b));
+    }
+
+    #[test]
+    fn cannot_stack_weapons() {
+        let a = rusty_sword();
+        let b = rusty_sword();
+        assert!(!a.can_stack_with(&b));
     }

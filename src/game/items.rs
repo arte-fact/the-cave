@@ -21,173 +21,173 @@ pub(super) fn random_item(tier: usize, rng: &mut ChaCha8Rng) -> Item {
     match tier {
         0 => {
             if roll < 26 {
-                Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5), weight: 0, durability: 0, legendary: false }
+                Item { kind: ItemKind::Potion, name: "Health Potion", glyph: '!', effect: ItemEffect::Heal(5), weight: 0, durability: 0, legendary: false, quantity: 1 }
             } else if roll < 36 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Scroll, name: "Scroll of Ice", glyph: '?', effect: ItemEffect::DamageAoe(7), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Scroll, name: "Scroll of Fire", glyph: '?', effect: ItemEffect::DamageAoe(8), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Scroll, name: "Scroll of Ice", glyph: '?', effect: ItemEffect::DamageAoe(7), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             } else if roll < 48 {
                 // Tier 0 melee: +2–3 ATK, weight 1–3
                 match sub {
-                    0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200, legendary: false },
-                    1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false },
-                    2 => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 200, legendary: false },
-                    3 => Item { kind: ItemKind::Weapon, name: "Hand Axe", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 200, legendary: false },
-                    4 => Item { kind: ItemKind::Weapon, name: "Wooden Spear", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200, legendary: false },
-                    _ => Item { kind: ItemKind::Weapon, name: "Kukri", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false },
+                    0 => Item { kind: ItemKind::Weapon, name: "Rusty Sword", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false, quantity: 1 },
+                    2 => Item { kind: ItemKind::Weapon, name: "Wooden Club", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 200, legendary: false, quantity: 1 },
+                    3 => Item { kind: ItemKind::Weapon, name: "Hand Axe", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 3, durability: 200, legendary: false, quantity: 1 },
+                    4 => Item { kind: ItemKind::Weapon, name: "Wooden Spear", glyph: '/', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 200, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Weapon, name: "Kukri", glyph: '/', effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false, quantity: 1 },
                 }
             } else if roll < 54 {
                 // Tier 0 ranged: lower ATK than melee peers
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250, legendary: false },
-                    _ => Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250, legendary: false },
+                    0 => Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250, legendary: false, quantity: 1 },
                 }
             } else if roll < 60 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250, legendary: false },
-                    _ => Item { kind: ItemKind::Armor, name: "Cloth Armor", glyph: '[', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false },
+                    0 => Item { kind: ItemKind::Armor, name: "Leather Armor", glyph: '[', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 250, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Armor, name: "Cloth Armor", glyph: '[', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1 },
                 }
             } else if roll < 65 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false },
-                    _ => Item { kind: ItemKind::Helmet, name: "Cloth Hood", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false },
+                    0 => Item { kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Helmet, name: "Cloth Hood", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1 },
                 }
             } else if roll < 70 {
-                Item { kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false }
+                Item { kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1 }
             } else if roll < 75 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false },
-                    _ => Item { kind: ItemKind::Boots, name: "Shoes", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false },
+                    0 => Item { kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Boots, name: "Shoes", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1 },
                 }
             } else if roll < 82 {
-                Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300, legendary: false }
+                Item { kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300, legendary: false, quantity: 1 }
             } else {
                 match sub % 4 {
-                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None), weight: 0, durability: 0, legendary: false },
-                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(12, FoodSideEffect::None), weight: 0, durability: 0, legendary: false },
-                    2 => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Food, name: "Cheese Wedge", glyph: '%', effect: ItemEffect::Feed(14, FoodSideEffect::Heal(1)), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Food, name: "Stale Bread", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Food, name: "Waterskin", glyph: '~', effect: ItemEffect::Feed(12, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    2 => Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(15, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Food, name: "Cheese Wedge", glyph: '%', effect: ItemEffect::Feed(14, FoodSideEffect::Heal(1)), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             }
         }
         1 => {
             if roll < 22 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Potion, name: "Greater Health Potion", glyph: '!', effect: ItemEffect::Heal(10), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Potion, name: "Stamina Potion", glyph: '!', effect: ItemEffect::RestoreStamina(40), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             } else if roll < 32 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Scroll, name: "Scroll of Wrath", glyph: '?', effect: ItemEffect::DamageAoe(10), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Scroll, name: "Scroll of Lightning", glyph: '?', effect: ItemEffect::DamageAoe(12), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Scroll, name: "Scroll of Wrath", glyph: '?', effect: ItemEffect::DamageAoe(10), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             } else if roll < 46 {
                 // Tier 1 melee: +4–6 ATK, weight 1–4
                 match sub {
-                    0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false },
-                    1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 350, legendary: false },
-                    2 => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 350, legendary: false },
-                    3 => Item { kind: ItemKind::Weapon, name: "Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false },
-                    4 => Item { kind: ItemKind::Weapon, name: "Mace", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 3, durability: 350, legendary: false },
+                    0 => Item { kind: ItemKind::Weapon, name: "Iron Sword", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Weapon, name: "Battle Axe", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 350, legendary: false, quantity: 1 },
+                    2 => Item { kind: ItemKind::Weapon, name: "War Hammer", glyph: '/', effect: ItemEffect::BuffAttack(6), weight: 4, durability: 350, legendary: false, quantity: 1 },
+                    3 => Item { kind: ItemKind::Weapon, name: "Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false, quantity: 1 },
+                    4 => Item { kind: ItemKind::Weapon, name: "Mace", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 3, durability: 350, legendary: false, quantity: 1 },
                     _ => match sub % 3 {
-                        0 => Item { kind: ItemKind::Weapon, name: "Spear", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false },
-                        1 => Item { kind: ItemKind::Weapon, name: "Flail", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 3, durability: 350, legendary: false },
-                        _ => Item { kind: ItemKind::Weapon, name: "Rapier", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 1, durability: 350, legendary: false },
+                        0 => Item { kind: ItemKind::Weapon, name: "Spear", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 2, durability: 350, legendary: false, quantity: 1 },
+                        1 => Item { kind: ItemKind::Weapon, name: "Flail", glyph: '/', effect: ItemEffect::BuffAttack(5), weight: 3, durability: 350, legendary: false, quantity: 1 },
+                        _ => Item { kind: ItemKind::Weapon, name: "Rapier", glyph: '/', effect: ItemEffect::BuffAttack(4), weight: 1, durability: 350, legendary: false, quantity: 1 },
                     },
                 }
             } else if roll < 52 {
                 // Tier 1 ranged: lower ATK than melee peers
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400, legendary: false },
-                    _ => Item { kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400, legendary: false },
+                    0 => Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400, legendary: false, quantity: 1 },
                 }
             } else if roll < 58 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false },
-                    _ => Item { kind: ItemKind::Armor, name: "Scale Mail", glyph: '[', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false },
+                    0 => Item { kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Armor, name: "Scale Mail", glyph: '[', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1 },
                 }
             } else if roll < 63 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false },
-                    _ => Item { kind: ItemKind::Helmet, name: "Chain Coif", glyph: '^', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false },
+                    0 => Item { kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Helmet, name: "Chain Coif", glyph: '^', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false, quantity: 1 },
                 }
             } else if roll < 68 {
                 match sub % 3 {
-                    0 => Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false },
-                    1 => Item { kind: ItemKind::Shield, name: "Cross Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false },
-                    _ => Item { kind: ItemKind::Shield, name: "Round Shield", glyph: ')', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false },
+                    0 => Item { kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Shield, name: "Cross Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Shield, name: "Round Shield", glyph: ')', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false, quantity: 1 },
                 }
             } else if roll < 73 {
-                Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false }
+                Item { kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false, quantity: 1 }
             } else if roll < 80 {
                 match sub % 3 {
-                    0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 500, legendary: false },
-                    1 => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3), weight: 0, durability: 500, legendary: false },
-                    _ => Item { kind: ItemKind::Ring, name: "Jade Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 500, legendary: false },
+                    0 => Item { kind: ItemKind::Ring, name: "Silver Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 500, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Ring, name: "Ruby Ring", glyph: '=', effect: ItemEffect::BuffAttack(3), weight: 0, durability: 500, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Ring, name: "Jade Ring", glyph: '=', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 500, legendary: false, quantity: 1 },
                 }
             } else {
                 match sub % 3 {
-                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None), weight: 0, durability: 0, legendary: false },
-                    1 => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Sicken(10)), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Food, name: "Cheese Wedge", glyph: '%', effect: ItemEffect::Feed(14, FoodSideEffect::Heal(1)), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Food, name: "Dried Rations", glyph: '%', effect: ItemEffect::Feed(20, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Food, name: "Dwarven Ale", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Sicken(10)), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Food, name: "Cheese Wedge", glyph: '%', effect: ItemEffect::Feed(14, FoodSideEffect::Heal(1)), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             }
         }
         _ => {
             if roll < 16 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Potion, name: "Elixir of Power", glyph: '!', effect: ItemEffect::Heal(20), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Potion, name: "Superior Health Potion", glyph: '!', effect: ItemEffect::Heal(15), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Potion, name: "Elixir of Power", glyph: '!', effect: ItemEffect::Heal(20), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             } else if roll < 28 {
-                Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16), weight: 0, durability: 0, legendary: false }
+                Item { kind: ItemKind::Scroll, name: "Scroll of Storm", glyph: '?', effect: ItemEffect::DamageAoe(16), weight: 0, durability: 0, legendary: false, quantity: 1 }
             } else if roll < 44 {
                 // Tier 2 melee: +7–9 ATK, weight 1–5
                 // Rare weapons (Enchanted Blade, Flame Sword, Evil Blade) = high damage + low weight
                 // Heavy weapons (Great Axe, Great Hammer, Halberd) = high damage + high weight
                 match sub {
-                    0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500, legendary: false },
-                    1 => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 1, durability: 500, legendary: false },
-                    2 => Item { kind: ItemKind::Weapon, name: "Great Axe", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false },
-                    3 => Item { kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false },
-                    4 => Item { kind: ItemKind::Weapon, name: "Trident", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500, legendary: false },
+                    0 => Item { kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Weapon, name: "Flame Sword", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 1, durability: 500, legendary: false, quantity: 1 },
+                    2 => Item { kind: ItemKind::Weapon, name: "Great Axe", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false, quantity: 1 },
+                    3 => Item { kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false, quantity: 1 },
+                    4 => Item { kind: ItemKind::Weapon, name: "Trident", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500, legendary: false, quantity: 1 },
                     _ => match sub % 5 {
-                        0 => Item { kind: ItemKind::Weapon, name: "Bastard Sword", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500, legendary: false },
-                        1 => Item { kind: ItemKind::Weapon, name: "Evil Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 2, durability: 500, legendary: false },
-                        2 => Item { kind: ItemKind::Weapon, name: "Halberd", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false },
-                        3 => Item { kind: ItemKind::Weapon, name: "Great Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500, legendary: false },
-                        _ => Item { kind: ItemKind::Weapon, name: "Flamberge", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 4, durability: 500, legendary: false },
+                        0 => Item { kind: ItemKind::Weapon, name: "Bastard Sword", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500, legendary: false, quantity: 1 },
+                        1 => Item { kind: ItemKind::Weapon, name: "Evil Blade", glyph: '/', effect: ItemEffect::BuffAttack(9), weight: 2, durability: 500, legendary: false, quantity: 1 },
+                        2 => Item { kind: ItemKind::Weapon, name: "Halberd", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false, quantity: 1 },
+                        3 => Item { kind: ItemKind::Weapon, name: "Great Scimitar", glyph: '/', effect: ItemEffect::BuffAttack(7), weight: 3, durability: 500, legendary: false, quantity: 1 },
+                        _ => Item { kind: ItemKind::Weapon, name: "Flamberge", glyph: '/', effect: ItemEffect::BuffAttack(8), weight: 4, durability: 500, legendary: false, quantity: 1 },
                     },
                 }
             } else if roll < 50 {
                 // Tier 2 ranged: rare Elven Bow — high damage + very light
-                Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600, legendary: false }
+                Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600, legendary: false, quantity: 1 }
             } else if roll < 56 {
-                Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6), weight: 0, durability: 600, legendary: false }
+                Item { kind: ItemKind::Armor, name: "Dragon Scale", glyph: '[', effect: ItemEffect::BuffDefense(6), weight: 0, durability: 600, legendary: false, quantity: 1 }
             } else if roll < 61 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 600, legendary: false },
-                    _ => Item { kind: ItemKind::Helmet, name: "Plate Helm", glyph: '^', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false },
+                    0 => Item { kind: ItemKind::Helmet, name: "Mithril Helm", glyph: '^', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 600, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Helmet, name: "Plate Helm", glyph: '^', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false, quantity: 1 },
                 }
             } else if roll < 66 {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 600, legendary: false },
-                    _ => Item { kind: ItemKind::Shield, name: "Dark Shield", glyph: ')', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false },
+                    0 => Item { kind: ItemKind::Shield, name: "Tower Shield", glyph: ')', effect: ItemEffect::BuffDefense(5), weight: 0, durability: 600, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Shield, name: "Dark Shield", glyph: ')', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false, quantity: 1 },
                 }
             } else if roll < 71 {
-                Item { kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false }
+                Item { kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false, quantity: 1 }
             } else if roll < 80 {
                 match sub % 4 {
-                    0 => Item { kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 800, legendary: false },
-                    1 => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 800, legendary: false },
-                    2 => Item { kind: ItemKind::Ring, name: "Emerald Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 800, legendary: false },
-                    _ => Item { kind: ItemKind::Ring, name: "Onyx Ring", glyph: '=', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 800, legendary: false },
+                    0 => Item { kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 800, legendary: false, quantity: 1 },
+                    1 => Item { kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 800, legendary: false, quantity: 1 },
+                    2 => Item { kind: ItemKind::Ring, name: "Emerald Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 800, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Ring, name: "Onyx Ring", glyph: '=', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 800, legendary: false, quantity: 1 },
                 }
             } else {
                 match sub % 2 {
-                    0 => Item { kind: ItemKind::Food, name: "Elven Waybread", glyph: '%', effect: ItemEffect::Feed(25, FoodSideEffect::Heal(5)), weight: 0, durability: 0, legendary: false },
-                    _ => Item { kind: ItemKind::Food, name: "Honey Mead", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Energize(15)), weight: 0, durability: 0, legendary: false },
+                    0 => Item { kind: ItemKind::Food, name: "Elven Waybread", glyph: '%', effect: ItemEffect::Feed(25, FoodSideEffect::Heal(5)), weight: 0, durability: 0, legendary: false, quantity: 1 },
+                    _ => Item { kind: ItemKind::Food, name: "Honey Mead", glyph: '~', effect: ItemEffect::Feed(18, FoodSideEffect::Energize(15)), weight: 0, durability: 0, legendary: false, quantity: 1 },
                 }
             }
         }
@@ -213,101 +213,101 @@ pub(super) fn meat_drop(enemy_name: &str) -> Option<Item> {
         // --- Tiny/vermin ---
         "Giant Rat" => Some(Item {
             kind: ItemKind::Food, name: "Rat Meat", glyph: '%',
-            effect: ItemEffect::Feed(8, FoodSideEffect::Sicken(5)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(8, FoodSideEffect::Sicken(5)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         // --- Small animals ---
         "Fox" => Some(Item {
             kind: ItemKind::Food, name: "Fox Meat", glyph: '%',
-            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Badger" => Some(Item {
             kind: ItemKind::Food, name: "Badger Meat", glyph: '%',
-            effect: ItemEffect::Feed(12, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(12, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Honey Badger" => Some(Item {
             kind: ItemKind::Food, name: "Badger Meat", glyph: '%',
-            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Buzzard" => Some(Item {
             kind: ItemKind::Food, name: "Fowl Meat", glyph: '%',
-            effect: ItemEffect::Feed(12, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(12, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Jackal" => Some(Item {
             kind: ItemKind::Food, name: "Jackal Meat", glyph: '%',
-            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Ocelot" => Some(Item {
             kind: ItemKind::Food, name: "Ocelot Meat", glyph: '%',
-            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(14, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         // --- Snakes (always poisonous) ---
         "Viper" => Some(Item {
             kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
-            effect: ItemEffect::Feed(10, FoodSideEffect::Poison(2)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(10, FoodSideEffect::Poison(2)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Black Mamba" => Some(Item {
             kind: ItemKind::Food, name: "Snake Meat", glyph: '%',
-            effect: ItemEffect::Feed(12, FoodSideEffect::Poison(3)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(12, FoodSideEffect::Poison(3)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         // --- Medium animals ---
         "Wolf" => Some(Item {
             kind: ItemKind::Food, name: "Wolf Meat", glyph: '%',
-            effect: ItemEffect::Feed(18, FoodSideEffect::Energize(8)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(18, FoodSideEffect::Energize(8)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Coyote" => Some(Item {
             kind: ItemKind::Food, name: "Coyote Meat", glyph: '%',
-            effect: ItemEffect::Feed(16, FoodSideEffect::Energize(6)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(16, FoodSideEffect::Energize(6)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Hyena" => Some(Item {
             kind: ItemKind::Food, name: "Hyena Meat", glyph: '%',
-            effect: ItemEffect::Feed(16, FoodSideEffect::Energize(6)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(16, FoodSideEffect::Energize(6)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Lynx" => Some(Item {
             kind: ItemKind::Food, name: "Lynx Meat", glyph: '%',
-            effect: ItemEffect::Feed(16, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(16, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Cougar" => Some(Item {
             kind: ItemKind::Food, name: "Cougar Meat", glyph: '%',
-            effect: ItemEffect::Feed(20, FoodSideEffect::Energize(8)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(20, FoodSideEffect::Energize(8)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Monitor Lizard" => Some(Item {
             kind: ItemKind::Food, name: "Lizard Meat", glyph: '%',
-            effect: ItemEffect::Feed(18, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(18, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         // --- Large animals ---
         "Boar" => Some(Item {
             kind: ItemKind::Food, name: "Boar Meat", glyph: '%',
-            effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Black Bear" => Some(Item {
             kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
-            effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(25, FoodSideEffect::Heal(3)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Bear" => Some(Item {
             kind: ItemKind::Food, name: "Bear Meat", glyph: '%',
-            effect: ItemEffect::Feed(30, FoodSideEffect::Heal(4)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(30, FoodSideEffect::Heal(4)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Alligator" => Some(Item {
             kind: ItemKind::Food, name: "Gator Meat", glyph: '%',
-            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Yak" => Some(Item {
             kind: ItemKind::Food, name: "Yak Meat", glyph: '%',
-            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(28, FoodSideEffect::Heal(4)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Water Buffalo" => Some(Item {
             kind: ItemKind::Food, name: "Buffalo Meat", glyph: '%',
-            effect: ItemEffect::Feed(35, FoodSideEffect::Heal(5)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(35, FoodSideEffect::Heal(5)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         "Male Lion" => Some(Item {
             kind: ItemKind::Food, name: "Lion Meat", glyph: '%',
-            effect: ItemEffect::Feed(30, FoodSideEffect::Energize(12)), weight: 0, durability: 0, legendary: false,
+            effect: ItemEffect::Feed(30, FoodSideEffect::Energize(12)), weight: 0, durability: 0, legendary: false, quantity: 1,
         }),
         // --- Humanoid rations ---
         "Goblin" | "Goblin Archer" | "Goblin Mage" | "Goblin Brute" => {
             Some(Item {
                 kind: ItemKind::Food, name: "Stolen Rations", glyph: '%',
-                effect: ItemEffect::Feed(18, FoodSideEffect::None), weight: 0, durability: 0, legendary: false,
+                effect: ItemEffect::Feed(18, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1,
             })
         }
         _ => None,
@@ -323,7 +323,7 @@ impl Game {
             glyph: '/',
             effect: ItemEffect::BuffAttack(2),
             weight: 1,
-            durability: 200, legendary: false,
+            durability: 200, legendary: false, quantity: 1,
         });
         self.equipped_armor = Some(Item {
             kind: ItemKind::Armor,
@@ -331,7 +331,7 @@ impl Game {
             glyph: '[',
             effect: ItemEffect::BuffDefense(1),
             weight: 0,
-            durability: 250, legendary: false,
+            durability: 250, legendary: false, quantity: 1,
         });
         self.equipped_helmet = Some(Item {
             kind: ItemKind::Helmet,
@@ -339,7 +339,7 @@ impl Game {
             glyph: '^',
             effect: ItemEffect::BuffDefense(1),
             weight: 0,
-            durability: 250, legendary: false,
+            durability: 250, legendary: false, quantity: 1,
         });
         self.equipped_boots = Some(Item {
             kind: ItemKind::Boots,
@@ -347,8 +347,19 @@ impl Game {
             glyph: '{',
             effect: ItemEffect::BuffDefense(1),
             weight: 0,
-            durability: 250, legendary: false,
+            durability: 250, legendary: false, quantity: 1,
         });
+    }
+
+    /// Consume one from a stack. If quantity > 1, decrement; otherwise remove.
+    fn consume_one(&mut self, index: usize) {
+        if self.inventory[index].quantity > 1 {
+            self.inventory[index].quantity -= 1;
+        } else {
+            self.inventory.remove(index);
+            self.quick_bar.on_item_removed(index);
+            self.clamp_inventory_scroll();
+        }
     }
 
     /// Use a consumable item from inventory. Returns true if used successfully.
@@ -392,18 +403,14 @@ impl Game {
                     }
                     _ => return false,
                 }
-                self.inventory.remove(index);
-                self.quick_bar.on_item_removed(index);
-                self.clamp_inventory_scroll();
+                self.consume_one(index);
                 true
             }
             ItemKind::Scroll => {
                 let ItemEffect::DamageAoe(damage) = item.effect else { return false };
                 let name = item.name;
                 self.messages.push(format!("You read {name}!"));
-                self.inventory.remove(index);
-                self.quick_bar.on_item_removed(index);
-                self.clamp_inventory_scroll();
+                self.consume_one(index);
                 let px = self.player_x;
                 let py = self.player_y;
                 self.visual_effects.push(VisualEffect {
@@ -459,21 +466,33 @@ impl Game {
         true
     }
 
-    /// Drop an item from inventory onto the ground. Returns true if dropped.
+    /// Drop one item (or one from a stack) onto the ground. Returns true if dropped.
     pub fn drop_item(&mut self, index: usize) -> bool {
         if index >= self.inventory.len() {
             return false;
         }
-        let item = self.inventory.remove(index);
-        self.quick_bar.on_item_removed(index);
-        let name = item.name;
+        let name = self.inventory[index].name;
         self.messages.push(format!("You drop {name}."));
-        self.ground_items.push(GroundItem {
-            x: self.player_x,
-            y: self.player_y,
-            item,
-        });
-        self.clamp_inventory_scroll();
+        if self.inventory[index].quantity > 1 {
+            // Drop one from stack
+            let mut dropped = self.inventory[index].clone();
+            dropped.quantity = 1;
+            self.inventory[index].quantity -= 1;
+            self.ground_items.push(GroundItem {
+                x: self.player_x,
+                y: self.player_y,
+                item: dropped,
+            });
+        } else {
+            let item = self.inventory.remove(index);
+            self.quick_bar.on_item_removed(index);
+            self.ground_items.push(GroundItem {
+                x: self.player_x,
+                y: self.player_y,
+                item,
+            });
+            self.clamp_inventory_scroll();
+        }
         true
     }
 
@@ -546,9 +565,7 @@ impl Game {
             }
         }
 
-        self.inventory.remove(index);
-        self.quick_bar.on_item_removed(index);
-        self.clamp_inventory_scroll();
+        self.consume_one(index);
         true
     }
 
@@ -704,6 +721,8 @@ impl Game {
     }
 
     /// Pick up items at the player's position explicitly. Returns true if any picked up.
+    /// Consumable items stack with matching items already in inventory.
+    /// New consumable items are auto-assigned to the first empty quick-bar slot.
     pub fn pickup_items_explicit(&mut self) -> bool {
         let px = self.player_x;
         let py = self.player_y;
@@ -711,13 +730,30 @@ impl Game {
         let mut i = 0;
         while i < self.ground_items.len() {
             if self.ground_items[i].x == px && self.ground_items[i].y == py {
+                // Try to stack with an existing inventory item
+                let ground_item = &self.ground_items[i].item;
+                if ground_item.kind.is_consumable() {
+                    if let Some(stack_idx) = self.inventory.iter().position(|inv| inv.can_stack_with(ground_item)) {
+                        let gi = self.ground_items.remove(i);
+                        let qty = gi.item.quantity;
+                        self.inventory[stack_idx].quantity += qty;
+                        self.messages.push(format!("Picked up {}.", gi.item.name));
+                        picked = true;
+                        continue;
+                    }
+                }
+                // No stack target — need a free slot
                 if self.inventory.len() >= self.config.player.max_inventory {
                     self.messages.push("Inventory full!".into());
                     break;
                 }
                 let gi = self.ground_items.remove(i);
-                self.messages.push(format!("Picked up {}.", gi.item.name));
+                let name = gi.item.name;
                 self.inventory.push(gi.item);
+                let new_idx = self.inventory.len() - 1;
+                // Auto-assign consumables to empty quick-bar slots
+                self.quick_bar.auto_assign(new_idx, &self.inventory[new_idx]);
+                self.messages.push(format!("Picked up {}.", name));
                 picked = true;
             } else {
                 i += 1;
@@ -768,40 +804,40 @@ impl Game {
                 let roll = rng.gen_range(0u64..100);
                 let food = if roll < 12 {
                     Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%',
-                        effect: ItemEffect::Feed(14, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(14, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 22 {
                     Item { kind: ItemKind::Food, name: "Wild Mushrooms", glyph: '%',
-                        effect: ItemEffect::Feed(16, FoodSideEffect::Poison(2)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(16, FoodSideEffect::Poison(2)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 30 {
                     Item { kind: ItemKind::Food, name: "Clean Water", glyph: '~',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(10)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(10)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 40 {
                     Item { kind: ItemKind::Food, name: "Wild Wheat", glyph: '%',
-                        effect: ItemEffect::Feed(10, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(10, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 48 {
                     Item { kind: ItemKind::Food, name: "Wild Rice", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 56 {
                     Item { kind: ItemKind::Food, name: "Wild Corn", glyph: '%',
-                        effect: ItemEffect::Feed(14, FoodSideEffect::Energize(5)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(14, FoodSideEffect::Energize(5)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 64 {
                     Item { kind: ItemKind::Food, name: "Quinoa Seeds", glyph: '%',
-                        effect: ItemEffect::Feed(12, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(12, FoodSideEffect::Heal(2)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 72 {
                     Item { kind: ItemKind::Food, name: "Amaranth", glyph: '%',
-                        effect: ItemEffect::Feed(10, FoodSideEffect::Heal(1)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(10, FoodSideEffect::Heal(1)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 80 {
                     Item { kind: ItemKind::Food, name: "Red Spinach", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(3)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Energize(3)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 87 {
                     Item { kind: ItemKind::Food, name: "Bitter Vetch", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::Poison(3)), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::Poison(3)), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else if roll < 93 {
                     Item { kind: ItemKind::Food, name: "Sorghum", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 } else {
                     Item { kind: ItemKind::Food, name: "Buckwheat", glyph: '%',
-                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
+                        effect: ItemEffect::Feed(8, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 }
                 };
                 self.ground_items.push(GroundItem { x, y, item: food });
             }

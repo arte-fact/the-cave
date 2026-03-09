@@ -38,6 +38,7 @@ pub fn legendary_item(biome: DungeonBiome, slot: &ItemKind) -> Item {
         weight: 0,
         durability: 0,
         legendary: true,
+        quantity: 1,
     }
 }
 

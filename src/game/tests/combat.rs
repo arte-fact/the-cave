@@ -209,16 +209,16 @@ use rand_chacha::ChaCha8Rng;
     }
 
     fn short_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250, legendary: false }
+        Item { kind: ItemKind::RangedWeapon, name: "Short Bow", glyph: '}', effect: ItemEffect::BuffAttack(1), weight: 2, durability: 250, legendary: false, quantity: 1 }
     }
     fn crossbow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250, legendary: false }
+        Item { kind: ItemKind::RangedWeapon, name: "Crossbow", glyph: '}', effect: ItemEffect::BuffAttack(2), weight: 3, durability: 250, legendary: false, quantity: 1 }
     }
     fn long_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400, legendary: false }
+        Item { kind: ItemKind::RangedWeapon, name: "Long Bow", glyph: '}', effect: ItemEffect::BuffAttack(3), weight: 2, durability: 400, legendary: false, quantity: 1 }
     }
     fn elven_bow() -> Item {
-        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600, legendary: false }
+        Item { kind: ItemKind::RangedWeapon, name: "Elven Bow", glyph: '}', effect: ItemEffect::BuffAttack(6), weight: 1, durability: 600, legendary: false, quantity: 1 }
     }
 
     #[test]
@@ -615,7 +615,7 @@ use rand_chacha::ChaCha8Rng;
         // Iron Dagger: weight 1 → cost = 6 + 1*2 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Iron Dagger", glyph: '/',
-            effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false,
+            effect: ItemEffect::BuffAttack(2), weight: 1, durability: 200, legendary: false, quantity: 1,
         });
         assert_eq!(g.melee_stamina_cost(), 8);
     }
@@ -627,7 +627,7 @@ use rand_chacha::ChaCha8Rng;
         // Great Hammer: weight 5 → cost = 6 + 5*2 = 16
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Great Hammer", glyph: '/',
-            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false,
+            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false, quantity: 1,
         });
         assert_eq!(g.melee_stamina_cost(), 16);
     }
@@ -642,7 +642,7 @@ use rand_chacha::ChaCha8Rng;
         // Heavy Crossbow: weight 4 → cost = 4 + 4 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::RangedWeapon, name: "Heavy Crossbow", glyph: '}',
-            effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400, legendary: false,
+            effect: ItemEffect::BuffAttack(4), weight: 4, durability: 400, legendary: false, quantity: 1,
         });
         assert_eq!(g.ranged_stamina_cost(), 8);
     }
@@ -654,7 +654,7 @@ use rand_chacha::ChaCha8Rng;
         // Enchanted Blade: weight 1, +9 ATK → cost = 6 + 1*2 = 8
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Enchanted Blade", glyph: '/',
-            effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500, legendary: false,
+            effect: ItemEffect::BuffAttack(9), weight: 1, durability: 500, legendary: false, quantity: 1,
         });
         assert_eq!(g.melee_stamina_cost(), 8);
         // Elven Bow: weight 1, +6 ATK → cost = 4 + 1 = 5
@@ -669,7 +669,7 @@ use rand_chacha::ChaCha8Rng;
         // Equip a heavy weapon (weight 5, cost 16)
         g.equipped_weapon = Some(Item {
             kind: ItemKind::Weapon, name: "Great Axe", glyph: '/',
-            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false,
+            effect: ItemEffect::BuffAttack(8), weight: 5, durability: 500, legendary: false, quantity: 1,
         });
         let gx = g.player_x + 1;
         let gy = g.player_y;
@@ -803,7 +803,7 @@ use rand_chacha::ChaCha8Rng;
         // Replace armor with non-legendary
         g.equipped_armor = Some(Item {
             kind: ItemKind::Armor, name: "Chain Mail", glyph: '[',
-            effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false,
+            effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         assert!(!g.has_legendary_set());
     }

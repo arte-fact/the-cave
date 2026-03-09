@@ -4,7 +4,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
     fn raw_food(amount: i32) -> Item {
-        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount, FoodSideEffect::None), weight: 0, durability: 0, legendary: false }
+        Item { kind: ItemKind::Food, name: "Wild Berries", glyph: '%', effect: ItemEffect::Feed(amount, FoodSideEffect::None), weight: 0, durability: 0, legendary: false, quantity: 1 }
     }
 
     // --- Stamina ---
@@ -547,7 +547,7 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false,
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false, quantity: 1,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -561,7 +561,7 @@ use rand_chacha::ChaCha8Rng;
         let mut g = Game::new(map);
         let base_atk = g.effective_attack();
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false,
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false, quantity: 1,
         });
         assert_eq!(g.effective_attack(), base_atk + 4);
     }
@@ -572,7 +572,7 @@ use rand_chacha::ChaCha8Rng;
         let mut g = Game::new(map);
         let base_def = g.effective_defense();
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300, legendary: false,
+            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300, legendary: false, quantity: 1,
         });
         assert_eq!(g.effective_defense(), base_def + 4);
     }
@@ -582,10 +582,10 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300, legendary: false,
+            kind: ItemKind::Ring, name: "Copper Ring", glyph: '=', effect: ItemEffect::BuffAttack(1), weight: 0, durability: 300, legendary: false, quantity: 1,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false,
+            kind: ItemKind::Ring, name: "Gold Ring", glyph: '=', effect: ItemEffect::BuffAttack(4), weight: 0, durability: 300, legendary: false, quantity: 1,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_ring.as_ref().unwrap().name, "Gold Ring");
@@ -599,7 +599,7 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
+            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -612,7 +612,7 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
+            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -625,7 +625,7 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.inventory.push(Item {
-            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
+            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1,
         });
         assert!(g.equip_item(0));
         assert!(g.inventory.is_empty());
@@ -638,10 +638,10 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_helmet = Some(Item {
-            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
+            kind: ItemKind::Helmet, name: "Leather Cap", glyph: '^', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
+            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_helmet.as_ref().unwrap().name, "Iron Helmet");
@@ -653,10 +653,10 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_shield = Some(Item {
-            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
+            kind: ItemKind::Shield, name: "Wooden Shield", glyph: ')', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
+            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_shield.as_ref().unwrap().name, "Iron Shield");
@@ -668,10 +668,10 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_boots = Some(Item {
-            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false,
+            kind: ItemKind::Boots, name: "Leather Boots", glyph: '{', effect: ItemEffect::BuffDefense(1), weight: 0, durability: 250, legendary: false, quantity: 1,
         });
         g.inventory.push(Item {
-            kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false,
+            kind: ItemKind::Boots, name: "Plate Boots", glyph: '{', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 600, legendary: false, quantity: 1,
         });
         g.equip_item(0);
         assert_eq!(g.equipped_boots.as_ref().unwrap().name, "Plate Boots");
@@ -683,19 +683,19 @@ use rand_chacha::ChaCha8Rng;
         let map = Map::generate(30, 20, 42);
         let mut g = Game::new(map);
         g.equipped_armor = Some(Item {
-            kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false,
+            kind: ItemKind::Armor, name: "Chain Mail", glyph: '[', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         g.equipped_helmet = Some(Item {
-            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
+            kind: ItemKind::Helmet, name: "Iron Helmet", glyph: '^', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         g.equipped_shield = Some(Item {
-            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false,
+            kind: ItemKind::Shield, name: "Iron Shield", glyph: ')', effect: ItemEffect::BuffDefense(3), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         g.equipped_boots = Some(Item {
-            kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false,
+            kind: ItemKind::Boots, name: "Chain Boots", glyph: '{', effect: ItemEffect::BuffDefense(2), weight: 0, durability: 400, legendary: false, quantity: 1,
         });
         g.equipped_ring = Some(Item {
-            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300, legendary: false,
+            kind: ItemKind::Ring, name: "Diamond Ring", glyph: '=', effect: ItemEffect::BuffDefense(4), weight: 0, durability: 300, legendary: false, quantity: 1,
         });
         // base 0 + armor 4 + helmet 3 + shield 3 + boots 2 + ring 4 = 16
         assert_eq!(g.effective_defense(), 16);

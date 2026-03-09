@@ -165,12 +165,17 @@ impl Renderer {
                 let name_x = pad + icon_size + 8.0 * d;
                 // Reserve space for stat text + badge on the right
                 let name_max_w = text_right - name_x - 40.0 * d;
-                self.fill_text_truncated(item.name, name_x, iy + slot_h / 2.0, name_max_w);
+                let display_name = if item.quantity > 1 {
+                    format!("{} x{}", item.name, item.quantity)
+                } else {
+                    item.name.to_string()
+                };
+                self.fill_text_truncated(&display_name, name_x, iy + slot_h / 2.0, name_max_w);
 
                 // Quick-bar slot badge (if this item is assigned to a slot)
                 for s in 0..QUICKBAR_SLOTS {
                     if game.quick_bar.slots[s] == Some(idx) {
-                        let measured_name_w = ctx.measure_text(item.name).ok().map(|m| m.width()).unwrap_or(0.0);
+                        let measured_name_w = ctx.measure_text(&display_name).ok().map(|m| m.width()).unwrap_or(0.0);
                         let name_w = measured_name_w.min(name_max_w);
                         let badge_x = name_x + name_w + 4.0 * d;
                         let badge_y = iy + slot_h / 2.0;
